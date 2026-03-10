@@ -1,5 +1,6 @@
 // =============================================
 // SITE BACKUP & ERROR CHECKER — Frontend Logic
+// v1.1.0 — Com autenticação por token
 // =============================================
 
 (function () {
@@ -9,11 +10,15 @@
     // ESTADO GLOBAL
     // ─────────────────────────────────────────
     const state = {
-        backendUrl: "",
+        backendUrl: (typeof CONFIG !== "undefined" && CONFIG.BACKEND_URL)
+            ? CONFIG.BACKEND_URL
+            : "",
+        token: null,
         sessionId: null,
         siteUrl: null,
         siteTitle: null,
         isConnected: false,
+        isAuthenticated: false,
         isBusy: false,
         lastErrorReport: null,
     };
@@ -22,9 +27,16 @@
     // ELEMENTOS DO DOM
     // ─────────────────────────────────────────
     const DOM = {
-        // Config
-        backendUrl: document.getElementById("backendUrl"),
-        btnTestConnection: document.getElementById("btnTestConnection"),
+        // Auth
+        authOverlay: document.getElementById("authOverlay"),
+        authTokenInput: document.getElementById("authTokenInput"),
+        btnAuth: document.getElementById("btnAuth"),
+        authError: document.getElementById("authError"),
+        authToggleVisibility: document.getElementById("authToggleVisibility"),
+        btnLogout: document.getElementById("btnLogout"),
+
+        // Main
+        mainContainer: document.getElementById("mainContainer"),
 
         // URL
         urlInput: document.getElementById("urlInput"),
@@ -85,28 +97,21 @@
     // UTILIDADES
     // ─────────────────────────────────────────
 
-    /**
-     * Toast notification
-     */
     function showToast(message, type = "info", duration = 4000) {
         const toast = document.createElement("div");
         toast.className = `toast toast-${type}`;
-
         const icons = {
             success: "&#10003;",
             error: "&#10007;",
             warning: "&#9888;",
             info: "&#8505;",
         };
-
         toast.innerHTML = `<span>${icons[type] || icons.info}</span><span>${message}</span>`;
         DOM.toastContainer.appendChild(toast);
-
         toast.addEventListener("click", () => {
             toast.classList.add("toast-out");
             setTimeout(() => toast.remove(), 300);
         });
-
         setTimeout(() => {
             if (toast.parentNode) {
                 toast.classList.add("toast-out");
@@ -115,9 +120,6 @@
         }, duration);
     }
 
-    /**
-     * Loading overlay
-     */
     function showLoading(text = "Processando...", subtext = "Aguarde") {
         DOM.loadingText.textContent = text;
         DOM.loadingSubtext.textContent = subtext;
@@ -128,15 +130,10 @@
         DOM.loadingOverlay.style.display = "none";
     }
 
-    /**
-     * Atualiza status do servidor no header
-     */
     function updateServerStatus(status) {
         const dot = DOM.serverStatus.querySelector(".status-dot");
         const text = DOM.serverStatus.querySelector(".status-text");
-
         dot.className = "status-dot";
-
         switch (status) {
             case "online":
                 dot.classList.add("online");
@@ -153,9 +150,6 @@
         }
     }
 
-    /**
-     * Atualiza estado da sessão no header
-     */
     function updateSessionBadge() {
         if (state.sessionId) {
             DOM.sessionBadge.style.display = "flex";
@@ -165,21 +159,19 @@
         }
     }
 
-    /**
-     * Habilita/desabilita botões dos módulos
-     */
     function updateModuleButtons() {
         const hasSession = !!state.sessionId;
         DOM.btnBackup.disabled = !hasSession || state.isBusy;
         DOM.btnCheckErrors.disabled = !hasSession || state.isBusy;
     }
 
-    /**
-     * Faz requisição ao backend
-     */
+    // ─────────────────────────────────────────
+    // API — REQUISIÇÕES COM TOKEN
+    // ─────────────────────────────────────────
+
     async function apiRequest(endpoint, method = "GET", body = null) {
         if (!state.backendUrl) {
-            showToast("Configure a URL do backend primeiro", "warning");
+            showToast("URL do backend não configurada", "error");
             throw new Error("Backend URL não configurada");
         }
 
@@ -190,38 +182,60 @@
             headers: {},
         };
 
+        // Adicionar token de autenticação
+        if (state.token) {
+            options.headers["Authorization"] = `Bearer ${state.token}`;
+        }
+
         if (body) {
             options.headers["Content-Type"] = "application/json";
             options.body = JSON.stringify(body);
         }
 
-        const response = await fetch(url, options);
+        const controller = new AbortController();
+        const timeout = (typeof CONFIG !== "undefined" && CONFIG.REQUEST_TIMEOUT)
+            ? CONFIG.REQUEST_TIMEOUT
+            : 120000;
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        options.signal = controller.signal;
 
-        if (!response.ok) {
-            let errorMsg = `Erro ${response.status}`;
-            try {
-                const errData = await response.json();
-                errorMsg = errData.detail || errorMsg;
-            } catch (e) {
-                // Ignorar
+        try {
+            const response = await fetch(url, options);
+            clearTimeout(timeoutId);
+
+            if (response.status === 401) {
+                // Token inválido — forçar re-login
+                state.isAuthenticated = false;
+                state.token = null;
+                sessionStorage.removeItem("sitetools_token");
+                showAuthModal();
+                throw new Error("Token expirado ou inválido. Faça login novamente.");
             }
-            throw new Error(errorMsg);
-        }
 
-        return response;
+            if (!response.ok) {
+                let errorMsg = `Erro ${response.status}`;
+                try {
+                    const errData = await response.json();
+                    errorMsg = errData.detail || errorMsg;
+                } catch (e) { }
+                throw new Error(errorMsg);
+            }
+
+            return response;
+        } catch (err) {
+            clearTimeout(timeoutId);
+            if (err.name === "AbortError") {
+                throw new Error("Timeout: a requisição demorou demais");
+            }
+            throw err;
+        }
     }
 
-    /**
-     * Faz requisição que retorna JSON
-     */
     async function apiJSON(endpoint, method = "GET", body = null) {
         const response = await apiRequest(endpoint, method, body);
         return await response.json();
     }
 
-    /**
-     * Faz requisição que retorna Blob (arquivo)
-     */
     async function apiBlob(endpoint, method = "GET", body = null) {
         const response = await apiRequest(endpoint, method, body);
         const headers = {};
@@ -232,9 +246,6 @@
         return { blob, headers };
     }
 
-    /**
-     * Dispara download de um blob
-     */
     function downloadBlob(blob, filename) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -246,52 +257,146 @@
         URL.revokeObjectURL(url);
     }
 
-    /**
-     * Simula progresso (fake progress para UX)
-     */
-    function simulateProgress(fillElement, textElement, steps, onComplete) {
-        let currentStep = 0;
-
-        const interval = setInterval(() => {
-            if (currentStep >= steps.length) {
-                clearInterval(interval);
-                if (onComplete) onComplete();
-                return;
-            }
-
-            const step = steps[currentStep];
-            fillElement.style.width = step.percent + "%";
-            textElement.textContent = step.text;
-            currentStep++;
-        }, step => step?.delay || 800);
-
-        // Fallback: usar timeout sequencial
-        clearInterval(interval);
+    function simulateProgress(fillElement, textElement, steps) {
         let delay = 0;
         steps.forEach((step, i) => {
             delay += step.delay || 800;
             setTimeout(() => {
                 fillElement.style.width = step.percent + "%";
                 textElement.textContent = step.text;
-                if (i === steps.length - 1 && onComplete) {
-                    onComplete();
-                }
             }, delay);
         });
     }
 
-    /**
-     * Salva config no localStorage
-     */
-    function saveConfig() {
-        localStorage.setItem("sitetools_backend_url", state.backendUrl);
+    // ─────────────────────────────────────────
+    // AUTENTICAÇÃO
+    // ─────────────────────────────────────────
+
+    function showAuthModal() {
+        DOM.authOverlay.style.display = "flex";
+        DOM.authOverlay.classList.remove("auth-hidden");
+        DOM.mainContainer.style.display = "none";
+        DOM.btnLogout.style.display = "none";
+        DOM.authError.style.display = "none";
+        DOM.authTokenInput.value = "";
+        DOM.authTokenInput.focus();
     }
 
-    function loadConfig() {
-        const saved = localStorage.getItem("sitetools_backend_url");
-        if (saved) {
-            state.backendUrl = saved;
-            DOM.backendUrl.value = saved;
+    function hideAuthModal() {
+        DOM.authOverlay.classList.add("auth-hidden");
+        setTimeout(() => {
+            DOM.authOverlay.style.display = "none";
+        }, 400);
+        DOM.mainContainer.style.display = "flex";
+        DOM.btnLogout.style.display = "flex";
+    }
+
+    async function authenticate() {
+        const token = DOM.authTokenInput.value.trim();
+
+        if (!token) {
+            DOM.authError.textContent = "Digite o token de acesso.";
+            DOM.authError.style.display = "block";
+            DOM.authTokenInput.focus();
+            return;
+        }
+
+        // Salvar temporariamente para testar
+        state.token = token;
+
+        DOM.btnAuth.disabled = true;
+        DOM.btnAuth.innerHTML = '<span class="spinner"></span> Verificando...';
+        DOM.authError.style.display = "none";
+
+        try {
+            // Primeiro verificar se o servidor está online
+            const statusResp = await fetch(
+                `${state.backendUrl.replace(/\/+$/, "")}/`
+            );
+            const statusData = await statusResp.json();
+
+            if (statusData.status !== "online") {
+                throw new Error("Servidor offline");
+            }
+
+            // Se o servidor requer auth, verificar o token
+            if (statusData.auth_required) {
+                const authData = await apiJSON("/auth/verify", "POST");
+
+                if (authData.status === "authorized") {
+                    // Token válido!
+                    state.isAuthenticated = true;
+                    state.isConnected = true;
+
+                    // Salvar no sessionStorage (morre ao fechar navegador)
+                    sessionStorage.setItem("sitetools_token", token);
+
+                    updateServerStatus("online");
+                    hideAuthModal();
+                    showToast("Autenticado com sucesso!", "success");
+                }
+            } else {
+                // Servidor sem auth — aceitar direto
+                state.isAuthenticated = true;
+                state.isConnected = true;
+                sessionStorage.setItem("sitetools_token", token);
+                updateServerStatus("online");
+                hideAuthModal();
+                showToast("Conectado! (servidor sem autenticação)", "success");
+            }
+
+        } catch (err) {
+            state.token = null;
+            state.isAuthenticated = false;
+            updateServerStatus("offline");
+
+            if (err.message.includes("401") || err.message.includes("Token")) {
+                DOM.authError.textContent = "Token inválido. Tente novamente.";
+            } else {
+                DOM.authError.textContent = `Erro de conexão: ${err.message}`;
+            }
+
+            DOM.authError.style.display = "block";
+        } finally {
+            DOM.btnAuth.disabled = false;
+            DOM.btnAuth.innerHTML = `
+                <span class="btn-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                        <polyline points="10 17 15 12 10 7"/>
+                        <line x1="15" y1="12" x2="3" y2="12"/>
+                    </svg>
+                </span>
+                Entrar
+            `;
+        }
+    }
+
+    function logout() {
+        state.token = null;
+        state.isAuthenticated = false;
+        state.isConnected = false;
+        state.sessionId = null;
+        sessionStorage.removeItem("sitetools_token");
+
+        updateServerStatus("offline");
+        updateSessionBadge();
+        updateModuleButtons();
+
+        DOM.siteStatus.style.display = "none";
+        DOM.screenshotContainer.style.display = "none";
+        DOM.resultsSection.style.display = "none";
+
+        showAuthModal();
+        showToast("Sessão encerrada", "info");
+    }
+
+    function togglePasswordVisibility() {
+        const input = DOM.authTokenInput;
+        if (input.type === "password") {
+            input.type = "text";
+        } else {
+            input.type = "password";
         }
     }
 
@@ -299,42 +404,6 @@
     // AÇÕES PRINCIPAIS
     // ─────────────────────────────────────────
 
-    /**
-     * Testar conexão com o backend
-     */
-    async function testConnection() {
-        state.backendUrl = DOM.backendUrl.value.trim();
-
-        if (!state.backendUrl) {
-            showToast("Digite a URL do backend", "warning");
-            return;
-        }
-
-        updateServerStatus("loading");
-
-        try {
-            const data = await apiJSON("/");
-            if (data.status === "online") {
-                state.isConnected = true;
-                updateServerStatus("online");
-                saveConfig();
-                showToast(
-                    `Conectado! Servidor v${data.version} — ${data.active_sessions} sessão(ões) ativa(s)`,
-                    "success"
-                );
-            } else {
-                throw new Error("Resposta inesperada");
-            }
-        } catch (err) {
-            state.isConnected = false;
-            updateServerStatus("offline");
-            showToast(`Falha na conexão: ${err.message}`, "error");
-        }
-    }
-
-    /**
-     * Abrir site
-     */
     async function openSite() {
         let url = DOM.urlInput.value.trim();
 
@@ -344,12 +413,11 @@
             return;
         }
 
-        if (!state.isConnected) {
-            showToast("Conecte ao backend primeiro", "warning");
+        if (!state.isAuthenticated) {
+            showToast("Faça login primeiro", "warning");
             return;
         }
 
-        // Adicionar protocolo se não tiver
         if (!url.startsWith("http://") && !url.startsWith("https://")) {
             url = "https://" + url;
         }
@@ -359,15 +427,12 @@
         updateModuleButtons();
 
         try {
-            // Fechar sessão anterior se existir
             if (state.sessionId) {
                 try {
                     await apiJSON("/close", "POST", {
                         session_id: state.sessionId,
                     });
-                } catch (e) {
-                    // Ignorar
-                }
+                } catch (e) { }
             }
 
             const data = await apiJSON("/open", "POST", { url });
@@ -376,7 +441,6 @@
             state.siteUrl = data.url;
             state.siteTitle = data.title;
 
-            // Atualizar UI
             DOM.siteStatus.style.display = "flex";
             DOM.siteStatusText.textContent = "Carregado";
             DOM.siteStatusText.style.color = "#00b894";
@@ -384,15 +448,12 @@
             DOM.siteUrlText.textContent = data.url;
 
             updateSessionBadge();
-            updateModuleButtons();
-
             showToast(`Site aberto: ${data.title}`, "success");
         } catch (err) {
             showToast(`Erro ao abrir site: ${err.message}`, "error");
             state.sessionId = null;
             DOM.siteStatus.style.display = "none";
             updateSessionBadge();
-            updateModuleButtons();
         } finally {
             state.isBusy = false;
             updateModuleButtons();
@@ -400,9 +461,6 @@
         }
     }
 
-    /**
-     * Capturar screenshot
-     */
     async function takeScreenshot() {
         if (!state.sessionId) return;
 
@@ -417,7 +475,6 @@
             DOM.screenshotImg.src = imgUrl;
             DOM.screenshotContainer.style.display = "block";
 
-            // Scroll para o screenshot
             DOM.screenshotContainer.scrollIntoView({
                 behavior: "smooth",
                 block: "nearest",
@@ -429,9 +486,6 @@
         }
     }
 
-    /**
-     * Fechar sessão
-     */
     async function closeSession() {
         if (!state.sessionId) return;
 
@@ -440,9 +494,7 @@
                 session_id: state.sessionId,
             });
             showToast("Sessão encerrada", "info");
-        } catch (err) {
-            // Ignorar erro ao fechar
-        }
+        } catch (err) { }
 
         state.sessionId = null;
         state.siteUrl = null;
@@ -456,27 +508,20 @@
         updateModuleButtons();
     }
 
-    /**
-     * MÓDULO 1 — Backup do Site
-     */
     async function backupSite() {
         if (!state.sessionId || state.isBusy) return;
 
-        const folderName =
-            DOM.backupFolderName.value.trim() || "backup";
+        const folderName = DOM.backupFolderName.value.trim() || "backup";
 
         state.isBusy = true;
         updateModuleButtons();
 
-        // Mostrar progresso
         const btnText = DOM.btnBackup.querySelector(".btn-text");
         const btnLoad = DOM.btnBackup.querySelector(".btn-loading");
         btnText.style.display = "none";
         btnLoad.style.display = "inline-flex";
-
         DOM.backupProgress.style.display = "block";
 
-        // Simular progresso
         const steps = [
             { percent: 10, text: "Capturando HTML...", delay: 500 },
             { percent: 25, text: "Baixando CSS...", delay: 1000 },
@@ -487,11 +532,7 @@
             { percent: 92, text: "Empacotando ZIP...", delay: 800 },
         ];
 
-        simulateProgress(
-            DOM.backupProgressFill,
-            DOM.backupProgressText,
-            steps
-        );
+        simulateProgress(DOM.backupProgressFill, DOM.backupProgressText, steps);
 
         try {
             const { blob, headers } = await apiBlob("/backup", "POST", {
@@ -499,18 +540,15 @@
                 folder_name: folderName,
             });
 
-            // Completar progresso
             DOM.backupProgressFill.style.width = "100%";
             DOM.backupProgressText.textContent = "Backup concluído!";
 
-            // Extrair filename do header ou gerar um
             const disposition = headers["content-disposition"] || "";
             const filenameMatch = disposition.match(/filename=(.+)/);
             const filename = filenameMatch
                 ? filenameMatch[1]
                 : `${folderName}_${Date.now()}.zip`;
 
-            // Disparar download
             downloadBlob(blob, filename);
 
             const errorCount = headers["x-backup-errors"] || "0";
@@ -528,7 +566,6 @@
             updateModuleButtons();
             btnText.style.display = "inline";
             btnLoad.style.display = "none";
-
             setTimeout(() => {
                 DOM.backupProgress.style.display = "none";
                 DOM.backupProgressFill.style.width = "0%";
@@ -536,27 +573,20 @@
         }
     }
 
-    /**
-     * MÓDULO 2 — Verificar Erros
-     */
     async function checkErrors() {
         if (!state.sessionId || state.isBusy) return;
 
-        const folderName =
-            DOM.errorFolderName.value.trim() || "relatorio-erros";
+        const folderName = DOM.errorFolderName.value.trim() || "relatorio-erros";
 
         state.isBusy = true;
         updateModuleButtons();
 
-        // Mostrar progresso
         const btnText = DOM.btnCheckErrors.querySelector(".btn-text");
         const btnLoad = DOM.btnCheckErrors.querySelector(".btn-loading");
         btnText.style.display = "none";
         btnLoad.style.display = "inline-flex";
-
         DOM.errorsProgress.style.display = "block";
 
-        // Simular progresso
         const steps = [
             { percent: 8, text: "Lendo console do navegador...", delay: 500 },
             { percent: 18, text: "Verificando JavaScript...", delay: 1000 },
@@ -571,34 +601,26 @@
             { percent: 96, text: "Verificando SEO...", delay: 500 },
         ];
 
-        simulateProgress(
-            DOM.errorsProgressFill,
-            DOM.errorsProgressText,
-            steps
-        );
+        simulateProgress(DOM.errorsProgressFill, DOM.errorsProgressText, steps);
 
         try {
-            // Pedir JSON para exibir no frontend
             const reportJSON = await apiJSON("/check-errors-json", "POST", {
                 session_id: state.sessionId,
                 folder_name: folderName,
             });
 
-            // Completar progresso
             DOM.errorsProgressFill.style.width = "100%";
             DOM.errorsProgressText.textContent = "Análise concluída!";
 
-            // Salvar para download posterior
             state.lastErrorReport = {
                 json: reportJSON,
                 folderName: folderName,
             };
 
-            // Exibir resultados no frontend
             displayResults(reportJSON);
 
             showToast(
-                `Análise concluída! ${reportJSON.total_errors} erros e ${reportJSON.total_warnings} avisos encontrados`,
+                `Análise concluída! ${reportJSON.total_errors} erros e ${reportJSON.total_warnings} avisos`,
                 reportJSON.total_errors > 0 ? "warning" : "success",
                 5000
             );
@@ -611,7 +633,6 @@
             updateModuleButtons();
             btnText.style.display = "inline";
             btnLoad.style.display = "none";
-
             setTimeout(() => {
                 DOM.errorsProgress.style.display = "none";
                 DOM.errorsProgressFill.style.width = "0%";
@@ -619,9 +640,6 @@
         }
     }
 
-    /**
-     * Baixar relatório TXT
-     */
     async function downloadErrorReport() {
         if (!state.sessionId) {
             showToast("Nenhuma sessão ativa", "warning");
@@ -636,14 +654,10 @@
         try {
             showToast("Gerando relatório TXT...", "info", 2000);
 
-            const { blob, headers } = await apiBlob(
-                "/check-errors",
-                "POST",
-                {
-                    session_id: state.sessionId,
-                    folder_name: folderName,
-                }
-            );
+            const { blob, headers } = await apiBlob("/check-errors", "POST", {
+                session_id: state.sessionId,
+                folder_name: folderName,
+            });
 
             const disposition = headers["content-disposition"] || "";
             const filenameMatch = disposition.match(/filename=(.+)/);
@@ -670,28 +684,18 @@
         resource_errors: { label: "Erros de Recursos", type: "error" },
         css_errors: { label: "Erros de CSS", type: "error" },
         html_errors: { label: "Erros de HTML", type: "error" },
-        accessibility_errors: {
-            label: "Acessibilidade",
-            type: "warning",
-        },
+        accessibility_errors: { label: "Acessibilidade", type: "warning" },
         security_warnings: { label: "Segurança", type: "warning" },
         performance_warnings: { label: "Performance", type: "warning" },
         broken_links: { label: "Links Quebrados", type: "error" },
         seo_warnings: { label: "SEO", type: "info" },
     };
 
-    /**
-     * Exibe os resultados na seção de resultados
-     */
     function displayResults(report) {
         DOM.resultsSection.style.display = "block";
         DOM.summaryErrors.textContent = `${report.total_errors} erro(s)`;
         DOM.summaryWarnings.textContent = `${report.total_warnings} aviso(s)`;
-
-        // Renderizar todos inicialmente
         renderResultsTab("all", report.details);
-
-        // Scroll para resultados
         setTimeout(() => {
             DOM.resultsSection.scrollIntoView({
                 behavior: "smooth",
@@ -700,29 +704,19 @@
         }, 300);
     }
 
-    /**
-     * Renderiza conteúdo de uma tab
-     */
     function renderResultsTab(tab, details) {
         DOM.resultsContent.innerHTML = "";
 
         if (tab === "all") {
-            // Mostrar todas as categorias
             let hasAny = false;
-
             for (const [key, config] of Object.entries(categoryLabels)) {
                 const items = details[key] || [];
                 if (items.length === 0) continue;
-
                 hasAny = true;
-                const categoryDiv = createCategoryBlock(
-                    config.label,
-                    items,
-                    config.type
+                DOM.resultsContent.appendChild(
+                    createCategoryBlock(config.label, items, config.type)
                 );
-                DOM.resultsContent.appendChild(categoryDiv);
             }
-
             if (!hasAny) {
                 DOM.resultsContent.innerHTML = `
                     <div class="result-empty">
@@ -735,10 +729,8 @@
                 `;
             }
         } else {
-            // Mostrar categoria específica
             const config = categoryLabels[tab];
             const items = details[tab] || [];
-
             if (items.length === 0) {
                 DOM.resultsContent.innerHTML = `
                     <div class="result-empty">
@@ -750,85 +742,60 @@
                     </div>
                 `;
             } else {
-                const categoryDiv = createCategoryBlock(
-                    config.label,
-                    items,
-                    config.type
+                DOM.resultsContent.appendChild(
+                    createCategoryBlock(config.label, items, config.type)
                 );
-                DOM.resultsContent.appendChild(categoryDiv);
             }
         }
     }
 
-    /**
-     * Cria bloco visual de uma categoria
-     */
     function createCategoryBlock(label, items, type) {
         const div = document.createElement("div");
         div.className = "result-category";
 
-        let headerHTML = `
+        let html = `
             <div class="result-category-header">
                 <span>${label}</span>
                 <span class="result-category-count">${items.length}</span>
             </div>
         `;
 
-        let itemsHTML = "";
         items.forEach((item) => {
             const message = extractMessage(item);
             const itemType = item.type || item.level || type;
 
             let typeClass = "info";
-            if (
-                type === "error" ||
-                itemType === "SEVERE" ||
-                itemType.includes("ERROR")
-            ) {
+            if (type === "error" || itemType === "SEVERE" || (typeof itemType === "string" && itemType.includes("ERROR"))) {
                 typeClass = "error";
-            } else if (
-                type === "warning" ||
-                itemType === "WARNING"
-            ) {
+            } else if (type === "warning" || itemType === "WARNING") {
                 typeClass = "warning";
             }
 
-            itemsHTML += `
+            html += `
                 <div class="result-item">
-                    <span class="result-type ${typeClass}">${itemType}</span>
+                    <span class="result-type ${typeClass}">${escapeHTML(String(itemType))}</span>
                     <span class="result-message">${escapeHTML(message)}</span>
                 </div>
             `;
         });
 
-        div.innerHTML = headerHTML + itemsHTML;
+        div.innerHTML = html;
         return div;
     }
 
-    /**
-     * Extrai mensagem legível de um item de resultado
-     */
     function extractMessage(item) {
         if (typeof item === "string") return item;
-
         let parts = [];
-
         if (item.message) parts.push(item.message);
-        if (item.url && item.url !== "inline")
-            parts.push(`URL: ${item.url}`);
+        if (item.url && item.url !== "inline") parts.push(`URL: ${item.url}`);
         if (item.status_code) parts.push(`Status: ${item.status_code}`);
         if (item.element) parts.push(`Elemento: ${item.element}`);
         if (item.text) parts.push(`Texto: "${item.text}"`);
         if (item.duration) parts.push(`Duração: ${item.duration}ms`);
-        if (item.source && item.source !== "checker")
-            parts.push(`Fonte: ${item.source}`);
-
+        if (item.source && item.source !== "checker") parts.push(`Fonte: ${item.source}`);
         return parts.join(" | ") || JSON.stringify(item);
     }
 
-    /**
-     * Escape HTML para evitar XSS
-     */
     function escapeHTML(str) {
         const div = document.createElement("div");
         div.textContent = str;
@@ -839,24 +806,22 @@
     // EVENT LISTENERS
     // ─────────────────────────────────────────
 
-    // Config: Testar conexão
-    DOM.btnTestConnection.addEventListener("click", testConnection);
-
-    DOM.backendUrl.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") testConnection();
+    // Auth
+    DOM.btnAuth.addEventListener("click", authenticate);
+    DOM.authTokenInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") authenticate();
     });
+    DOM.authToggleVisibility.addEventListener("click", togglePasswordVisibility);
+    DOM.btnLogout.addEventListener("click", logout);
 
-    // URL: Abrir site
+    // URL
     DOM.btnOpen.addEventListener("click", openSite);
-
     DOM.urlInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter") openSite();
     });
 
     // Screenshot
     DOM.btnScreenshot.addEventListener("click", takeScreenshot);
-
-    // Fechar preview do screenshot
     DOM.btnClosePreview.addEventListener("click", () => {
         DOM.screenshotContainer.style.display = "none";
     });
@@ -864,10 +829,8 @@
     // Fechar sessão
     DOM.btnClose.addEventListener("click", closeSession);
 
-    // Módulo Backup
+    // Módulos
     DOM.btnBackup.addEventListener("click", backupSite);
-
-    // Módulo Erros
     DOM.btnCheckErrors.addEventListener("click", checkErrors);
 
     // Download TXT
@@ -880,16 +843,11 @@
         state.lastErrorReport = null;
     });
 
-    // Tabs dos resultados
+    // Tabs
     document.querySelectorAll(".tab-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
-            // Ativar tab
-            document
-                .querySelectorAll(".tab-btn")
-                .forEach((b) => b.classList.remove("active"));
+            document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
             btn.classList.add("active");
-
-            // Renderizar conteúdo da tab
             const tab = btn.dataset.tab;
             if (state.lastErrorReport) {
                 renderResultsTab(tab, state.lastErrorReport.json.details);
@@ -902,23 +860,52 @@
     // ─────────────────────────────────────────
 
     function init() {
-        loadConfig();
         updateModuleButtons();
         updateSessionBadge();
 
-        // Auto-testar conexão se tem URL salva
-        if (state.backendUrl) {
-            setTimeout(testConnection, 500);
+        // Verificar se tem token salvo no sessionStorage
+        const savedToken = sessionStorage.getItem("sitetools_token");
+
+        if (savedToken && state.backendUrl) {
+            // Tentar reconectar automaticamente
+            state.token = savedToken;
+
+            // Verificar se o token ainda é válido
+            fetch(`${state.backendUrl.replace(/\/+$/, "")}/auth/verify`, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${savedToken}`,
+                },
+            })
+            .then((resp) => {
+                if (resp.ok) {
+                    state.isAuthenticated = true;
+                    state.isConnected = true;
+                    updateServerStatus("online");
+                    hideAuthModal();
+                    showToast("Reconectado automaticamente!", "success");
+                } else {
+                    throw new Error("Token inválido");
+                }
+            })
+            .catch(() => {
+                state.token = null;
+                sessionStorage.removeItem("sitetools_token");
+                showAuthModal();
+            });
+        } else {
+            // Sem token salvo — mostrar modal de login
+            showAuthModal();
         }
 
         console.log(
-            "%c Site Backup & Error Checker %c v1.0.0 ",
+            "%c Site Tools %c v1.1.0 %c Seguro ",
             "background: #6c5ce7; color: white; padding: 4px 8px; border-radius: 4px 0 0 4px; font-weight: bold;",
-            "background: #00cec9; color: white; padding: 4px 8px; border-radius: 0 4px 4px 0;"
+            "background: #00cec9; color: white; padding: 4px 8px;",
+            "background: #00b894; color: white; padding: 4px 8px; border-radius: 0 4px 4px 0;"
         );
     }
 
-    // Iniciar quando DOM estiver pronto
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", init);
     } else {
