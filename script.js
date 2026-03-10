@@ -1,251 +1,203 @@
-// =============================================
-// SITE BACKUP & ERROR CHECKER — Frontend Logic
-// v1.2.0 — Com autenticação, login em sites e busca
-// =============================================
+// ============================================================
+// Site Backup & Error Checker - Frontend v1.2.0
+// ============================================================
 
 (function () {
-    "use strict";
+    'use strict';
 
-    // ─────────────────────────────────────────
-    // ESTADO GLOBAL
-    // ─────────────────────────────────────────
+    // ===================== STATE =====================
     const state = {
-        backendUrl: (typeof CONFIG !== "undefined" && CONFIG.BACKEND_URL)
-            ? CONFIG.BACKEND_URL
-            : "",
-        token: null,
+        backendUrl: '',
+        token: '',
         sessionId: null,
-        siteUrl: null,
-        siteTitle: null,
+        siteUrl: '',
+        siteTitle: '',
         isConnected: false,
         isAuthenticated: false,
-        isBusy: false,
         lastErrorReport: null,
         lastSearchReport: null,
+        interactInterval: null
     };
 
-    // ─────────────────────────────────────────
-    // ELEMENTOS DO DOM
-    // ─────────────────────────────────────────
+    // ===================== DOM ELEMENTS =====================
     const DOM = {
         // Auth
-        authOverlay: document.getElementById("authOverlay"),
-        authTokenInput: document.getElementById("authTokenInput"),
-        btnAuth: document.getElementById("btnAuth"),
-        authError: document.getElementById("authError"),
-        authToggleVisibility: document.getElementById("authToggleVisibility"),
-        btnLogout: document.getElementById("btnLogout"),
+        authOverlay: document.getElementById('authOverlay'),
+        authTokenInput: document.getElementById('authTokenInput'),
+        btnAuth: document.getElementById('btnAuth'),
+        authError: document.getElementById('authError'),
+        authToggleVisibility: document.getElementById('authToggleVisibility'),
+        btnLogout: document.getElementById('btnLogout'),
 
-        // Main
-        mainContainer: document.getElementById("mainContainer"),
+        // Header
+        serverStatus: document.getElementById('serverStatus'),
+        sessionBadge: document.getElementById('sessionBadge'),
+        sessionBadgeText: document.getElementById('sessionBadgeText'),
 
         // URL
-        urlInput: document.getElementById("urlInput"),
-        btnOpen: document.getElementById("btnOpen"),
+        urlInput: document.getElementById('urlInput'),
+        btnOpen: document.getElementById('btnOpen'),
+        siteStatus: document.getElementById('siteStatus'),
+        siteTitle: document.getElementById('siteTitle'),
+        siteUrl: document.getElementById('siteUrl'),
+        siteStatusText: document.getElementById('siteStatusText'),
+        btnScreenshot: document.getElementById('btnScreenshot'),
+        btnInteract: document.getElementById('btnInteract'),
+        btnClose: document.getElementById('btnClose'),
+        screenshotPreview: document.getElementById('screenshotPreview'),
+        screenshotImg: document.getElementById('screenshotImg'),
 
-        // Site Status
-        siteStatus: document.getElementById("siteStatus"),
-        siteStatusText: document.getElementById("siteStatusText"),
-        siteTitleText: document.getElementById("siteTitleText"),
-        siteUrlText: document.getElementById("siteUrlText"),
-        btnScreenshot: document.getElementById("btnScreenshot"),
-        btnSiteLogin: document.getElementById("btnSiteLogin"),
-        btnClose: document.getElementById("btnClose"),
-
-        // Screenshot
-        screenshotContainer: document.getElementById("screenshotContainer"),
-        screenshotImg: document.getElementById("screenshotImg"),
-        btnClosePreview: document.getElementById("btnClosePreview"),
-
-        // Server Status
-        serverStatus: document.getElementById("serverStatus"),
-        sessionBadge: document.getElementById("sessionBadge"),
-        sessionIdDisplay: document.getElementById("sessionIdDisplay"),
-
-        // Login Modal
-        loginOverlay: document.getElementById("loginOverlay"),
-        loginScreenshotImg: document.getElementById("loginScreenshotImg"),
-        loginDetectedInfo: document.getElementById("loginDetectedInfo"),
-        loginModalSubtitle: document.getElementById("loginModalSubtitle"),
-        loginUsername: document.getElementById("loginUsername"),
-        loginPassword: document.getElementById("loginPassword"),
-        loginUsernameSelector: document.getElementById("loginUsernameSelector"),
-        loginPasswordSelector: document.getElementById("loginPasswordSelector"),
-        loginSubmitSelector: document.getElementById("loginSubmitSelector"),
-        btnDoLogin: document.getElementById("btnDoLogin"),
-        btnCloseLogin: document.getElementById("btnCloseLogin"),
-        loginTogglePassword: document.getElementById("loginTogglePassword"),
-        loginResult: document.getElementById("loginResult"),
-        loginResultStatus: document.getElementById("loginResultStatus"),
-        loginResultScreenshot: document.getElementById("loginResultScreenshot"),
-        loginResultImg: document.getElementById("loginResultImg"),
+        // Interaction Modal
+        interactOverlay: document.getElementById('interactOverlay'),
+        interactScreenImg: document.getElementById('interactScreenImg'),
+        clickIndicator: document.getElementById('clickIndicator'),
+        interactTextInput: document.getElementById('interactTextInput'),
+        btnInteractSend: document.getElementById('btnInteractSend'),
+        btnInteractRefresh: document.getElementById('btnInteractRefresh'),
+        btnInteractContinue: document.getElementById('btnInteractContinue'),
 
         // Modules
-        btnBackup: document.getElementById("btnBackup"),
-        btnCheckErrors: document.getElementById("btnCheckErrors"),
-        btnSearchSite: document.getElementById("btnSearchSite"),
-        backupFolderName: document.getElementById("backupFolderName"),
-        errorFolderName: document.getElementById("errorFolderName"),
-        searchTerm: document.getElementById("searchTerm"),
-        searchFolderName: document.getElementById("searchFolderName"),
+        backupFolder: document.getElementById('backupFolder'),
+        btnBackup: document.getElementById('btnBackup'),
+        backupProgress: document.getElementById('backupProgress'),
+        backupProgressFill: document.getElementById('backupProgressFill'),
+        backupProgressText: document.getElementById('backupProgressText'),
 
-        // Backup Progress
-        backupProgress: document.getElementById("backupProgress"),
-        backupProgressFill: document.getElementById("backupProgressFill"),
-        backupProgressText: document.getElementById("backupProgressText"),
+        errorsFolder: document.getElementById('errorsFolder'),
+        btnErrors: document.getElementById('btnErrors'),
+        errorsProgress: document.getElementById('errorsProgress'),
+        errorsProgressFill: document.getElementById('errorsProgressFill'),
+        errorsProgressText: document.getElementById('errorsProgressText'),
 
-        // Errors Progress
-        errorsProgress: document.getElementById("errorsProgress"),
-        errorsProgressFill: document.getElementById("errorsProgressFill"),
-        errorsProgressText: document.getElementById("errorsProgressText"),
-
-        // Search Progress
-        searchProgress: document.getElementById("searchProgress"),
-        searchProgressFill: document.getElementById("searchProgressFill"),
-        searchProgressText: document.getElementById("searchProgressText"),
+        searchTerm: document.getElementById('searchTerm'),
+        searchFolder: document.getElementById('searchFolder'),
+        btnSearch: document.getElementById('btnSearch'),
+        searchProgress: document.getElementById('searchProgress'),
+        searchProgressFill: document.getElementById('searchProgressFill'),
+        searchProgressText: document.getElementById('searchProgressText'),
 
         // Error Results
-        resultsSection: document.getElementById("resultsSection"),
-        resultsContent: document.getElementById("resultsContent"),
-        summaryErrors: document.getElementById("summaryErrors"),
-        summaryWarnings: document.getElementById("summaryWarnings"),
-        btnDownloadTxt: document.getElementById("btnDownloadTxt"),
-        btnClearResults: document.getElementById("btnClearResults"),
+        errorResultsSection: document.getElementById('errorResultsSection'),
+        errorsSummary: document.getElementById('errorsSummary'),
+        totalErrors: document.getElementById('totalErrors'),
+        totalWarnings: document.getElementById('totalWarnings'),
+        errorsTabs: document.getElementById('errorsTabs'),
+        errorsContent: document.getElementById('errorsContent'),
+        btnDownloadErrors: document.getElementById('btnDownloadErrors'),
+        btnClearErrors: document.getElementById('btnClearErrors'),
 
         // Search Results
-        searchResultsSection: document.getElementById("searchResultsSection"),
-        searchResultsContent: document.getElementById("searchResultsContent"),
-        summarySearchTerm: document.getElementById("summarySearchTerm"),
-        summarySearchCount: document.getElementById("summarySearchCount"),
-        btnDownloadSearchTxt: document.getElementById("btnDownloadSearchTxt"),
-        btnClearSearchResults: document.getElementById("btnClearSearchResults"),
+        searchResultsSection: document.getElementById('searchResultsSection'),
+        totalFound: document.getElementById('totalFound'),
+        totalCategories: document.getElementById('totalCategories'),
+        searchContent: document.getElementById('searchContent'),
+        btnDownloadSearch: document.getElementById('btnDownloadSearch'),
+        btnClearSearch: document.getElementById('btnClearSearch'),
 
-        // Loading
-        loadingOverlay: document.getElementById("loadingOverlay"),
-        loadingText: document.getElementById("loadingText"),
-        loadingSubtext: document.getElementById("loadingSubtext"),
-
-        // Toast
-        toastContainer: document.getElementById("toastContainer"),
+        // Global
+        toastContainer: document.getElementById('toastContainer'),
+        loadingOverlay: document.getElementById('loadingOverlay'),
+        loadingText: document.getElementById('loadingText'),
+        loadingSubtext: document.getElementById('loadingSubtext')
     };
 
-    // ─────────────────────────────────────────
-    // UTILIDADES
-    // ─────────────────────────────────────────
-
-    function showToast(message, type = "info", duration = 4000) {
-        const toast = document.createElement("div");
+    // ===================== UTILITIES =====================
+    function showToast(message, type = 'info', duration = 4000) {
+        const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
-        const icons = {
-            success: "&#10003;",
-            error: "&#10007;",
-            warning: "&#9888;",
-            info: "&#8505;",
-        };
-        toast.innerHTML = `<span>${icons[type] || icons.info}</span><span>${message}</span>`;
+        toast.textContent = message;
         DOM.toastContainer.appendChild(toast);
-        toast.addEventListener("click", () => {
-            toast.classList.add("toast-out");
-            setTimeout(() => toast.remove(), 300);
-        });
         setTimeout(() => {
-            if (toast.parentNode) {
-                toast.classList.add("toast-out");
-                setTimeout(() => toast.remove(), 300);
-            }
+            toast.style.animationDelay = '0s';
+            toast.style.animation = 'toastOut 0.3s ease forwards';
+            setTimeout(() => toast.remove(), 300);
         }, duration);
     }
 
-    function showLoading(text = "Processando...", subtext = "Aguarde") {
+    function showLoading(text = 'Processando...', subtext = '') {
         DOM.loadingText.textContent = text;
         DOM.loadingSubtext.textContent = subtext;
-        DOM.loadingOverlay.style.display = "flex";
+        DOM.loadingOverlay.style.display = 'flex';
     }
 
     function hideLoading() {
-        DOM.loadingOverlay.style.display = "none";
+        DOM.loadingOverlay.style.display = 'none';
     }
 
-    function updateServerStatus(status) {
-        const dot = DOM.serverStatus.querySelector(".status-dot");
-        const text = DOM.serverStatus.querySelector(".status-text");
-        dot.className = "status-dot";
-        switch (status) {
-            case "online":
-                dot.classList.add("online");
-                text.textContent = "Conectado";
-                break;
-            case "offline":
-                dot.classList.add("offline");
-                text.textContent = "Desconectado";
-                break;
-            case "loading":
-                dot.classList.add("loading");
-                text.textContent = "Conectando...";
-                break;
-        }
+    function updateServerStatus(status, text) {
+        DOM.serverStatus.className = `server-status ${status}`;
+        DOM.serverStatus.querySelector('span').textContent = text;
     }
 
-    function updateSessionBadge() {
-        if (state.sessionId) {
-            DOM.sessionBadge.style.display = "flex";
-            DOM.sessionIdDisplay.textContent = state.sessionId;
-        } else {
-            DOM.sessionBadge.style.display = "none";
-        }
+    function updateSessionBadge(show, text = 'Sessão ativa') {
+        DOM.sessionBadge.style.display = show ? 'flex' : 'none';
+        DOM.sessionBadgeText.textContent = text;
     }
 
-    function updateModuleButtons() {
-        const hasSession = !!state.sessionId;
-        DOM.btnBackup.disabled = !hasSession || state.isBusy;
-        DOM.btnCheckErrors.disabled = !hasSession || state.isBusy;
-        DOM.btnSearchSite.disabled = !hasSession || state.isBusy;
+    function updateModuleButtons(enabled) {
+        DOM.btnBackup.disabled = !enabled;
+        DOM.btnErrors.disabled = !enabled;
+        DOM.btnSearch.disabled = !enabled;
     }
 
-    // ─────────────────────────────────────────
-    // API — REQUISIÇÕES COM TOKEN
-    // ─────────────────────────────────────────
+    function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
 
-    async function apiRequest(endpoint, method = "GET", body = null) {
-        if (!state.backendUrl) {
-            showToast("URL do backend não configurada", "error");
-            throw new Error("Backend URL não configurada");
-        }
+    function simulateProgress(fillEl, textEl, containerEl, steps) {
+        return new Promise((resolve) => {
+            containerEl.style.display = 'flex';
+            let i = 0;
+            const interval = setInterval(() => {
+                if (i < steps.length) {
+                    fillEl.style.width = steps[i].percent + '%';
+                    textEl.textContent = steps[i].percent + '%';
+                    i++;
+                } else {
+                    clearInterval(interval);
+                    resolve();
+                }
+            }, 600);
+        });
+    }
 
-        const url = `${state.backendUrl.replace(/\/+$/, "")}${endpoint}`;
+    function escapeHTML(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.appendChild(document.createTextNode(str));
+        return div.innerHTML;
+    }
 
-        const options = {
-            method,
-            headers: {},
-        };
+    // ===================== API HELPERS =====================
+    async function apiRequest(endpoint, method = 'GET', body = null, isBlob = false) {
+        const url = state.backendUrl + endpoint;
+        const headers = {};
 
         if (state.token) {
-            options.headers["Authorization"] = `Bearer ${state.token}`;
+            headers['Authorization'] = 'Bearer ' + state.token;
         }
 
+        const options = { method, headers };
+
         if (body) {
-            options.headers["Content-Type"] = "application/json";
+            headers['Content-Type'] = 'application/json';
             options.body = JSON.stringify(body);
         }
 
         const controller = new AbortController();
-        const timeout = (typeof CONFIG !== "undefined" && CONFIG.REQUEST_TIMEOUT)
-            ? CONFIG.REQUEST_TIMEOUT
-            : 120000;
-        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        const timeout = setTimeout(() => controller.abort(), (typeof BACKEND_CONFIG !== 'undefined' ? BACKEND_CONFIG.REQUEST_TIMEOUT : 120000));
         options.signal = controller.signal;
 
         try {
             const response = await fetch(url, options);
-            clearTimeout(timeoutId);
-
-            if (response.status === 401) {
-                state.isAuthenticated = false;
-                state.token = null;
-                sessionStorage.removeItem("sitetools_token");
-                showAuthModal();
-                throw new Error("Token expirado ou inválido. Faça login novamente.");
-            }
+            clearTimeout(timeout);
 
             if (!response.ok) {
                 let errorMsg = `Erro ${response.status}`;
@@ -256,1080 +208,932 @@
                 throw new Error(errorMsg);
             }
 
-            return response;
+            if (isBlob) {
+                return response;
+            }
+
+            return await response.json();
         } catch (err) {
-            clearTimeout(timeoutId);
-            if (err.name === "AbortError") {
-                throw new Error("Timeout: a requisição demorou demais");
+            clearTimeout(timeout);
+            if (err.name === 'AbortError') {
+                throw new Error('Timeout: o servidor demorou para responder.');
             }
             throw err;
         }
     }
 
-    async function apiJSON(endpoint, method = "GET", body = null) {
-        const response = await apiRequest(endpoint, method, body);
-        return await response.json();
+    async function apiJSON(endpoint, method = 'GET', body = null) {
+        return apiRequest(endpoint, method, body, false);
     }
 
-    async function apiBlob(endpoint, method = "GET", body = null) {
-        const response = await apiRequest(endpoint, method, body);
-        const headers = {};
-        response.headers.forEach((value, key) => {
-            headers[key] = value;
-        });
-        const blob = await response.blob();
-        return { blob, headers };
+    async function apiBlob(endpoint, method = 'GET', body = null) {
+        return apiRequest(endpoint, method, body, true);
     }
 
-    function downloadBlob(blob, filename) {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
-
-    function simulateProgress(fillElement, textElement, steps) {
-        let delay = 0;
-        steps.forEach((step) => {
-            delay += step.delay || 800;
-            setTimeout(() => {
-                fillElement.style.width = step.percent + "%";
-                textElement.textContent = step.text;
-            }, delay);
-        });
-    }
-
-    function escapeHTML(str) {
-        const div = document.createElement("div");
-        div.textContent = str;
-        return div.innerHTML;
-    }
-
-    // ─────────────────────────────────────────
-    // AUTENTICAÇÃO
-    // ─────────────────────────────────────────
-
+    // ===================== AUTHENTICATION =====================
     function showAuthModal() {
-        DOM.authOverlay.style.display = "flex";
-        DOM.authOverlay.classList.remove("auth-hidden");
-        DOM.mainContainer.style.display = "none";
-        DOM.btnLogout.style.display = "none";
-        DOM.authError.style.display = "none";
-        DOM.authTokenInput.value = "";
+        DOM.authOverlay.style.display = 'flex';
+        DOM.authError.textContent = '';
+        DOM.authTokenInput.value = '';
         DOM.authTokenInput.focus();
     }
 
     function hideAuthModal() {
-        DOM.authOverlay.classList.add("auth-hidden");
-        setTimeout(() => {
-            DOM.authOverlay.style.display = "none";
-        }, 400);
-        DOM.mainContainer.style.display = "flex";
-        DOM.btnLogout.style.display = "flex";
+        DOM.authOverlay.style.display = 'none';
     }
 
     async function authenticate() {
         const token = DOM.authTokenInput.value.trim();
-
         if (!token) {
-            DOM.authError.textContent = "Digite o token de acesso.";
-            DOM.authError.style.display = "block";
-            DOM.authTokenInput.focus();
+            DOM.authError.textContent = 'Digite o token de acesso.';
             return;
         }
 
-        state.token = token;
-
         DOM.btnAuth.disabled = true;
-        DOM.btnAuth.innerHTML = '<span class="spinner"></span> Verificando...';
-        DOM.authError.style.display = "none";
+        DOM.authError.textContent = '';
 
         try {
-            const statusResp = await fetch(
-                `${state.backendUrl.replace(/\/+$/, "")}/`
-            );
-            const statusData = await statusResp.json();
-
-            if (statusData.status !== "online") {
-                throw new Error("Servidor offline");
-            }
-
-            if (statusData.auth_required) {
-                const authData = await apiJSON("/auth/verify", "POST");
-
-                if (authData.status === "authorized") {
-                    state.isAuthenticated = true;
-                    state.isConnected = true;
-                    sessionStorage.setItem("sitetools_token", token);
-                    updateServerStatus("online");
-                    hideAuthModal();
-                    showToast("Autenticado com sucesso!", "success");
-                }
+            // Carrega URL do backend do config.js
+            if (typeof BACKEND_CONFIG !== 'undefined' && BACKEND_CONFIG.BACKEND_URL) {
+                state.backendUrl = BACKEND_CONFIG.BACKEND_URL.replace(/\/+$/, '');
             } else {
-                state.isAuthenticated = true;
-                state.isConnected = true;
-                sessionStorage.setItem("sitetools_token", token);
-                updateServerStatus("online");
-                hideAuthModal();
-                showToast("Conectado! (servidor sem autenticação)", "success");
+                DOM.authError.textContent = 'Erro: config.js não encontrado.';
+                DOM.btnAuth.disabled = false;
+                return;
             }
+
+            // Testa conexão primeiro
+            state.token = token;
+            const statusResp = await apiJSON('/');
+
+            if (statusResp.auth_required) {
+                // Valida token
+                const authResp = await apiJSON('/auth/verify', 'POST');
+                if (!authResp.valid) {
+                    DOM.authError.textContent = 'Token inválido.';
+                    state.token = '';
+                    DOM.btnAuth.disabled = false;
+                    return;
+                }
+            }
+
+            // Sucesso
+            state.isAuthenticated = true;
+            state.isConnected = true;
+            sessionStorage.setItem('api_token', token);
+
+            hideAuthModal();
+            updateServerStatus('online', 'Conectado');
+            DOM.btnLogout.style.display = 'flex';
+            showToast('Autenticado com sucesso!', 'success');
 
         } catch (err) {
-            state.token = null;
-            state.isAuthenticated = false;
-            updateServerStatus("offline");
-
-            if (err.message.includes("401") || err.message.includes("Token")) {
-                DOM.authError.textContent = "Token inválido. Tente novamente.";
-            } else {
-                DOM.authError.textContent = `Erro de conexão: ${err.message}`;
-            }
-
-            DOM.authError.style.display = "block";
-        } finally {
-            DOM.btnAuth.disabled = false;
-            DOM.btnAuth.innerHTML = `
-                <span class="btn-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-                        <polyline points="10 17 15 12 10 7"/>
-                        <line x1="15" y1="12" x2="3" y2="12"/>
-                    </svg>
-                </span>
-                Entrar
-            `;
+            DOM.authError.textContent = 'Erro ao conectar: ' + err.message;
+            state.token = '';
         }
+
+        DOM.btnAuth.disabled = false;
     }
 
     function logout() {
-        state.token = null;
+        state.token = '';
+        state.sessionId = null;
         state.isAuthenticated = false;
         state.isConnected = false;
-        state.sessionId = null;
-        sessionStorage.removeItem("sitetools_token");
+        state.siteUrl = '';
+        state.siteTitle = '';
+        state.lastErrorReport = null;
+        state.lastSearchReport = null;
 
-        updateServerStatus("offline");
-        updateSessionBadge();
-        updateModuleButtons();
+        sessionStorage.removeItem('api_token');
 
-        DOM.siteStatus.style.display = "none";
-        DOM.screenshotContainer.style.display = "none";
-        DOM.resultsSection.style.display = "none";
-        DOM.searchResultsSection.style.display = "none";
+        updateServerStatus('', 'Desconectado');
+        updateSessionBadge(false);
+        updateModuleButtons(false);
+
+        DOM.siteStatus.style.display = 'none';
+        DOM.screenshotPreview.style.display = 'none';
+        DOM.errorResultsSection.style.display = 'none';
+        DOM.searchResultsSection.style.display = 'none';
+        DOM.btnLogout.style.display = 'none';
 
         showAuthModal();
-        showToast("Sessão encerrada", "info");
+        showToast('Sessão encerrada.', 'info');
     }
 
     function togglePasswordVisibility() {
         const input = DOM.authTokenInput;
-        input.type = input.type === "password" ? "text" : "password";
+        input.type = input.type === 'password' ? 'text' : 'password';
     }
 
-    // ─────────────────────────────────────────
-    // AÇÕES PRINCIPAIS
-    // ─────────────────────────────────────────
+    // ===================== CORE ACTIONS =====================
 
     async function openSite() {
         let url = DOM.urlInput.value.trim();
-
         if (!url) {
-            showToast("Digite uma URL", "warning");
-            DOM.urlInput.focus();
+            showToast('Digite uma URL para abrir.', 'warning');
             return;
         }
 
-        if (!state.isAuthenticated) {
-            showToast("Faça login primeiro", "warning");
-            return;
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            url = 'https://' + url;
         }
 
-        if (!url.startsWith("http://") && !url.startsWith("https://")) {
-            url = "https://" + url;
-        }
-
-        showLoading("Abrindo site...", `Carregando ${url}`);
-        state.isBusy = true;
-        updateModuleButtons();
+        showLoading('Abrindo site...', url);
+        DOM.btnOpen.disabled = true;
 
         try {
-            if (state.sessionId) {
-                try {
-                    await apiJSON("/close", "POST", {
-                        session_id: state.sessionId,
-                    });
-                } catch (e) { }
-            }
-
-            const data = await apiJSON("/open", "POST", { url });
+            const data = await apiJSON('/open', 'POST', { url });
 
             state.sessionId = data.session_id;
             state.siteUrl = data.url;
-            state.siteTitle = data.title;
+            state.siteTitle = data.title || 'Sem título';
 
-            DOM.siteStatus.style.display = "flex";
-            DOM.siteStatusText.textContent = "Carregado";
-            DOM.siteStatusText.style.color = "#00b894";
-            DOM.siteTitleText.textContent = data.title;
-            DOM.siteUrlText.textContent = data.url;
+            DOM.siteTitle.textContent = state.siteTitle;
+            DOM.siteUrl.textContent = state.siteUrl;
+            DOM.siteStatusText.textContent = 'Carregado';
+            DOM.siteStatus.style.display = 'flex';
 
-            updateSessionBadge();
-            showToast(`Site aberto: ${data.title}`, "success");
+            updateSessionBadge(true, 'Sessão: ' + state.sessionId.substring(0, 8) + '...');
+            updateModuleButtons(true);
+
+            showToast('Site aberto com sucesso!', 'success');
+
         } catch (err) {
-            showToast(`Erro ao abrir site: ${err.message}`, "error");
-            state.sessionId = null;
-            DOM.siteStatus.style.display = "none";
-            updateSessionBadge();
-        } finally {
-            state.isBusy = false;
-            updateModuleButtons();
-            hideLoading();
+            showToast('Erro ao abrir site: ' + err.message, 'error');
         }
+
+        DOM.btnOpen.disabled = false;
+        hideLoading();
     }
 
     async function takeScreenshot() {
-        if (!state.sessionId) return;
+        if (!state.sessionId) {
+            showToast('Nenhuma sessão ativa.', 'warning');
+            return;
+        }
+
+        DOM.btnScreenshot.disabled = true;
 
         try {
-            showToast("Capturando screenshot...", "info", 2000);
-
-            const { blob } = await apiBlob("/screenshot", "POST", {
-                session_id: state.sessionId,
+            const response = await apiBlob('/screenshot', 'POST', {
+                session_id: state.sessionId
             });
-
+            const blob = await response.blob();
             const imgUrl = URL.createObjectURL(blob);
             DOM.screenshotImg.src = imgUrl;
-            DOM.screenshotContainer.style.display = "block";
-
-            DOM.screenshotContainer.scrollIntoView({
-                behavior: "smooth",
-                block: "nearest",
-            });
-
-            showToast("Screenshot capturado!", "success");
+            DOM.screenshotPreview.style.display = 'block';
+            showToast('Screenshot capturado!', 'success');
         } catch (err) {
-            showToast(`Erro no screenshot: ${err.message}`, "error");
+            showToast('Erro ao capturar screenshot: ' + err.message, 'error');
         }
+
+        DOM.btnScreenshot.disabled = false;
     }
 
     async function closeSession() {
         if (!state.sessionId) return;
 
+        showLoading('Fechando sessão...');
+
         try {
-            await apiJSON("/close", "POST", {
-                session_id: state.sessionId,
-            });
-            showToast("Sessão encerrada", "info");
-        } catch (err) { }
+            await apiJSON('/close', 'POST', { session_id: state.sessionId });
 
-        state.sessionId = null;
-        state.siteUrl = null;
-        state.siteTitle = null;
+            state.sessionId = null;
+            state.siteUrl = '';
+            state.siteTitle = '';
 
-        DOM.siteStatus.style.display = "none";
-        DOM.screenshotContainer.style.display = "none";
-        DOM.resultsSection.style.display = "none";
-        DOM.searchResultsSection.style.display = "none";
+            DOM.siteStatus.style.display = 'none';
+            DOM.screenshotPreview.style.display = 'none';
+            updateSessionBadge(false);
+            updateModuleButtons(false);
 
-        updateSessionBadge();
-        updateModuleButtons();
+            showToast('Sessão encerrada.', 'info');
+        } catch (err) {
+            showToast('Erro ao fechar sessão: ' + err.message, 'error');
+        }
+
+        hideLoading();
     }
 
-    // ─────────────────────────────────────────
-    // LOGIN NO SITE
-    // ─────────────────────────────────────────
+    // ===================== INTERACTION (LOGIN) =====================
 
-    async function openLoginModal() {
+    async function openInteraction() {
         if (!state.sessionId) {
-            showToast("Abra um site primeiro", "warning");
+            showToast('Nenhuma sessão ativa.', 'warning');
             return;
         }
 
-        // Mostrar modal
-        DOM.loginOverlay.style.display = "flex";
-        DOM.loginResult.style.display = "none";
-        DOM.loginResultScreenshot.style.display = "none";
-        DOM.loginUsername.value = "";
-        DOM.loginPassword.value = "";
-        DOM.loginUsernameSelector.value = "";
-        DOM.loginPasswordSelector.value = "";
-        DOM.loginSubmitSelector.value = "";
+        DOM.interactOverlay.style.display = 'flex';
+        DOM.interactTextInput.value = '';
+        await refreshInteractionScreen();
+        startInteractionAutoRefresh();
+    }
 
-        showToast("Detectando campos de login...", "info", 2000);
+    function closeInteraction() {
+        DOM.interactOverlay.style.display = 'none';
+        stopInteractionAutoRefresh();
+        showToast('Interação finalizada. Pode continuar usando os módulos.', 'success');
+    }
+
+    function startInteractionAutoRefresh() {
+        stopInteractionAutoRefresh();
+        state.interactInterval = setInterval(async () => {
+            await refreshInteractionScreenSilent();
+        }, 3000);
+    }
+
+    function stopInteractionAutoRefresh() {
+        if (state.interactInterval) {
+            clearInterval(state.interactInterval);
+            state.interactInterval = null;
+        }
+    }
+
+    async function refreshInteractionScreen() {
+        try {
+            const data = await apiJSON('/interact/screenshot', 'POST', {
+                session_id: state.sessionId
+            });
+            if (data.screenshot) {
+                DOM.interactScreenImg.src = 'data:image/png;base64,' + data.screenshot;
+            }
+        } catch (err) {
+            showToast('Erro ao atualizar tela: ' + err.message, 'error');
+        }
+    }
+
+    async function refreshInteractionScreenSilent() {
+        try {
+            const data = await apiJSON('/interact/screenshot', 'POST', {
+                session_id: state.sessionId
+            });
+            if (data.screenshot) {
+                DOM.interactScreenImg.src = 'data:image/png;base64,' + data.screenshot;
+            }
+        } catch (err) {
+            // Silencioso
+        }
+    }
+
+    async function handleInteractClick(event) {
+        const img = DOM.interactScreenImg;
+        const rect = img.getBoundingClientRect();
+
+        const scaleX = img.naturalWidth / rect.width;
+        const scaleY = img.naturalHeight / rect.height;
+
+        const x = Math.round((event.clientX - rect.left) * scaleX);
+        const y = Math.round((event.clientY - rect.top) * scaleY);
+
+        // Mostrar indicador de clique
+        const indicator = DOM.clickIndicator;
+        indicator.style.left = (event.clientX - rect.left) + 'px';
+        indicator.style.top = (event.clientY - rect.top) + 'px';
+        indicator.style.display = 'block';
+        setTimeout(() => { indicator.style.display = 'none'; }, 600);
 
         try {
-            const data = await apiJSON("/detect-login-fields", "POST", {
+            const data = await apiJSON('/interact/click', 'POST', {
                 session_id: state.sessionId,
+                x: x,
+                y: y
             });
-
-            // Mostrar screenshot
             if (data.screenshot) {
-                DOM.loginScreenshotImg.src = "data:image/png;base64," + data.screenshot;
+                DOM.interactScreenImg.src = 'data:image/png;base64,' + data.screenshot;
             }
-
-            DOM.loginModalSubtitle.textContent = data.title || "Preencha as credenciais";
-
-            // Auto-preencher seletores
-            if (data.has_login_form) {
-                DOM.loginDetectedInfo.style.display = "block";
-
-                if (data.username_selectors.length > 0) {
-                    const best = data.username_selectors[0];
-                    DOM.loginUsernameSelector.value = best.selector;
-                    DOM.loginUsername.placeholder = best.placeholder || best.name || "seu@email.com";
-                }
-
-                if (data.password_selectors.length > 0) {
-                    const best = data.password_selectors[0];
-                    DOM.loginPasswordSelector.value = best.selector;
-                }
-
-                if (data.submit_selectors.length > 0) {
-                    const best = data.submit_selectors[0];
-                    DOM.loginSubmitSelector.value = best.selector;
-                }
-
-                showToast("Campos de login detectados automaticamente!", "success");
-            } else {
-                DOM.loginDetectedInfo.style.display = "none";
-                showToast("Nenhum formulário de login detectado. Preencha os seletores manualmente.", "warning", 5000);
-            }
-
         } catch (err) {
-            DOM.loginDetectedInfo.style.display = "none";
-            showToast(`Erro ao detectar campos: ${err.message}`, "error");
+            showToast('Erro no clique: ' + err.message, 'error');
         }
-
-        DOM.loginUsername.focus();
     }
 
-    function closeLoginModal() {
-        DOM.loginOverlay.style.display = "none";
-    }
-
-    async function doSiteLogin() {
-        const username = DOM.loginUsername.value.trim();
-        const password = DOM.loginPassword.value.trim();
-        const usernameSelector = DOM.loginUsernameSelector.value.trim();
-        const passwordSelector = DOM.loginPasswordSelector.value.trim();
-        const submitSelector = DOM.loginSubmitSelector.value.trim();
-
-        if (!username) {
-            showToast("Digite o usuário/email", "warning");
-            DOM.loginUsername.focus();
-            return;
-        }
-
-        if (!password) {
-            showToast("Digite a senha", "warning");
-            DOM.loginPassword.focus();
-            return;
-        }
-
-        if (!usernameSelector || !passwordSelector || !submitSelector) {
-            showToast("Preencha os seletores CSS (abra a seção avançado)", "warning");
-            return;
-        }
-
-        DOM.btnDoLogin.disabled = true;
-        DOM.btnDoLogin.innerHTML = '<span class="spinner"></span> Fazendo login...';
+    async function handleInteractType() {
+        const text = DOM.interactTextInput.value;
+        if (!text) return;
 
         try {
-            const data = await apiJSON("/do-login", "POST", {
+            const data = await apiJSON('/interact/type', 'POST', {
                 session_id: state.sessionId,
-                username: username,
-                password: password,
-                username_selector: usernameSelector,
-                password_selector: passwordSelector,
-                submit_selector: submitSelector,
+                text: text
             });
-
-            // Mostrar resultado
-            DOM.loginResult.style.display = "block";
-
-            if (data.probably_logged_in) {
-                DOM.loginResultStatus.className = "login-result-status success";
-                DOM.loginResultStatus.textContent = "Login realizado com sucesso! " + data.message;
-            } else {
-                DOM.loginResultStatus.className = "login-result-status warning";
-                DOM.loginResultStatus.textContent = "Login enviado. " + data.message;
-            }
-
-            // Screenshot pós-login
+            DOM.interactTextInput.value = '';
             if (data.screenshot) {
-                DOM.loginResultScreenshot.style.display = "block";
-                DOM.loginResultImg.src = "data:image/png;base64," + data.screenshot;
+                DOM.interactScreenImg.src = 'data:image/png;base64,' + data.screenshot;
             }
-
-            // Atualizar dados da sessão
-            if (data.new_url) {
-                state.siteUrl = data.new_url;
-                DOM.siteUrlText.textContent = data.new_url;
-            }
-            if (data.new_title) {
-                state.siteTitle = data.new_title;
-                DOM.siteTitleText.textContent = data.new_title;
-            }
-
-            showToast(
-                data.probably_logged_in ? "Login realizado!" : "Login enviado, verifique o resultado",
-                data.probably_logged_in ? "success" : "warning"
-            );
-
-            // Fechar modal após 3 segundos se login deu certo
-            if (data.probably_logged_in) {
-                setTimeout(() => {
-                    closeLoginModal();
-                }, 3000);
-            }
-
         } catch (err) {
-            DOM.loginResult.style.display = "block";
-            DOM.loginResultStatus.className = "login-result-status error";
-            DOM.loginResultStatus.textContent = "Erro: " + err.message;
-            DOM.loginResultScreenshot.style.display = "none";
-            showToast(`Erro no login: ${err.message}`, "error");
-        } finally {
-            DOM.btnDoLogin.disabled = false;
-            DOM.btnDoLogin.innerHTML = `
-                <span class="btn-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-                        <polyline points="10 17 15 12 10 7"/>
-                        <line x1="15" y1="12" x2="3" y2="12"/>
-                    </svg>
-                </span>
-                Fazer Login
-            `;
+            showToast('Erro ao digitar: ' + err.message, 'error');
         }
     }
 
-    function toggleLoginPasswordVisibility() {
-        const input = DOM.loginPassword;
-        input.type = input.type === "password" ? "text" : "password";
+    async function handleInteractKey(key) {
+        try {
+            const data = await apiJSON('/interact/key', 'POST', {
+                session_id: state.sessionId,
+                key: key
+            });
+            if (data.screenshot) {
+                DOM.interactScreenImg.src = 'data:image/png;base64,' + data.screenshot;
+            }
+        } catch (err) {
+            showToast('Erro ao pressionar tecla: ' + err.message, 'error');
+        }
     }
 
-    // ─────────────────────────────────────────
-    // MÓDULO 1 — BACKUP
-    // ─────────────────────────────────────────
+    // ===================== BACKUP =====================
 
     async function backupSite() {
-        if (!state.sessionId || state.isBusy) return;
+        if (!state.sessionId) {
+            showToast('Nenhuma sessão ativa.', 'warning');
+            return;
+        }
 
-        const folderName = DOM.backupFolderName.value.trim() || "backup";
-
-        state.isBusy = true;
-        updateModuleButtons();
-
-        const btnText = DOM.btnBackup.querySelector(".btn-text");
-        const btnLoad = DOM.btnBackup.querySelector(".btn-loading");
-        btnText.style.display = "none";
-        btnLoad.style.display = "inline-flex";
-        DOM.backupProgress.style.display = "block";
+        const folder = DOM.backupFolder.value.trim() || 'backup';
+        DOM.btnBackup.disabled = true;
 
         const steps = [
-            { percent: 10, text: "Capturando HTML...", delay: 500 },
-            { percent: 25, text: "Baixando CSS...", delay: 1000 },
-            { percent: 40, text: "Baixando JavaScript...", delay: 1200 },
-            { percent: 55, text: "Baixando imagens...", delay: 1500 },
-            { percent: 70, text: "Baixando fontes...", delay: 800 },
-            { percent: 85, text: "Gerando screenshot...", delay: 600 },
-            { percent: 92, text: "Empacotando ZIP...", delay: 800 },
+            { percent: 10 },
+            { percent: 25 },
+            { percent: 40 },
+            { percent: 55 },
+            { percent: 70 },
+            { percent: 85 }
         ];
 
-        simulateProgress(DOM.backupProgressFill, DOM.backupProgressText, steps);
+        simulateProgress(
+            DOM.backupProgressFill,
+            DOM.backupProgressText,
+            DOM.backupProgress,
+            steps
+        );
 
         try {
-            const { blob, headers } = await apiBlob("/backup", "POST", {
+            const response = await apiBlob('/backup', 'POST', {
                 session_id: state.sessionId,
-                folder_name: folderName,
+                folder_name: folder
             });
 
-            DOM.backupProgressFill.style.width = "100%";
-            DOM.backupProgressText.textContent = "Backup concluído!";
+            // Finalizar progresso
+            DOM.backupProgressFill.style.width = '100%';
+            DOM.backupProgressText.textContent = '100%';
 
-            const disposition = headers["content-disposition"] || "";
-            const filenameMatch = disposition.match(/filename=(.+)/);
-            const filename = filenameMatch
-                ? filenameMatch[1]
-                : `${folderName}_${Date.now()}.zip`;
+            const blob = await response.blob();
+
+            // Extrair nome do arquivo
+            let filename = folder + '_backup.zip';
+            const disposition = response.headers.get('Content-Disposition');
+            if (disposition) {
+                const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                if (match && match[1]) {
+                    filename = match[1].replace(/['"]/g, '');
+                }
+            }
 
             downloadBlob(blob, filename);
+            showToast('Backup realizado com sucesso!', 'success');
 
-            const errorCount = headers["x-backup-errors"] || "0";
-            showToast(
-                `Backup concluído! (${errorCount} avisos durante o processo)`,
-                "success",
-                5000
-            );
+            // Verificar warnings
+            const backupErrors = response.headers.get('X-Backup-Errors');
+            if (backupErrors && parseInt(backupErrors) > 0) {
+                showToast(`Backup concluído com ${backupErrors} aviso(s).`, 'warning');
+            }
+
         } catch (err) {
-            DOM.backupProgressFill.style.width = "0%";
-            DOM.backupProgressText.textContent = "Erro no backup";
-            showToast(`Erro no backup: ${err.message}`, "error");
-        } finally {
-            state.isBusy = false;
-            updateModuleButtons();
-            btnText.style.display = "inline";
-            btnLoad.style.display = "none";
-            setTimeout(() => {
-                DOM.backupProgress.style.display = "none";
-                DOM.backupProgressFill.style.width = "0%";
-            }, 3000);
+            showToast('Erro no backup: ' + err.message, 'error');
         }
+
+        DOM.btnBackup.disabled = false;
+        setTimeout(() => {
+            DOM.backupProgress.style.display = 'none';
+            DOM.backupProgressFill.style.width = '0%';
+            DOM.backupProgressText.textContent = '0%';
+        }, 2000);
     }
 
-    // ─────────────────────────────────────────
-    // MÓDULO 2 — VERIFICAR ERROS
-    // ─────────────────────────────────────────
+    // ===================== ERROR CHECK =====================
 
     async function checkErrors() {
-        if (!state.sessionId || state.isBusy) return;
+        if (!state.sessionId) {
+            showToast('Nenhuma sessão ativa.', 'warning');
+            return;
+        }
 
-        const folderName = DOM.errorFolderName.value.trim() || "relatorio-erros";
-
-        state.isBusy = true;
-        updateModuleButtons();
-
-        const btnText = DOM.btnCheckErrors.querySelector(".btn-text");
-        const btnLoad = DOM.btnCheckErrors.querySelector(".btn-loading");
-        btnText.style.display = "none";
-        btnLoad.style.display = "inline-flex";
-        DOM.errorsProgress.style.display = "block";
+        const folder = DOM.errorsFolder.value.trim() || 'erros';
+        DOM.btnErrors.disabled = true;
 
         const steps = [
-            { percent: 8, text: "Lendo console do navegador...", delay: 500 },
-            { percent: 18, text: "Verificando JavaScript...", delay: 1000 },
-            { percent: 28, text: "Analisando rede...", delay: 800 },
-            { percent: 38, text: "Verificando recursos...", delay: 1000 },
-            { percent: 48, text: "Analisando CSS...", delay: 800 },
-            { percent: 58, text: "Verificando HTML...", delay: 800 },
-            { percent: 68, text: "Testando acessibilidade...", delay: 1000 },
-            { percent: 78, text: "Verificando segurança...", delay: 600 },
-            { percent: 85, text: "Analisando performance...", delay: 800 },
-            { percent: 92, text: "Testando links...", delay: 2000 },
-            { percent: 96, text: "Verificando SEO...", delay: 500 },
+            { percent: 10 },
+            { percent: 20 },
+            { percent: 35 },
+            { percent: 50 },
+            { percent: 65 },
+            { percent: 80 },
+            { percent: 90 }
         ];
 
-        simulateProgress(DOM.errorsProgressFill, DOM.errorsProgressText, steps);
+        simulateProgress(
+            DOM.errorsProgressFill,
+            DOM.errorsProgressText,
+            DOM.errorsProgress,
+            steps
+        );
 
         try {
-            const reportJSON = await apiJSON("/check-errors-json", "POST", {
+            const data = await apiJSON('/check-errors-json', 'POST', {
                 session_id: state.sessionId,
-                folder_name: folderName,
+                folder_name: folder
             });
 
-            DOM.errorsProgressFill.style.width = "100%";
-            DOM.errorsProgressText.textContent = "Análise concluída!";
+            DOM.errorsProgressFill.style.width = '100%';
+            DOM.errorsProgressText.textContent = '100%';
 
-            state.lastErrorReport = {
-                json: reportJSON,
-                folderName: folderName,
-            };
+            state.lastErrorReport = data;
+            displayErrorResults(data);
 
-            displayErrorResults(reportJSON);
+            const totalE = data.total_errors || 0;
+            const totalW = data.total_warnings || 0;
 
-            showToast(
-                `Análise concluída! ${reportJSON.total_errors} erros e ${reportJSON.total_warnings} avisos`,
-                reportJSON.total_errors > 0 ? "warning" : "success",
-                5000
-            );
+            if (totalE === 0 && totalW === 0) {
+                showToast('Nenhum erro encontrado!', 'success');
+            } else {
+                showToast(`Encontrados: ${totalE} erro(s) e ${totalW} aviso(s).`, totalE > 0 ? 'error' : 'warning');
+            }
+
         } catch (err) {
-            DOM.errorsProgressFill.style.width = "0%";
-            DOM.errorsProgressText.textContent = "Erro na análise";
-            showToast(`Erro na análise: ${err.message}`, "error");
-        } finally {
-            state.isBusy = false;
-            updateModuleButtons();
-            btnText.style.display = "inline";
-            btnLoad.style.display = "none";
-            setTimeout(() => {
-                DOM.errorsProgress.style.display = "none";
-                DOM.errorsProgressFill.style.width = "0%";
-            }, 3000);
+            showToast('Erro na verificação: ' + err.message, 'error');
         }
+
+        DOM.btnErrors.disabled = false;
+        setTimeout(() => {
+            DOM.errorsProgress.style.display = 'none';
+            DOM.errorsProgressFill.style.width = '0%';
+            DOM.errorsProgressText.textContent = '0%';
+        }, 2000);
     }
 
     async function downloadErrorReport() {
         if (!state.sessionId) {
-            showToast("Nenhuma sessão ativa", "warning");
+            showToast('Nenhuma sessão ativa.', 'warning');
             return;
         }
 
-        const folderName =
-            state.lastErrorReport?.folderName ||
-            DOM.errorFolderName.value.trim() ||
-            "relatorio-erros";
+        const folder = DOM.errorsFolder.value.trim() || 'erros';
 
         try {
-            showToast("Gerando relatório TXT...", "info", 2000);
-
-            const { blob, headers } = await apiBlob("/check-errors", "POST", {
+            const response = await apiBlob('/check-errors', 'POST', {
                 session_id: state.sessionId,
-                folder_name: folderName,
+                folder_name: folder
             });
 
-            const disposition = headers["content-disposition"] || "";
-            const filenameMatch = disposition.match(/filename=(.+)/);
-            const filename = filenameMatch
-                ? filenameMatch[1]
-                : `${folderName}_${Date.now()}.txt`;
+            const blob = await response.blob();
+
+            let filename = folder + '_erros.txt';
+            const disposition = response.headers.get('Content-Disposition');
+            if (disposition) {
+                const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                if (match && match[1]) {
+                    filename = match[1].replace(/['"]/g, '');
+                }
+            }
 
             downloadBlob(blob, filename);
-            showToast("Relatório TXT baixado!", "success");
+            showToast('Relatório de erros baixado!', 'success');
         } catch (err) {
-            showToast(`Erro ao baixar relatório: ${err.message}`, "error");
+            showToast('Erro ao baixar relatório: ' + err.message, 'error');
         }
     }
 
-    // ─────────────────────────────────────────
-    // MÓDULO 3 — BUSCAR NO SITE
-    // ─────────────────────────────────────────
+    // ===================== SEARCH =====================
 
     async function searchSite() {
-        if (!state.sessionId || state.isBusy) return;
-
-        const searchTermValue = DOM.searchTerm.value.trim();
-        const folderName = DOM.searchFolderName.value.trim() || "resultado-busca";
-
-        if (!searchTermValue) {
-            showToast("Digite o que deseja buscar", "warning");
-            DOM.searchTerm.focus();
+        if (!state.sessionId) {
+            showToast('Nenhuma sessão ativa.', 'warning');
             return;
         }
 
-        state.isBusy = true;
-        updateModuleButtons();
+        const term = DOM.searchTerm.value.trim();
+        if (!term) {
+            showToast('Digite o que deseja buscar.', 'warning');
+            return;
+        }
 
-        const btnText = DOM.btnSearchSite.querySelector(".btn-text");
-        const btnLoad = DOM.btnSearchSite.querySelector(".btn-loading");
-        btnText.style.display = "none";
-        btnLoad.style.display = "inline-flex";
-        DOM.searchProgress.style.display = "block";
+        const folder = DOM.searchFolder.value.trim() || 'busca';
+        DOM.btnSearch.disabled = true;
 
         const steps = [
-            { percent: 15, text: `Buscando "${searchTermValue}" no código...`, delay: 500 },
-            { percent: 35, text: "Analisando scripts...", delay: 800 },
-            { percent: 55, text: "Verificando elementos...", delay: 1000 },
-            { percent: 75, text: "Analisando recursos...", delay: 800 },
-            { percent: 90, text: "Gerando relatório...", delay: 600 },
+            { percent: 15 },
+            { percent: 30 },
+            { percent: 50 },
+            { percent: 70 },
+            { percent: 85 }
         ];
 
-        simulateProgress(DOM.searchProgressFill, DOM.searchProgressText, steps);
+        simulateProgress(
+            DOM.searchProgressFill,
+            DOM.searchProgressText,
+            DOM.searchProgress,
+            steps
+        );
 
         try {
-            const data = await apiJSON("/search-site", "POST", {
+            const data = await apiJSON('/search-site', 'POST', {
                 session_id: state.sessionId,
-                search_term: searchTermValue,
-                folder_name: folderName,
+                term: term,
+                folder_name: folder
             });
 
-            DOM.searchProgressFill.style.width = "100%";
-            DOM.searchProgressText.textContent = "Busca concluída!";
+            DOM.searchProgressFill.style.width = '100%';
+            DOM.searchProgressText.textContent = '100%';
 
-            state.lastSearchReport = {
-                data: data,
-                searchTerm: searchTermValue,
-                folderName: folderName,
-            };
+            state.lastSearchReport = data;
+            displaySearchResults(data);
 
-            displaySearchResults(data, searchTermValue);
+            const total = data.total_found || 0;
+            if (total === 0) {
+                showToast('Nenhum resultado encontrado para "' + term + '".', 'info');
+            } else {
+                showToast(`Encontrados ${total} resultado(s) para "${term}".`, 'success');
+            }
 
-            showToast(
-                `Busca concluída! ${data.findings_count} item(ns) encontrado(s)`,
-                data.findings_count > 0 ? "success" : "warning",
-                5000
-            );
         } catch (err) {
-            DOM.searchProgressFill.style.width = "0%";
-            DOM.searchProgressText.textContent = "Erro na busca";
-            showToast(`Erro na busca: ${err.message}`, "error");
-        } finally {
-            state.isBusy = false;
-            updateModuleButtons();
-            btnText.style.display = "inline";
-            btnLoad.style.display = "none";
-            setTimeout(() => {
-                DOM.searchProgress.style.display = "none";
-                DOM.searchProgressFill.style.width = "0%";
-            }, 3000);
+            showToast('Erro na busca: ' + err.message, 'error');
         }
+
+        DOM.btnSearch.disabled = false;
+        setTimeout(() => {
+            DOM.searchProgress.style.display = 'none';
+            DOM.searchProgressFill.style.width = '0%';
+            DOM.searchProgressText.textContent = '0%';
+        }, 2000);
     }
 
     async function downloadSearchReport() {
         if (!state.sessionId) {
-            showToast("Nenhuma sessão ativa", "warning");
+            showToast('Nenhuma sessão ativa.', 'warning');
             return;
         }
 
-        const searchTermValue = state.lastSearchReport?.searchTerm || DOM.searchTerm.value.trim();
-        const folderName = state.lastSearchReport?.folderName || DOM.searchFolderName.value.trim() || "resultado-busca";
-
-        if (!searchTermValue) {
-            showToast("Faça uma busca primeiro", "warning");
-            return;
-        }
+        const term = DOM.searchTerm.value.trim() || 'busca';
+        const folder = DOM.searchFolder.value.trim() || 'busca';
 
         try {
-            showToast("Gerando relatório TXT...", "info", 2000);
-
-            const { blob, headers } = await apiBlob("/search-site-txt", "POST", {
+            const response = await apiBlob('/search-site-txt', 'POST', {
                 session_id: state.sessionId,
-                search_term: searchTermValue,
-                folder_name: folderName,
+                term: term,
+                folder_name: folder
             });
 
-            const disposition = headers["content-disposition"] || "";
-            const filenameMatch = disposition.match(/filename=(.+)/);
-            const filename = filenameMatch
-                ? filenameMatch[1]
-                : `${folderName}_${searchTermValue}_${Date.now()}.txt`;
+            const blob = await response.blob();
+
+            let filename = folder + '_' + term + '.txt';
+            const disposition = response.headers.get('Content-Disposition');
+            if (disposition) {
+                const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                if (match && match[1]) {
+                    filename = match[1].replace(/['"]/g, '');
+                }
+            }
 
             downloadBlob(blob, filename);
-            showToast("Relatório de busca TXT baixado!", "success");
+            showToast('Relatório de busca baixado!', 'success');
         } catch (err) {
-            showToast(`Erro ao baixar relatório: ${err.message}`, "error");
+            showToast('Erro ao baixar relatório: ' + err.message, 'error');
         }
     }
 
-    // ─────────────────────────────────────────
-    // EXIBIÇÃO DOS RESULTADOS DE ERROS
-    // ─────────────────────────────────────────
+    // ===================== ERROR RESULTS DISPLAY =====================
 
     const categoryLabels = {
-        console_errors: { label: "Erros do Console", type: "error" },
-        console_warnings: { label: "Avisos do Console", type: "warning" },
-        javascript_errors: { label: "Erros de JavaScript", type: "error" },
-        network_errors: { label: "Erros de Rede", type: "error" },
-        resource_errors: { label: "Erros de Recursos", type: "error" },
-        css_errors: { label: "Erros de CSS", type: "error" },
-        html_errors: { label: "Erros de HTML", type: "error" },
-        accessibility_errors: { label: "Acessibilidade", type: "warning" },
-        security_warnings: { label: "Segurança", type: "warning" },
-        performance_warnings: { label: "Performance", type: "warning" },
-        broken_links: { label: "Links Quebrados", type: "error" },
-        seo_warnings: { label: "SEO", type: "info" },
+        'console': 'Console do Navegador',
+        'javascript': 'Erros JavaScript',
+        'network': 'Erros de Rede',
+        'resources': 'Recursos',
+        'css': 'Erros CSS',
+        'html': 'Erros HTML',
+        'accessibility': 'Acessibilidade',
+        'security': 'Segurança',
+        'performance': 'Performance',
+        'broken_links': 'Links Quebrados',
+        'seo': 'SEO'
     };
 
-    function displayErrorResults(report) {
-        DOM.resultsSection.style.display = "block";
-        DOM.summaryErrors.textContent = `${report.total_errors} erro(s)`;
-        DOM.summaryWarnings.textContent = `${report.total_warnings} aviso(s)`;
-        renderErrorsTab("all", report.details);
-        setTimeout(() => {
-            DOM.resultsSection.scrollIntoView({
-                behavior: "smooth",
-                block: "start",
-            });
-        }, 300);
-    }
+    function displayErrorResults(data) {
+        const details = data.details || {};
+        const totalE = data.total_errors || 0;
+        const totalW = data.total_warnings || 0;
 
-    function renderErrorsTab(tab, details) {
-        DOM.resultsContent.innerHTML = "";
+        DOM.totalErrors.textContent = totalE;
+        DOM.totalWarnings.textContent = totalW;
 
-        if (tab === "all") {
-            let hasAny = false;
-            for (const [key, config] of Object.entries(categoryLabels)) {
-                const items = details[key] || [];
-                if (items.length === 0) continue;
-                hasAny = true;
-                DOM.resultsContent.appendChild(
-                    createErrorCategoryBlock(config.label, items, config.type)
-                );
-            }
-            if (!hasAny) {
-                DOM.resultsContent.innerHTML = `
-                    <div class="result-empty">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                            <polyline points="22 4 12 14.01 9 11.01"/>
-                        </svg>
-                        <p>Nenhum problema encontrado! O site está limpo.</p>
-                    </div>
-                `;
-            }
-        } else {
-            const config = categoryLabels[tab];
-            const items = details[tab] || [];
-            if (items.length === 0) {
-                DOM.resultsContent.innerHTML = `
-                    <div class="result-empty">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                            <polyline points="22 4 12 14.01 9 11.01"/>
-                        </svg>
-                        <p>Nenhum problema encontrado nesta categoria.</p>
-                    </div>
-                `;
-            } else {
-                DOM.resultsContent.appendChild(
-                    createErrorCategoryBlock(config.label, items, config.type)
-                );
-            }
-        }
-    }
+        // Gerar tabs
+        DOM.errorsTabs.innerHTML = '<button class="tab-btn active" data-tab="all">Todos</button>';
 
-    function createErrorCategoryBlock(label, items, type) {
-        const div = document.createElement("div");
-        div.className = "result-category";
-
-        let html = `
-            <div class="result-category-header">
-                <span>${label}</span>
-                <span class="result-category-count">${items.length}</span>
-            </div>
-        `;
-
-        items.forEach((item) => {
-            const message = extractErrorMessage(item);
-            const itemType = item.type || item.level || type;
-
-            let typeClass = "info";
-            if (type === "error" || itemType === "SEVERE" || (typeof itemType === "string" && itemType.includes("ERROR"))) {
-                typeClass = "error";
-            } else if (type === "warning" || itemType === "WARNING") {
-                typeClass = "warning";
-            }
-
-            html += `
-                <div class="result-item">
-                    <span class="result-type ${typeClass}">${escapeHTML(String(itemType))}</span>
-                    <span class="result-message">${escapeHTML(message)}</span>
-                </div>
-            `;
+        const categories = Object.keys(details).filter(cat => {
+            const items = details[cat];
+            return Array.isArray(items) && items.length > 0;
         });
 
-        div.innerHTML = html;
-        return div;
+        categories.forEach(cat => {
+            const label = categoryLabels[cat] || cat;
+            const count = details[cat].length;
+            const btn = document.createElement('button');
+            btn.className = 'tab-btn';
+            btn.dataset.tab = cat;
+            btn.textContent = `${label} (${count})`;
+            DOM.errorsTabs.appendChild(btn);
+        });
+
+        // Renderizar aba "Todos"
+        renderErrorsTab('all', details, categories);
+
+        // Listeners nas tabs
+        DOM.errorsTabs.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                DOM.errorsTabs.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                const tab = this.dataset.tab;
+                if (tab === 'all') {
+                    renderErrorsTab('all', details, categories);
+                } else {
+                    renderErrorsTab(tab, details, [tab]);
+                }
+            });
+        });
+
+        DOM.errorResultsSection.style.display = 'block';
+        DOM.errorResultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function renderErrorsTab(tab, details, categories) {
+        DOM.errorsContent.innerHTML = '';
+
+        if (categories.length === 0) {
+            DOM.errorsContent.innerHTML = `
+                <div class="no-results">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                    <p>Nenhum erro encontrado!</p>
+                </div>
+            `;
+            return;
+        }
+
+        categories.forEach(cat => {
+            const items = details[cat];
+            if (!Array.isArray(items) || items.length === 0) return;
+            DOM.errorsContent.appendChild(createErrorCategoryBlock(cat, items));
+        });
+    }
+
+    function createErrorCategoryBlock(category, items) {
+        const block = document.createElement('div');
+        block.className = 'error-category-block';
+
+        const title = document.createElement('div');
+        title.className = 'error-category-title';
+        title.textContent = (categoryLabels[category] || category) + ` (${items.length})`;
+        block.appendChild(title);
+
+        items.forEach(item => {
+            const div = document.createElement('div');
+            const level = item.level || item.type || 'info';
+
+            let levelClass = 'level-info';
+            if (level === 'error' || level === 'SEVERE' || level === 'severe') {
+                levelClass = 'level-error';
+            } else if (level === 'warning' || level === 'WARNING') {
+                levelClass = 'level-warning';
+            }
+
+            div.className = 'error-item ' + levelClass;
+            div.innerHTML = escapeHTML(extractErrorMessage(item));
+            block.appendChild(div);
+        });
+
+        return block;
     }
 
     function extractErrorMessage(item) {
-        if (typeof item === "string") return item;
-        let parts = [];
-        if (item.message) parts.push(item.message);
-        if (item.url && item.url !== "inline") parts.push(`URL: ${item.url}`);
-        if (item.status_code) parts.push(`Status: ${item.status_code}`);
-        if (item.element) parts.push(`Elemento: ${item.element}`);
-        if (item.text) parts.push(`Texto: "${item.text}"`);
-        if (item.duration) parts.push(`Duração: ${item.duration}ms`);
-        if (item.source && item.source !== "checker") parts.push(`Fonte: ${item.source}`);
-        return parts.join(" | ") || JSON.stringify(item);
+        if (typeof item === 'string') return item;
+        if (item.message) return item.message;
+        if (item.description) return item.description;
+        if (item.text) return item.text;
+        if (item.url) return item.url;
+        return JSON.stringify(item);
     }
 
-    // ─────────────────────────────────────────
-    // EXIBIÇÃO DOS RESULTADOS DE BUSCA
-    // ─────────────────────────────────────────
+    // ===================== SEARCH RESULTS DISPLAY =====================
 
-    function displaySearchResults(data, searchTermValue) {
-        DOM.searchResultsSection.style.display = "block";
-        DOM.summarySearchTerm.textContent = `"${searchTermValue}"`;
-        DOM.summarySearchCount.textContent = `${data.findings_count} encontrado(s)`;
+    function displaySearchResults(data) {
+        const findings = data.findings || [];
+        const totalF = data.total_found || 0;
 
-        DOM.searchResultsContent.innerHTML = "";
+        DOM.totalFound.textContent = totalF;
 
-        if (data.findings_count === 0) {
-            DOM.searchResultsContent.innerHTML = `
-                <div class="search-result-empty">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        // Contar categorias únicas
+        const uniqueCategories = [...new Set(findings.map(f => f.category || 'geral'))];
+        DOM.totalCategories.textContent = uniqueCategories.length;
+
+        DOM.searchContent.innerHTML = '';
+
+        if (findings.length === 0) {
+            DOM.searchContent.innerHTML = `
+                <div class="no-results">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                         <circle cx="11" cy="11" r="8"/>
                         <line x1="21" y1="21" x2="16.65" y2="16.65"/>
                     </svg>
-                    <p>Nenhum resultado encontrado para "<strong>${escapeHTML(searchTermValue)}</strong>"</p>
-                    <div class="search-suggestions">
-                        Termos suportados:
-                        <code>api</code> <code>links</code> <code>imagens</code>
-                        <code>formulários</code> <code>scripts</code> <code>meta</code>
-                        <code>css</code> <code>fontes</code> <code>cookies</code><br>
-                        Ou digite qualquer termo para buscar no código fonte.
-                    </div>
+                    <p>Nenhum resultado encontrado.</p>
                 </div>
             `;
-        } else {
-            // Agrupar por categoria
-            const categories = {};
-            data.findings.forEach((item) => {
-                const cat = item.category;
-                if (!categories[cat]) categories[cat] = [];
-                categories[cat].push(item);
-            });
-
-            for (const [catName, items] of Object.entries(categories)) {
-                const catDiv = document.createElement("div");
-                catDiv.className = "search-result-category";
-
-                let html = `
-                    <div class="search-result-category-header">
-                        <span>${escapeHTML(catName)}</span>
-                        <span class="search-result-category-count">${items.length}</span>
-                    </div>
-                `;
-
-                items.forEach((item) => {
-                    html += `
-                        <div class="search-result-item">
-                            <span class="search-result-item-type">${escapeHTML(item.type)}</span>
-                            <span class="search-result-item-value">${escapeHTML(item.value)}</span>
-                            ${item.detail ? `<span class="search-result-item-detail">${escapeHTML(item.detail)}</span>` : ""}
-                        </div>
-                    `;
-                });
-
-                catDiv.innerHTML = html;
-                DOM.searchResultsContent.appendChild(catDiv);
-            }
+            DOM.searchResultsSection.style.display = 'block';
+            DOM.searchResultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
         }
 
-        setTimeout(() => {
-            DOM.searchResultsSection.scrollIntoView({
-                behavior: "smooth",
-                block: "start",
+        // Agrupar por categoria
+        const grouped = {};
+        findings.forEach(f => {
+            const cat = f.category || 'geral';
+            if (!grouped[cat]) grouped[cat] = [];
+            grouped[cat].push(f);
+        });
+
+        Object.keys(grouped).forEach(cat => {
+            const block = document.createElement('div');
+            block.className = 'search-category-block';
+
+            const title = document.createElement('div');
+            title.className = 'search-category-title';
+            title.textContent = cat.charAt(0).toUpperCase() + cat.slice(1) + ` (${grouped[cat].length})`;
+            block.appendChild(title);
+
+            grouped[cat].forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'search-item';
+
+                let html = '';
+                if (item.type) {
+                    html += `<div class="search-item-type">${escapeHTML(item.type)}</div>`;
+                }
+                if (item.value) {
+                    html += `<div class="search-item-value">${escapeHTML(item.value)}</div>`;
+                }
+                if (item.details) {
+                    html += `<div class="search-item-details">${escapeHTML(item.details)}</div>`;
+                }
+
+                div.innerHTML = html;
+                block.appendChild(div);
             });
-        }, 300);
+
+            DOM.searchContent.appendChild(block);
+        });
+
+        DOM.searchResultsSection.style.display = 'block';
+        DOM.searchResultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    // ─────────────────────────────────────────
-    // EVENT LISTENERS
-    // ─────────────────────────────────────────
+    // ===================== EVENT LISTENERS =====================
 
     // Auth
-    DOM.btnAuth.addEventListener("click", authenticate);
-    DOM.authTokenInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") authenticate();
+    DOM.btnAuth.addEventListener('click', authenticate);
+    DOM.authTokenInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') authenticate();
     });
-    DOM.authToggleVisibility.addEventListener("click", togglePasswordVisibility);
-    DOM.btnLogout.addEventListener("click", logout);
+    DOM.authToggleVisibility.addEventListener('click', togglePasswordVisibility);
+    DOM.btnLogout.addEventListener('click', logout);
 
-    // URL
-    DOM.btnOpen.addEventListener("click", openSite);
-    DOM.urlInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") openSite();
+    // URL / Site
+    DOM.btnOpen.addEventListener('click', openSite);
+    DOM.urlInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') openSite();
     });
+    DOM.btnScreenshot.addEventListener('click', takeScreenshot);
+    DOM.btnClose.addEventListener('click', closeSession);
 
-    // Screenshot
-    DOM.btnScreenshot.addEventListener("click", takeScreenshot);
-    DOM.btnClosePreview.addEventListener("click", () => {
-        DOM.screenshotContainer.style.display = "none";
-    });
+    // Interaction
+    DOM.btnInteract.addEventListener('click', openInteraction);
+    DOM.btnInteractContinue.addEventListener('click', closeInteraction);
+    DOM.btnInteractRefresh.addEventListener('click', refreshInteractionScreen);
 
-    // Login no site
-    DOM.btnSiteLogin.addEventListener("click", openLoginModal);
-    DOM.btnCloseLogin.addEventListener("click", closeLoginModal);
-    DOM.btnDoLogin.addEventListener("click", doSiteLogin);
-    DOM.loginTogglePassword.addEventListener("click", toggleLoginPasswordVisibility);
+    DOM.interactScreenImg.addEventListener('click', handleInteractClick);
 
-    // Fechar login modal clicando fora
-    DOM.loginOverlay.addEventListener("click", (e) => {
-        if (e.target === DOM.loginOverlay) {
-            closeLoginModal();
-        }
+    DOM.btnInteractSend.addEventListener('click', handleInteractType);
+    DOM.interactTextInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') handleInteractType();
     });
 
-    // Enter no login
-    DOM.loginPassword.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") doSiteLogin();
-    });
-
-    // Fechar sessão
-    DOM.btnClose.addEventListener("click", closeSession);
-
-    // Módulo Backup
-    DOM.btnBackup.addEventListener("click", backupSite);
-
-    // Módulo Erros
-    DOM.btnCheckErrors.addEventListener("click", checkErrors);
-
-    // Módulo Busca
-    DOM.btnSearchSite.addEventListener("click", searchSite);
-    DOM.searchTerm.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") searchSite();
-    });
-
-    // Download TXT erros
-    DOM.btnDownloadTxt.addEventListener("click", downloadErrorReport);
-
-    // Download TXT busca
-    DOM.btnDownloadSearchTxt.addEventListener("click", downloadSearchReport);
-
-    // Limpar resultados erros
-    DOM.btnClearResults.addEventListener("click", () => {
-        DOM.resultsSection.style.display = "none";
-        DOM.resultsContent.innerHTML = "";
-        state.lastErrorReport = null;
-    });
-
-    // Limpar resultados busca
-    DOM.btnClearSearchResults.addEventListener("click", () => {
-        DOM.searchResultsSection.style.display = "none";
-        DOM.searchResultsContent.innerHTML = "";
-        state.lastSearchReport = null;
-    });
-
-    // Tabs dos resultados de erros
-    document.querySelectorAll(".tab-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
-            document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
-            btn.classList.add("active");
-            const tab = btn.dataset.tab;
-            if (state.lastErrorReport) {
-                renderErrorsTab(tab, state.lastErrorReport.json.details);
-            }
+    // Teclas especiais na interação
+    document.querySelectorAll('.interact-keys .btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const key = this.dataset.key;
+            if (key) handleInteractKey(key);
         });
     });
 
-    // ─────────────────────────────────────────
-    // INICIALIZAÇÃO
-    // ─────────────────────────────────────────
+    // Modules
+    DOM.btnBackup.addEventListener('click', backupSite);
+    DOM.btnErrors.addEventListener('click', checkErrors);
+    DOM.btnSearch.addEventListener('click', searchSite);
 
-    function init() {
-        updateModuleButtons();
-        updateSessionBadge();
+    // Downloads
+    DOM.btnDownloadErrors.addEventListener('click', downloadErrorReport);
+    DOM.btnDownloadSearch.addEventListener('click', downloadSearchReport);
 
-        // Verificar se tem token salvo no sessionStorage
-        const savedToken = sessionStorage.getItem("sitetools_token");
+    // Clear
+    DOM.btnClearErrors.addEventListener('click', function () {
+        DOM.errorResultsSection.style.display = 'none';
+        DOM.errorsContent.innerHTML = '';
+        state.lastErrorReport = null;
+        showToast('Resultados de erros limpos.', 'info');
+    });
 
+    DOM.btnClearSearch.addEventListener('click', function () {
+        DOM.searchResultsSection.style.display = 'none';
+        DOM.searchContent.innerHTML = '';
+        state.lastSearchReport = null;
+        showToast('Resultados de busca limpos.', 'info');
+    });
+
+    // ===================== INITIALIZATION =====================
+
+    async function init() {
+        // Carregar backend URL do config.js
+        if (typeof BACKEND_CONFIG !== 'undefined' && BACKEND_CONFIG.BACKEND_URL) {
+            state.backendUrl = BACKEND_CONFIG.BACKEND_URL.replace(/\/+$/, '');
+        }
+
+        // Verificar token salvo
+        const savedToken = sessionStorage.getItem('api_token');
         if (savedToken && state.backendUrl) {
             state.token = savedToken;
 
-            fetch(`${state.backendUrl.replace(/\/+$/, "")}/auth/verify`, {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${savedToken}`,
-                },
-            })
-            .then((resp) => {
-                if (resp.ok) {
+            try {
+                const statusResp = await apiJSON('/');
+
+                if (statusResp.auth_required) {
+                    const authResp = await apiJSON('/auth/verify', 'POST');
+                    if (authResp.valid) {
+                        state.isAuthenticated = true;
+                        state.isConnected = true;
+                        hideAuthModal();
+                        updateServerStatus('online', 'Conectado');
+                        DOM.btnLogout.style.display = 'flex';
+                        showToast('Reconectado automaticamente!', 'success');
+                        return;
+                    }
+                } else {
+                    // Sem auth necessário
                     state.isAuthenticated = true;
                     state.isConnected = true;
-                    updateServerStatus("online");
                     hideAuthModal();
-                    showToast("Reconectado automaticamente!", "success");
-                } else {
-                    throw new Error("Token inválido");
+                    updateServerStatus('online', 'Conectado');
+                    DOM.btnLogout.style.display = 'flex';
+                    showToast('Conectado ao servidor!', 'success');
+                    return;
                 }
-            })
-            .catch(() => {
-                state.token = null;
-                sessionStorage.removeItem("sitetools_token");
-                showAuthModal();
-            });
-        } else {
-            showAuthModal();
+            } catch (err) {
+                // Token inválido ou servidor offline
+                sessionStorage.removeItem('api_token');
+                state.token = '';
+            }
         }
 
+        // Se não tem token ou falhou, tenta ver se servidor existe sem auth
+        if (state.backendUrl) {
+            try {
+                const statusResp = await fetch(state.backendUrl + '/', {
+                    method: 'GET',
+                    signal: AbortSignal.timeout(5000)
+                });
+                const data = await statusResp.json();
+
+                if (!data.auth_required) {
+                    state.isAuthenticated = true;
+                    state.isConnected = true;
+                    hideAuthModal();
+                    updateServerStatus('online', 'Conectado');
+                    showToast('Conectado (sem autenticação).', 'info');
+                    return;
+                }
+
+                updateServerStatus('online', 'Aguardando login');
+            } catch (err) {
+                updateServerStatus('offline', 'Servidor offline');
+            }
+        }
+
+        showAuthModal();
+
+        // Banner
         console.log(
-            "%c Site Tools %c v1.2.0 %c Seguro ",
-            "background: #6c5ce7; color: white; padding: 4px 8px; border-radius: 4px 0 0 4px; font-weight: bold;",
-            "background: #00cec9; color: white; padding: 4px 8px;",
-            "background: #00b894; color: white; padding: 4px 8px; border-radius: 0 4px 4px 0;"
+            '%c Site Backup & Error Checker v1.2.0 ',
+            'background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 8px 16px; border-radius: 4px; font-size: 14px; font-weight: bold;'
         );
     }
 
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", init);
-    } else {
-        init();
-    }
+    init();
+
 })();
