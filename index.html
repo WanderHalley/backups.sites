@@ -8,7 +8,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <!-- CONFIG CARREGA PRIMEIRO -->
     <script src="config.js"></script>
 </head>
 <body>
@@ -52,6 +51,97 @@
                 Entrar
             </button>
             <p class="auth-error" id="authError" style="display:none;">Token inválido. Tente novamente.</p>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- MODAL DE LOGIN DO SITE                       -->
+    <!-- ============================================ -->
+    <div class="login-overlay" id="loginOverlay" style="display:none;">
+        <div class="login-modal">
+            <div class="login-modal-header">
+                <div class="login-modal-title-row">
+                    <div class="login-modal-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2>Login no Site</h2>
+                        <p class="login-modal-subtitle" id="loginModalSubtitle">Preencha as credenciais</p>
+                    </div>
+                </div>
+                <button class="btn-close-modal" id="btnCloseLogin">&times;</button>
+            </div>
+
+            <!-- Screenshot do site -->
+            <div class="login-screenshot-container" id="loginScreenshotContainer">
+                <img id="loginScreenshotImg" alt="Tela de login do site" />
+            </div>
+
+            <!-- Campos detectados -->
+            <div class="login-detected-info" id="loginDetectedInfo" style="display:none;">
+                <span class="login-detected-badge">Campos detectados automaticamente</span>
+            </div>
+
+            <!-- Formulário de login -->
+            <div class="login-form">
+                <div class="login-form-group">
+                    <label for="loginUsername">Usuário / Email</label>
+                    <input type="text" id="loginUsername" placeholder="seu@email.com" autocomplete="off" spellcheck="false">
+                </div>
+                <div class="login-form-group">
+                    <label for="loginPassword">Senha</label>
+                    <div class="login-password-wrapper">
+                        <input type="password" id="loginPassword" placeholder="Sua senha" autocomplete="off">
+                        <button class="auth-toggle-visibility" id="loginTogglePassword" type="button">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <details class="login-advanced">
+                    <summary>Seletores CSS (avançado)</summary>
+                    <div class="login-selectors">
+                        <div class="login-form-group">
+                            <label for="loginUsernameSelector">Seletor do campo de usuário</label>
+                            <input type="text" id="loginUsernameSelector" placeholder='input[name="email"]' spellcheck="false">
+                        </div>
+                        <div class="login-form-group">
+                            <label for="loginPasswordSelector">Seletor do campo de senha</label>
+                            <input type="text" id="loginPasswordSelector" placeholder='input[type="password"]' spellcheck="false">
+                        </div>
+                        <div class="login-form-group">
+                            <label for="loginSubmitSelector">Seletor do botão de login</label>
+                            <input type="text" id="loginSubmitSelector" placeholder='button[type="submit"]' spellcheck="false">
+                        </div>
+                    </div>
+                </details>
+
+                <button class="btn btn-primary btn-lg login-submit-btn" id="btnDoLogin">
+                    <span class="btn-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                            <polyline points="10 17 15 12 10 7"/>
+                            <line x1="15" y1="12" x2="3" y2="12"/>
+                        </svg>
+                    </span>
+                    Fazer Login
+                </button>
+
+                <!-- Resultado do login -->
+                <div class="login-result" id="loginResult" style="display:none;">
+                    <div class="login-result-status" id="loginResultStatus"></div>
+                    <div class="login-result-screenshot" id="loginResultScreenshot" style="display:none;">
+                        <p>Resultado após login:</p>
+                        <img id="loginResultImg" alt="Resultado do login" />
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -168,6 +258,13 @@
                             <polyline points="21 15 16 10 5 21"/>
                         </svg>
                     </button>
+                    <button class="btn btn-sm btn-accent" id="btnSiteLogin" title="Fazer login no site">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
+                        Login
+                    </button>
                     <button class="btn btn-sm btn-ghost btn-danger" id="btnClose" title="Fechar sessão">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <line x1="18" y1="6" x2="6" y2="18"/>
@@ -187,9 +284,11 @@
             </div>
         </section>
 
-        <!-- SEÇÃO: MÓDULOS -->
+        <!-- ======================================== -->
+        <!-- SEÇÃO: MÓDULOS (BACKUP + ERROS + BUSCA)  -->
+        <!-- ======================================== -->
         <section class="modules-section">
-            <div class="modules-grid">
+            <div class="modules-grid modules-grid-3">
 
                 <!-- MÓDULO 1: BACKUP -->
                 <div class="module-card glass-panel" id="moduleBackup">
@@ -279,10 +378,63 @@
                     </div>
                 </div>
 
+                <!-- MÓDULO 3: BUSCAR NO SITE -->
+                <div class="module-card glass-panel" id="moduleSearch">
+                    <div class="module-icon-container search-gradient">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <circle cx="11" cy="11" r="8"/>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                    </div>
+                    <h3 class="module-title">Buscar no Site</h3>
+                    <p class="module-desc">
+                        Busca APIs, links, imagens, formulários, scripts, meta tags,
+                        CSS, fontes, cookies ou qualquer termo no código do site.
+                    </p>
+                    <div class="module-input">
+                        <label for="searchTerm">O que deseja buscar:</label>
+                        <input
+                            type="text"
+                            id="searchTerm"
+                            placeholder="ex: api, links, imagens, formulários..."
+                            spellcheck="false"
+                        >
+                    </div>
+                    <div class="module-input">
+                        <label for="searchFolderName">Nome da pasta/arquivo:</label>
+                        <input
+                            type="text"
+                            id="searchFolderName"
+                            placeholder="resultado-busca"
+                            spellcheck="false"
+                        >
+                    </div>
+                    <button class="btn btn-module btn-search" id="btnSearchSite" disabled>
+                        <span class="btn-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"/>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                            </svg>
+                        </span>
+                        <span class="btn-text">Buscar</span>
+                        <span class="btn-loading" style="display:none;">
+                            <span class="spinner"></span> Buscando...
+                        </span>
+                    </button>
+                    <div class="module-progress" id="searchProgress" style="display:none;">
+                        <div class="progress-bar">
+                            <div class="progress-fill search-fill" id="searchProgressFill"></div>
+                        </div>
+                        <span class="progress-text" id="searchProgressText">Iniciando busca...</span>
+                    </div>
+                </div>
+
             </div>
         </section>
 
-        <!-- SEÇÃO: RESULTADOS -->
+        <!-- ======================================== -->
+        <!-- SEÇÃO: RESULTADO DOS ERROS (PREVIEW)     -->
+        <!-- ======================================== -->
         <section class="results-section glass-panel" id="resultsSection" style="display:none;">
             <div class="section-header">
                 <div class="section-icon">
@@ -324,6 +476,37 @@
                     Baixar Relatório .TXT
                 </button>
                 <button class="btn btn-sm btn-ghost" id="btnClearResults">
+                    Limpar
+                </button>
+            </div>
+        </section>
+
+        <!-- ======================================== -->
+        <!-- SEÇÃO: RESULTADO DA BUSCA                -->
+        <!-- ======================================== -->
+        <section class="results-section search-results-section glass-panel" id="searchResultsSection" style="display:none;">
+            <div class="section-header">
+                <div class="section-icon search-icon-header">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"/>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    </svg>
+                </div>
+                <h2>Resultado da Busca</h2>
+                <div class="results-summary" id="searchResultsSummary">
+                    <span class="summary-search-term" id="summarySearchTerm">—</span>
+                    <span class="summary-divider">|</span>
+                    <span class="summary-search-count" id="summarySearchCount">0 encontrado(s)</span>
+                </div>
+            </div>
+
+            <div class="results-content" id="searchResultsContent"></div>
+
+            <div class="results-actions">
+                <button class="btn btn-sm btn-accent" id="btnDownloadSearchTxt">
+                    Baixar Relatório .TXT
+                </button>
+                <button class="btn btn-sm btn-ghost" id="btnClearSearchResults">
                     Limpar
                 </button>
             </div>
