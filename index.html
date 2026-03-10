@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Site Backup & Error Checker</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- ============================================ -->
+    <!-- PARTÍCULAS DE FUNDO (decorativo)            -->
+    <!-- ============================================ -->
+    <div class="bg-effects">
+        <div class="bg-orb bg-orb-1"></div>
+        <div class="bg-orb bg-orb-2"></div>
+        <div class="bg-orb bg-orb-3"></div>
+        <div class="grid-overlay"></div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- HEADER                                       -->
+    <!-- ============================================ -->
+    <header class="main-header">
+        <div class="header-content">
+            <div class="logo-section">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                        <path d="M2 17l10 5 10-5"/>
+                        <path d="M2 12l10 5 10-5"/>
+                    </svg>
+                </div>
+                <div class="logo-text">
+                    <h1>Site Tools</h1>
+                    <span class="logo-subtitle">Backup & Error Checker</span>
+                </div>
+            </div>
+            <div class="header-status">
+                <div class="status-indicator" id="serverStatus">
+                    <span class="status-dot offline"></span>
+                    <span class="status-text">Desconectado</span>
+                </div>
+                <div class="session-badge" id="sessionBadge" style="display:none;">
+                    <span class="session-icon">⚡</span>
+                    <span id="sessionIdDisplay">—</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ============================================ -->
+    <!-- CONTAINER PRINCIPAL                          -->
+    <!-- ============================================ -->
+    <main class="main-container">
+
+        <!-- ======================================== -->
+        <!-- SEÇÃO: CONFIGURAÇÃO DO BACKEND           -->
+        <!-- ======================================== -->
+        <section class="config-section glass-panel">
+            <div class="section-header">
+                <div class="section-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                </div>
+                <h2>Configuração</h2>
+            </div>
+            <div class="config-field">
+                <label for="backendUrl">URL do Backend (Hugging Face)</label>
+                <div class="input-group">
+                    <input 
+                        type="text" 
+                        id="backendUrl" 
+                        placeholder="https://seu-space.hf.space"
+                        spellcheck="false"
+                    >
+                    <button class="btn btn-sm btn-accent" id="btnTestConnection">
+                        <span class="btn-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                <polyline points="22 4 12 14.01 9 11.01"/>
+                            </svg>
+                        </span>
+                        Testar
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ======================================== -->
+        <!-- SEÇÃO: ABRIR SITE                        -->
+        <!-- ======================================== -->
+        <section class="url-section glass-panel">
+            <div class="section-header">
+                <div class="section-icon pulse-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="2" y1="12" x2="22" y2="12"/>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                    </svg>
+                </div>
+                <h2>Abrir Site</h2>
+            </div>
+
+            <div class="url-input-container">
+                <div class="url-input-wrapper">
+                    <span class="url-prefix">https://</span>
+                    <input 
+                        type="text" 
+                        id="urlInput" 
+                        placeholder="www.exemplo.com"
+                        spellcheck="false"
+                        autocomplete="off"
+                    >
+                </div>
+                <button class="btn btn-primary btn-lg" id="btnOpen">
+                    <span class="btn-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                            <polyline points="15 3 21 3 21 9"/>
+                            <line x1="10" y1="14" x2="21" y2="3"/>
+                        </svg>
+                    </span>
+                    Abrir
+                </button>
+            </div>
+
+            <!-- Status do site aberto -->
+            <div class="site-status" id="siteStatus" style="display:none;">
+                <div class="site-status-info">
+                    <div class="site-status-row">
+                        <span class="label">Status:</span>
+                        <span class="value" id="siteStatusText">—</span>
+                    </div>
+                    <div class="site-status-row">
+                        <span class="label">Título:</span>
+                        <span class="value" id="siteTitleText">—</span>
+                    </div>
+                    <div class="site-status-row">
+                        <span class="label">URL:</span>
+                        <span class="value url-value" id="siteUrlText">—</span>
+                    </div>
+                </div>
+                <div class="site-status-actions">
+                    <button class="btn btn-sm btn-ghost" id="btnScreenshot" title="Screenshot">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                            <circle cx="8.5" cy="8.5" r="1.5"/>
+                            <polyline points="21 15 16 10 5 21"/>
+                        </svg>
+                    </button>
+                    <button class="btn btn-sm btn-ghost btn-danger" id="btnClose" title="Fechar sessão">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Preview Screenshot -->
+            <div class="screenshot-container" id="screenshotContainer" style="display:none;">
+                <div class="screenshot-header">
+                    <span>Preview do Site</span>
+                    <button class="btn-close-preview" id="btnClosePreview">&times;</button>
+                </div>
+                <img id="screenshotImg" alt="Screenshot do site" />
+            </div>
+        </section>
+
+        <!-- ======================================== -->
+        <!-- SEÇÃO: MÓDULOS (BACKUP + ERROS)          -->
+        <!-- ======================================== -->
+        <section class="modules-section">
+            <div class="modules-grid">
+
+                <!-- MÓDULO 1: BACKUP -->
+                <div class="module-card glass-panel" id="moduleBackup">
+                    <div class="module-icon-container backup-gradient">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                    </div>
+                    <h3 class="module-title">Backup do Site</h3>
+                    <p class="module-desc">
+                        Copia o site inteiro: HTML, CSS, JS, imagens, fontes e assets. 
+                        Gera um arquivo ZIP organizado pronto para download.
+                    </p>
+                    <div class="module-input">
+                        <label for="backupFolderName">Nome da pasta/arquivo:</label>
+                        <input 
+                            type="text" 
+                            id="backupFolderName" 
+                            placeholder="meu-backup"
+                            spellcheck="false"
+                        >
+                    </div>
+                    <button class="btn btn-module btn-backup" id="btnBackup" disabled>
+                        <span class="btn-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                        </span>
+                        <span class="btn-text">Fazer Backup</span>
+                        <span class="btn-loading" style="display:none;">
+                            <span class="spinner"></span> Processando...
+                        </span>
+                    </button>
+                    <div class="module-progress" id="backupProgress" style="display:none;">
+                        <div class="progress-bar">
+                            <div class="progress-fill backup-fill" id="backupProgressFill"></div>
+                        </div>
+                        <span class="progress-text" id="backupProgressText">Iniciando backup...</span>
+                    </div>
+                </div>
+
+                <!-- MÓDULO 2: ERROS -->
+                <div class="module-card glass-panel" id="moduleErrors">
+                    <div class="module-icon-container errors-gradient">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                    </div>
+                    <h3 class="module-title">Verificar Erros</h3>
+                    <p class="module-desc">
+                        Analisa console, JS, CSS, HTML, rede, acessibilidade, segurança, 
+                        performance, SEO e links quebrados.
+                    </p>
+                    <div class="module-input">
+                        <label for="errorFolderName">Nome da pasta/arquivo:</label>
+                        <input 
+                            type="text" 
+                            id="errorFolderName" 
+                            placeholder="relatorio-erros"
+                            spellcheck="false"
+                        >
+                    </div>
+                    <button class="btn btn-module btn-errors" id="btnCheckErrors" disabled>
+                        <span class="btn-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                <line x1="12" y1="9" x2="12" y2="13"/>
+                                <line x1="12" y1="17" x2="12.01" y2="17"/>
+                            </svg>
+                        </span>
+                        <span class="btn-text">Verificar Erros</span>
+                        <span class="btn-loading" style="display:none;">
+                            <span class="spinner"></span> Analisando...
+                        </span>
+                    </button>
+                    <div class="module-progress" id="errorsProgress" style="display:none;">
+                        <div class="progress-bar">
+                            <div class="progress-fill errors-fill" id="errorsProgressFill"></div>
+                        </div>
+                        <span class="progress-text" id="errorsProgressText">Iniciando análise...</span>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ======================================== -->
+        <!-- SEÇÃO: RESULTADO DOS ERROS (PREVIEW)     -->
+        <!-- ======================================== -->
+        <section class="results-section glass-panel" id="resultsSection" style="display:none;">
+            <div class="section-header">
+                <div class="section-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                        <polyline points="10 9 9 9 8 9"/>
+                    </svg>
+                </div>
+                <h2>Resultado da Análise</h2>
+                <div class="results-summary" id="resultsSummary">
+                    <span class="summary-errors" id="summaryErrors">0 erros</span>
+                    <span class="summary-divider">|</span>
+                    <span class="summary-warnings" id="summaryWarnings">0 avisos</span>
+                </div>
+            </div>
+
+            <div class="results-tabs">
+                <button class="tab-btn active" data-tab="all">Todos</button>
+                <button class="tab-btn" data-tab="console_errors">Console</button>
+                <button class="tab-btn" data-tab="javascript_errors">JavaScript</button>
+                <button class="tab-btn" data-tab="network_errors">Rede</button>
+                <button class="tab-btn" data-tab="resource_errors">Recursos</button>
+                <button class="tab-btn" data-tab="css_errors">CSS</button>
+                <button class="tab-btn" data-tab="html_errors">HTML</button>
+                <button class="tab-btn" data-tab="accessibility_errors">Acessibilidade</button>
+                <button class="tab-btn" data-tab="security_warnings">Segurança</button>
+                <button class="tab-btn" data-tab="performance_warnings">Performance</button>
+                <button class="tab-btn" data-tab="broken_links">Links</button>
+                <button class="tab-btn" data-tab="seo_warnings">SEO</button>
+            </div>
+
+            <div class="results-content" id="resultsContent">
+                <!-- Preenchido via JS -->
+            </div>
+
+            <div class="results-actions">
+                <button class="btn btn-sm btn-accent" id="btnDownloadTxt">
+                    Baixar Relatório .TXT
+                </button>
+                <button class="btn btn-sm btn-ghost" id="btnClearResults">
+                    Limpar
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ============================================ -->
+    <!-- TOAST / NOTIFICAÇÕES                         -->
+    <!-- ============================================ -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- ============================================ -->
+    <!-- LOADING OVERLAY                              -->
+    <!-- ============================================ -->
+    <div class="loading-overlay" id="loadingOverlay" style="display:none;">
+        <div class="loading-content">
+            <div class="loading-spinner-large"></div>
+            <p class="loading-text" id="loadingText">Processando...</p>
+            <p class="loading-subtext" id="loadingSubtext">Aguarde enquanto o sistema trabalha</p>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- FOOTER                                       -->
+    <!-- ============================================ -->
+    <footer class="main-footer">
+        <p>Site Backup & Error Checker &mdash; Ferramenta Profissional para Desenvolvedores</p>
+    </footer>
+
+    <!-- SCRIPT -->
+    <script src="script.js"></script>
+
+</body>
+</html>
