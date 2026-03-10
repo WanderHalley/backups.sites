@@ -1057,7 +1057,7 @@
         showToast('Resultados de busca limpos.', 'info');
     });
 
-    // ===================== INITIALIZATION =====================
+     // ===================== INITIALIZATION =====================
 
     async function init() {
         // Carregar backend URL do config.js
@@ -1065,67 +1065,64 @@
             state.backendUrl = BACKEND_CONFIG.BACKEND_URL.replace(/\/+$/, '');
         }
 
+        if (!state.backendUrl) {
+            showAuthModal();
+            return;
+        }
+
         // Verificar token salvo
         const savedToken = sessionStorage.getItem('api_token');
-        if (savedToken && state.backendUrl) {
-            state.token = savedToken;
 
-            try {
-                const statusResp = await apiJSON('/');
+        // Primeiro, verificar se o servidor está online e se precisa de auth
+        try {
+            const statusResp = await fetch(state.backendUrl + '/', {
+                method: 'GET',
+                signal: AbortSignal.timeout(10000)
+            });
+            const data = await statusResp.json();
 
-                if (statusResp.auth_required) {
-                    const authResp = await apiJSON('/auth/verify', 'POST');
-                    if (authResp.valid) {
-                        state.isAuthenticated = true;
-                        state.isConnected = true;
-                        hideAuthModal();
-                        updateServerStatus('online', 'Conectado');
-                        DOM.btnLogout.style.display = 'flex';
-                        showToast('Reconectado automaticamente!', 'success');
-                        return;
-                    }
-                } else {
-                    // Sem auth necessário
-                    state.isAuthenticated = true;
-                    state.isConnected = true;
-                    hideAuthModal();
-                    updateServerStatus('online', 'Conectado');
-                    DOM.btnLogout.style.display = 'flex';
-                    showToast('Conectado ao servidor!', 'success');
-                    return;
-                }
-            } catch (err) {
-                // Token inválido ou servidor offline
-                sessionStorage.removeItem('api_token');
-                state.token = '';
-            }
-        }
-
-        // Se não tem token ou falhou, tenta ver se servidor existe sem auth
-        if (state.backendUrl) {
-            try {
-                const statusResp = await fetch(state.backendUrl + '/', {
-                    method: 'GET',
-                    signal: AbortSignal.timeout(5000)
-                });
-                const data = await statusResp.json();
-
-                if (!data.auth_required) {
-                    state.isAuthenticated = true;
-                    state.isConnected = true;
-                    hideAuthModal();
-                    updateServerStatus('online', 'Conectado');
-                    showToast('Conectado (sem autenticação).', 'info');
-                    return;
-                }
-
+            if (data.auth_required) {
+                // Servidor EXIGE token
                 updateServerStatus('online', 'Aguardando login');
-            } catch (err) {
-                updateServerStatus('offline', 'Servidor offline');
-            }
-        }
 
-        showAuthModal();
+                if (savedToken) {
+                    // Tentar reconectar com token salvo
+                    state.token = savedToken;
+                    try {
+                        const authResp = await apiJSON('/auth/verify', 'POST');
+                        if (authResp.valid) {
+                            state.isAuthenticated = true;
+                            state.isConnected = true;
+                            hideAuthModal();
+                            updateServerStatus('online', 'Conectado');
+                            DOM.btnLogout.style.display = 'flex';
+                            showToast('Reconectado automaticamente!', 'success');
+                            return;
+                        }
+                    } catch (err) {
+                        // Token salvo inválido
+                    }
+                    // Se chegou aqui, token salvo falhou
+                    state.token = '';
+                    sessionStorage.removeItem('api_token');
+                }
+
+                // Mostrar modal de login
+                showAuthModal();
+
+            } else {
+                // Servidor NÃO exige token
+                state.isAuthenticated = true;
+                state.isConnected = true;
+                hideAuthModal();
+                updateServerStatus('online', 'Conectado');
+                showToast('Conectado (sem autenticação).', 'info');
+            }
+
+        } catch (err) {
+            updateServerStatus('offline', 'Servidor offline');
+            showAuthModal();
+        }
 
         // Banner
         console.log(
