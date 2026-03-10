@@ -416,7 +416,9 @@
         hideLoading();
     }
 
-    // ===================== INTERACTION (LOGIN) =====================
+        // ===================== INTERACTION (LOGIN) =====================
+
+    let interactViewport = { width: 1920, height: 1080 };
 
     async function openInteraction() {
         if (!state.sessionId) {
@@ -426,21 +428,48 @@
 
         DOM.interactOverlay.style.display = 'flex';
         DOM.interactTextInput.value = '';
+
+        // Capturar primeiro screenshot com viewport
         await refreshInteractionScreen();
+
+        // Iniciar auto-refresh a cada 2 segundos
         startInteractionAutoRefresh();
+
+        showToast('Clique na tela para interagir. Digite no campo abaixo.', 'info', 5000);
     }
 
     function closeInteraction() {
         DOM.interactOverlay.style.display = 'none';
         stopInteractionAutoRefresh();
+
+        // Atualizar info da sessão após interação
+        updateSessionAfterInteract();
+
         showToast('Interação finalizada. Pode continuar usando os módulos.', 'success');
+    }
+
+    async function updateSessionAfterInteract() {
+        if (!state.sessionId) return;
+        try {
+            const data = await apiJSON('/session/status', 'POST', {
+                session_id: state.sessionId
+            });
+            if (data.url) {
+                state.siteUrl = data.url;
+                state.siteTitle = data.title || 'Sem título';
+                DOM.siteTitle.textContent = state.siteTitle;
+                DOM.siteUrl.textContent = state.siteUrl;
+            }
+        } catch (err) {
+            // Silencioso
+        }
     }
 
     function startInteractionAutoRefresh() {
         stopInteractionAutoRefresh();
         state.interactInterval = setInterval(async () => {
             await refreshInteractionScreenSilent();
-        }, 3000);
+        }, 2000);
     }
 
     function stopInteractionAutoRefresh() {
@@ -458,6 +487,9 @@
             if (data.screenshot) {
                 DOM.interactScreenImg.src = 'data:image/png;base64,' + data.screenshot;
             }
+            if (data.viewport) {
+                interactViewport = data.viewport;
+            }
         } catch (err) {
             showToast('Erro ao atualizar tela: ' + err.message, 'error');
         }
@@ -471,73 +503,128 @@
             if (data.screenshot) {
                 DOM.interactScreenImg.src = 'data:image/png;base64,' + data.screenshot;
             }
+            if (data.viewport) {
+                interactViewport = data.viewport;
+            }
         } catch (err) {
             // Silencioso
         }
     }
 
     async function handleInteractClick(event) {
+        event.preventDefault();
+
         const img = DOM.interactScreenImg;
         const rect = img.getBoundingClientRect();
 
-        const scaleX = img.naturalWidth / rect.width;
-        const scaleY = img.naturalHeight / rect.height;
+        // Posição do clique relativo à imagem exibida
+        const clickX = event.clientX - rect.left;
+        const clickY = event.clientY - rect.top;
 
-        const x = Math.round((event.clientX - rect.left) * scaleX);
-        const y = Math.round((event.clientY - rect.top) * scaleY);
+        // Calcular escala: imagem exibida vs viewport real do Selenium
+        // A screenshot tem o tamanho do viewport do Selenium (1920x1080)
+        // A imagem exibida está redimensionada no CSS
+        const scaleX = interactViewport.width / rect.width;
+        const scaleY = interactViewport.height / rect.height;
 
-        // Mostrar indicador de clique
+        // Coordenadas reais no viewport do Selenium
+        const realX = Math.round(clickX * scaleX);
+        const realY = Math.round(clickY * scaleY);
+
+        // Mostrar indicador de clique visual
         const indicator = DOM.clickIndicator;
-        indicator.style.left = (event.clientX - rect.left) + 'px';
-        indicator.style.top = (event.clientY - rect.top) + 'px';
+        indicator.style.left = clickX + 'px';
+        indicator.style.top = clickY + 'px';
         indicator.style.display = 'block';
+        indicator.style.animation = 'none';
+        indicator.offsetHeight; // Force reflow
+        indicator.style.animation = 'clickPulse 0.6s ease forwards';
         setTimeout(() => { indicator.style.display = 'none'; }, 600);
+
+        // Pausar auto-refresh durante o clique
+        stopInteractionAutoRefresh();
 
         try {
             const data = await apiJSON('/interact/click', 'POST', {
                 session_id: state.sessionId,
-                x: x,
-                y: y
+                x: realX,
+                y: realY
             });
+
             if (data.screenshot) {
                 DOM.interactScreenImg.src = 'data:image/png;base64,' + data.screenshot;
             }
+
+            // Se clicou em um campo de input, focar no campo de texto
+            if (data.focused_element && data.focused_element.isInput) {
+                DOM.interactTextInput.focus();
+                DOM.interactTextInput.placeholder = 'Campo focado: ' + 
+                    data.focused_element.tag.toLowerCase() + 
+                    (data.focused_element.type ? '[type=' + data.focused_element.type + ']' : '') +
+                    ' — digite aqui e pressione Enter';
+            } else {
+                DOM.interactTextInput.placeholder = 'Digite o texto e pressione Enter...';
+            }
+
         } catch (err) {
             showToast('Erro no clique: ' + err.message, 'error');
         }
+
+        // Retomar auto-refresh
+        startInteractionAutoRefresh();
     }
 
     async function handleInteractType() {
         const text = DOM.interactTextInput.value;
         if (!text) return;
 
+        // Pausar auto-refresh
+        stopInteractionAutoRefresh();
+
         try {
             const data = await apiJSON('/interact/type', 'POST', {
                 session_id: state.sessionId,
                 text: text
             });
+
             DOM.interactTextInput.value = '';
+
             if (data.screenshot) {
                 DOM.interactScreenImg.src = 'data:image/png;base64,' + data.screenshot;
             }
+
+            showToast('Texto enviado!', 'success', 2000);
+
         } catch (err) {
             showToast('Erro ao digitar: ' + err.message, 'error');
         }
+
+        // Retomar auto-refresh
+        startInteractionAutoRefresh();
     }
 
     async function handleInteractKey(key) {
+        // Pausar auto-refresh
+        stopInteractionAutoRefresh();
+
         try {
             const data = await apiJSON('/interact/key', 'POST', {
                 session_id: state.sessionId,
                 key: key
             });
+
             if (data.screenshot) {
                 DOM.interactScreenImg.src = 'data:image/png;base64,' + data.screenshot;
             }
+
         } catch (err) {
             showToast('Erro ao pressionar tecla: ' + err.message, 'error');
         }
+
+        // Retomar auto-refresh
+        startInteractionAutoRefresh();
     }
+
 
     // ===================== BACKUP =====================
 
@@ -1134,3 +1221,4 @@
     init();
 
 })();
+
