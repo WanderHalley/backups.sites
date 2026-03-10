@@ -8,11 +8,55 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- CONFIG CARREGA PRIMEIRO -->
+    <script src="config.js"></script>
 </head>
 <body>
 
     <!-- ============================================ -->
-    <!-- PARTÍCULAS DE FUNDO (decorativo)            -->
+    <!-- MODAL DE AUTENTICAÇÃO                        -->
+    <!-- ============================================ -->
+    <div class="auth-overlay" id="authOverlay">
+        <div class="auth-modal">
+            <div class="auth-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+            </div>
+            <h2 class="auth-title">Autenticação</h2>
+            <p class="auth-subtitle">Digite o token de acesso para continuar</p>
+            <div class="auth-input-wrapper">
+                <input
+                    type="password"
+                    id="authTokenInput"
+                    placeholder="Seu token de acesso"
+                    spellcheck="false"
+                    autocomplete="off"
+                >
+                <button class="auth-toggle-visibility" id="authToggleVisibility" type="button">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="eye-icon">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                </button>
+            </div>
+            <button class="btn btn-primary btn-lg auth-btn" id="btnAuth">
+                <span class="btn-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                        <polyline points="10 17 15 12 10 7"/>
+                        <line x1="15" y1="12" x2="3" y2="12"/>
+                    </svg>
+                </span>
+                Entrar
+            </button>
+            <p class="auth-error" id="authError" style="display:none;">Token inválido. Tente novamente.</p>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PARTÍCULAS DE FUNDO                          -->
     <!-- ============================================ -->
     <div class="bg-effects">
         <div class="bg-orb bg-orb-1"></div>
@@ -48,6 +92,13 @@
                     <span class="session-icon">⚡</span>
                     <span id="sessionIdDisplay">—</span>
                 </div>
+                <button class="btn btn-sm btn-ghost btn-logout" id="btnLogout" style="display:none;" title="Sair">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                </button>
             </div>
         </div>
     </header>
@@ -55,46 +106,9 @@
     <!-- ============================================ -->
     <!-- CONTAINER PRINCIPAL                          -->
     <!-- ============================================ -->
-    <main class="main-container">
+    <main class="main-container" id="mainContainer" style="display:none;">
 
-        <!-- ======================================== -->
-        <!-- SEÇÃO: CONFIGURAÇÃO DO BACKEND           -->
-        <!-- ======================================== -->
-        <section class="config-section glass-panel">
-            <div class="section-header">
-                <div class="section-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="3"/>
-                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-                    </svg>
-                </div>
-                <h2>Configuração</h2>
-            </div>
-            <div class="config-field">
-                <label for="backendUrl">URL do Backend (Hugging Face)</label>
-                <div class="input-group">
-                    <input 
-                        type="text" 
-                        id="backendUrl" 
-                        placeholder="https://seu-space.hf.space"
-                        spellcheck="false"
-                    >
-                    <button class="btn btn-sm btn-accent" id="btnTestConnection">
-                        <span class="btn-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                                <polyline points="22 4 12 14.01 9 11.01"/>
-                            </svg>
-                        </span>
-                        Testar
-                    </button>
-                </div>
-            </div>
-        </section>
-
-        <!-- ======================================== -->
-        <!-- SEÇÃO: ABRIR SITE                        -->
-        <!-- ======================================== -->
+        <!-- SEÇÃO: ABRIR SITE -->
         <section class="url-section glass-panel">
             <div class="section-header">
                 <div class="section-icon pulse-icon">
@@ -110,9 +124,9 @@
             <div class="url-input-container">
                 <div class="url-input-wrapper">
                     <span class="url-prefix">https://</span>
-                    <input 
-                        type="text" 
-                        id="urlInput" 
+                    <input
+                        type="text"
+                        id="urlInput"
                         placeholder="www.exemplo.com"
                         spellcheck="false"
                         autocomplete="off"
@@ -173,9 +187,7 @@
             </div>
         </section>
 
-        <!-- ======================================== -->
-        <!-- SEÇÃO: MÓDULOS (BACKUP + ERROS)          -->
-        <!-- ======================================== -->
+        <!-- SEÇÃO: MÓDULOS -->
         <section class="modules-section">
             <div class="modules-grid">
 
@@ -190,14 +202,14 @@
                     </div>
                     <h3 class="module-title">Backup do Site</h3>
                     <p class="module-desc">
-                        Copia o site inteiro: HTML, CSS, JS, imagens, fontes e assets. 
+                        Copia o site inteiro: HTML, CSS, JS, imagens, fontes e assets.
                         Gera um arquivo ZIP organizado pronto para download.
                     </p>
                     <div class="module-input">
                         <label for="backupFolderName">Nome da pasta/arquivo:</label>
-                        <input 
-                            type="text" 
-                            id="backupFolderName" 
+                        <input
+                            type="text"
+                            id="backupFolderName"
                             placeholder="meu-backup"
                             spellcheck="false"
                         >
@@ -234,14 +246,14 @@
                     </div>
                     <h3 class="module-title">Verificar Erros</h3>
                     <p class="module-desc">
-                        Analisa console, JS, CSS, HTML, rede, acessibilidade, segurança, 
+                        Analisa console, JS, CSS, HTML, rede, acessibilidade, segurança,
                         performance, SEO e links quebrados.
                     </p>
                     <div class="module-input">
                         <label for="errorFolderName">Nome da pasta/arquivo:</label>
-                        <input 
-                            type="text" 
-                            id="errorFolderName" 
+                        <input
+                            type="text"
+                            id="errorFolderName"
                             placeholder="relatorio-erros"
                             spellcheck="false"
                         >
@@ -270,9 +282,7 @@
             </div>
         </section>
 
-        <!-- ======================================== -->
-        <!-- SEÇÃO: RESULTADO DOS ERROS (PREVIEW)     -->
-        <!-- ======================================== -->
+        <!-- SEÇÃO: RESULTADOS -->
         <section class="results-section glass-panel" id="resultsSection" style="display:none;">
             <div class="section-header">
                 <div class="section-icon">
@@ -307,9 +317,7 @@
                 <button class="tab-btn" data-tab="seo_warnings">SEO</button>
             </div>
 
-            <div class="results-content" id="resultsContent">
-                <!-- Preenchido via JS -->
-            </div>
+            <div class="results-content" id="resultsContent"></div>
 
             <div class="results-actions">
                 <button class="btn btn-sm btn-accent" id="btnDownloadTxt">
@@ -323,14 +331,10 @@
 
     </main>
 
-    <!-- ============================================ -->
-    <!-- TOAST / NOTIFICAÇÕES                         -->
-    <!-- ============================================ -->
+    <!-- TOAST -->
     <div class="toast-container" id="toastContainer"></div>
 
-    <!-- ============================================ -->
-    <!-- LOADING OVERLAY                              -->
-    <!-- ============================================ -->
+    <!-- LOADING OVERLAY -->
     <div class="loading-overlay" id="loadingOverlay" style="display:none;">
         <div class="loading-content">
             <div class="loading-spinner-large"></div>
@@ -339,14 +343,11 @@
         </div>
     </div>
 
-    <!-- ============================================ -->
-    <!-- FOOTER                                       -->
-    <!-- ============================================ -->
+    <!-- FOOTER -->
     <footer class="main-footer">
         <p>Site Backup & Error Checker &mdash; Ferramenta Profissional para Desenvolvedores</p>
     </footer>
 
-    <!-- SCRIPT -->
     <script src="script.js"></script>
 
 </body>
