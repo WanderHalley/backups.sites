@@ -706,6 +706,114 @@ function refreshSeleniumPage() {
         showToast('Erro ao atualizar: ' + err.message, 'error');
     });
 }
+
+// ===================== AUTO LOGIN =====================
+function autoLogin() {
+    if (!state.sessionId) {
+        showToast('Abra um site primeiro.', 'warning');
+        return;
+    }
+
+    var emailInput = document.getElementById('autoLoginEmail');
+    var passwordInput = document.getElementById('autoLoginPassword');
+    var email = emailInput ? emailInput.value.trim() : '';
+    var password = passwordInput ? passwordInput.value.trim() : '';
+
+    if (!email) {
+        showToast('Digite seu email.', 'warning');
+        if (emailInput) emailInput.focus();
+        return;
+    }
+    if (!password) {
+        showToast('Digite sua senha.', 'warning');
+        if (passwordInput) passwordInput.focus();
+        return;
+    }
+
+    showLoading('Fazendo login automático...', 'Isso pode levar alguns segundos');
+
+    apiJSON('/auto-login', 'POST', {
+        session_id: state.sessionId,
+        email: email,
+        password: password
+    }).then(function(data) {
+        hideLoading();
+
+        // Show preview
+        var previewDiv = document.getElementById('autoLoginPreview');
+        var previewImg = document.getElementById('autoLoginPreviewImg');
+        var statusDiv = document.getElementById('autoLoginStatus');
+        var stepsDiv = document.getElementById('autoLoginSteps');
+
+        if (data.screenshot && previewImg && previewDiv) {
+            previewImg.src = 'data:image/png;base64,' + data.screenshot;
+            previewDiv.classList.add('active');
+        }
+
+        // Show status
+        if (statusDiv) {
+            if (data.login_success) {
+                statusDiv.className = 'login-preview-status logged-in';
+                statusDiv.textContent = '✅ Login realizado com sucesso!';
+            } else if (data.url_changed) {
+                statusDiv.className = 'login-preview-status logged-in';
+                statusDiv.textContent = '🔄 Página mudou — verifique o preview abaixo.';
+            } else {
+                statusDiv.className = 'login-preview-status not-logged';
+                statusDiv.textContent = '⚠️ Não foi possível confirmar o login. Verifique o preview.';
+            }
+        }
+
+        // Show steps
+        if (stepsDiv && data.steps_completed) {
+            var stepsHtml = '<strong>Passos executados:</strong><br>';
+            data.steps_completed.forEach(function(step) {
+                stepsHtml += '• ' + escapeHTML(step) + '<br>';
+            });
+            stepsDiv.innerHTML = stepsHtml;
+        }
+
+        // Update session info
+        if (data.final_url) {
+            state.siteUrl = data.final_url;
+            state.siteTitle = data.final_title || state.siteTitle;
+            if (DOM.siteTitle) DOM.siteTitle.textContent = state.siteTitle;
+            if (DOM.siteUrl) DOM.siteUrl.textContent = state.siteUrl;
+        }
+
+        // Update main screenshot too
+        if (data.screenshot) {
+            if (DOM.screenshotImg) DOM.screenshotImg.src = 'data:image/png;base64,' + data.screenshot;
+            if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
+        }
+
+        // Summary toast
+        var summary = [];
+        if (data.login_button_clicked) summary.push('botão de login clicado');
+        if (data.email_filled) summary.push('email preenchido');
+        if (data.password_filled) summary.push('senha preenchida');
+        if (data.submit_clicked) summary.push('formulário enviado');
+
+        if (summary.length > 0) {
+            showToast('Ações: ' + summary.join(', ') + '.', data.login_success ? 'success' : 'info', 5000);
+        } else {
+            showToast('Login automático tentado. Verifique o preview.', 'warning', 5000);
+        }
+
+    }).catch(function(err) {
+        hideLoading();
+        showToast('Erro no login automático: ' + err.message, 'error');
+    });
+}
+
+function toggleAutoLoginPassword() {
+    var input = document.getElementById('autoLoginPassword');
+    var btn = document.getElementById('btnToggleAutoPass');
+    if (!input) return;
+    var type = input.type === 'password' ? 'text' : 'password';
+    input.type = type;
+    if (btn) btn.textContent = type === 'password' ? '👁️' : '🙈';
+}
     
 // ===================== BACKUP MODULE =====================
 function backupSite() {
@@ -1228,6 +1336,25 @@ function setupEventListeners() {
 
     var btnRefreshSelenium = document.getElementById('btnRefreshSelenium');
     if (btnRefreshSelenium) btnRefreshSelenium.addEventListener('click', refreshSeleniumPage);
+        // Auto login
+    var btnAutoLogin = document.getElementById('btnAutoLogin');
+    if (btnAutoLogin) btnAutoLogin.addEventListener('click', autoLogin);
+
+    var btnToggleAutoPass = document.getElementById('btnToggleAutoPass');
+    if (btnToggleAutoPass) btnToggleAutoPass.addEventListener('click', toggleAutoLoginPassword);
+
+    var autoLoginPassword = document.getElementById('autoLoginPassword');
+    if (autoLoginPassword) autoLoginPassword.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') autoLogin();
+    });
+
+    var autoLoginEmail = document.getElementById('autoLoginEmail');
+    if (autoLoginEmail) autoLoginEmail.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            var passField = document.getElementById('autoLoginPassword');
+            if (passField) passField.focus();
+        }
+    });
 
 
     // Modules
@@ -1386,4 +1513,5 @@ if (document.readyState === 'loading') {
 }
 
 })();
+
 
