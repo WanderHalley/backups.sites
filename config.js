@@ -1,5 +1,8 @@
-const BACKEND_CONFIG = {
+/*
+ * Site Backup & Error Checker - Configuration
+ * v1.3.0
+ */
+var BACKEND_CONFIG = {
     BACKEND_URL: "https://wanderhalleylee-backupsites.hf.space",
-    REQUEST_TIMEOUT: 120000,
-    VERSION: "1.2.0"
+    VERSION: "1.3.0"
 };
