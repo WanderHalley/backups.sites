@@ -616,6 +616,97 @@ function finishLogin() {
     showToast('Login finalizado! Agora use os módulos de Backup, Erros e Busca.', 'success', 5000);
 }
 
+// ===================== SCROLL =====================
+function scrollPage(direction) {
+    if (!state.sessionId) {
+        showToast('Nenhuma sessão ativa.', 'warning');
+        return;
+    }
+
+    apiJSON('/scroll', 'POST', {
+        session_id: state.sessionId,
+        direction: direction,
+        amount: 400
+    }).then(function(data) {
+        if (data.screenshot && DOM.screenshotImg) {
+            DOM.screenshotImg.src = 'data:image/png;base64,' + data.screenshot;
+            if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
+        }
+        var info = data.scroll_info || {};
+        var pct = 0;
+        if (info.scrollHeight && info.clientHeight) {
+            pct = Math.round((info.scrollTop / (info.scrollHeight - info.clientHeight)) * 100);
+        }
+        showToast('Scroll ' + (direction === 'up' ? '⬆️ cima' : '⬇️ baixo') + ' — ' + pct + '%', 'info', 1500);
+    }).catch(function(err) {
+        showToast('Erro no scroll: ' + err.message, 'error');
+    });
+}
+
+// ===================== GET SELENIUM COOKIES =====================
+function getSeleniumCookies() {
+    if (!state.sessionId) {
+        showToast('Nenhuma sessão ativa.', 'warning');
+        return;
+    }
+
+    showLoading('Capturando cookies do Selenium...');
+
+    apiJSON('/get-selenium-cookies', 'POST', {
+        session_id: state.sessionId
+    }).then(function(data) {
+        hideLoading();
+
+        if (data.cookies && data.cookies.length > 0) {
+            // Put cookies in the paste area for the user to see
+            if (DOM.cookiePasteArea) {
+                DOM.cookiePasteArea.value = JSON.stringify(data.cookies, null, 2);
+            }
+            showToast('Capturados ' + data.total + ' cookies do Selenium! Agora clique em "Sincronizar Cookies".', 'success', 5000);
+        } else {
+            showToast('Nenhum cookie encontrado na sessão do Selenium. Faça login na nova aba primeiro.', 'warning', 5000);
+        }
+    }).catch(function(err) {
+        hideLoading();
+        showToast('Erro ao capturar cookies: ' + err.message, 'error');
+    });
+}
+
+// ===================== REFRESH SELENIUM PAGE =====================
+function refreshSeleniumPage() {
+    if (!state.sessionId) {
+        showToast('Nenhuma sessão ativa.', 'warning');
+        return;
+    }
+
+    showLoading('Atualizando página no Selenium...');
+
+    apiJSON('/refresh-page', 'POST', {
+        session_id: state.sessionId
+    }).then(function(data) {
+        hideLoading();
+
+        if (data.url) {
+            state.siteUrl = data.url;
+            state.siteTitle = data.title || state.siteTitle;
+            if (DOM.siteTitle) DOM.siteTitle.textContent = state.siteTitle;
+            if (DOM.siteUrl) DOM.siteUrl.textContent = state.siteUrl;
+        }
+
+        if (data.screenshot) {
+            if (DOM.screenshotImg) DOM.screenshotImg.src = 'data:image/png;base64,' + data.screenshot;
+            if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
+            if (DOM.loginPreviewImg) DOM.loginPreviewImg.src = 'data:image/png;base64,' + data.screenshot;
+            if (DOM.loginPreview) DOM.loginPreview.classList.add('active');
+        }
+
+        showToast('Página atualizada!', 'success');
+    }).catch(function(err) {
+        hideLoading();
+        showToast('Erro ao atualizar: ' + err.message, 'error');
+    });
+}
+    
 // ===================== BACKUP MODULE =====================
 function backupSite() {
     if (!state.sessionId) {
@@ -1124,6 +1215,20 @@ function setupEventListeners() {
 
     var btnLoginDone = document.getElementById('btnLoginDone');
     if (btnLoginDone) btnLoginDone.addEventListener('click', finishLogin);
+        // Scroll
+    var btnScrollUp = document.getElementById('btnScrollUp');
+    if (btnScrollUp) btnScrollUp.addEventListener('click', function() { scrollPage('up'); });
+
+    var btnScrollDown = document.getElementById('btnScrollDown');
+    if (btnScrollDown) btnScrollDown.addEventListener('click', function() { scrollPage('down'); });
+
+    // Selenium cookies & refresh
+    var btnGetSeleniumCookies = document.getElementById('btnGetSeleniumCookies');
+    if (btnGetSeleniumCookies) btnGetSeleniumCookies.addEventListener('click', getSeleniumCookies);
+
+    var btnRefreshSelenium = document.getElementById('btnRefreshSelenium');
+    if (btnRefreshSelenium) btnRefreshSelenium.addEventListener('click', refreshSeleniumPage);
+
 
     // Modules
     if (DOM.btnBackup) DOM.btnBackup.addEventListener('click', backupSite);
@@ -1281,3 +1386,4 @@ if (document.readyState === 'loading') {
 }
 
 })();
+
