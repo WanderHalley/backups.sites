@@ -65,9 +65,18 @@
                             <button class="btn-step primary" id="btnCopyCommand" style="font-size:12px; padding:6px 14px;">📋 Copiar Comando</button>
                         </div>
                         <div class="cookie-method">
-                            <div class="cookie-method-title">📥 Colar Cookies Aqui</div>
-                            <textarea class="cookie-paste-area" id="cookiePasteArea" rows="4" placeholder="Após executar o comando, volte aqui e pressione Ctrl+V para colar os cookies..."></textarea>
-                        </div>
+    <div class="cookie-method-title">📥 Colar Cookies Aqui</div>
+    <textarea class="cookie-paste-area" id="cookiePasteArea" rows="4" placeholder="Após executar o comando, volte aqui e pressione Ctrl+V para colar os cookies..."></textarea>
+</div>
+<div class="cookie-method">
+    <div class="cookie-method-title">🤖 Método Alternativo — Capturar do Selenium</div>
+    <p class="step-description" style="margin-bottom:8px; font-size:12px;">Se o comando do console não funcionou, abra o site na nova aba, faça login, depois clique abaixo para o Selenium capturar os cookies da própria sessão dele.</p>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn-step primary" id="btnGetSeleniumCookies" style="font-size:12px; padding:8px 14px;">🤖 Capturar Cookies do Selenium</button>
+        <button class="btn-step primary" id="btnRefreshSelenium" style="font-size:12px; padding:8px 14px;">🔄 Atualizar Página no Selenium</button>
+    </div>
+</div>
+
                     </div>
                 </div>
 
@@ -155,17 +164,24 @@
                         <span class="site-status-badge open" id="siteStatusBadge">● Aberto</span>
                     </div>
                 </div>
-                <div class="site-actions">
-                    <button class="btn-action primary" id="btnScreenshot">
-                        <span>📸</span> Screenshot
-                    </button>
-                    <button class="btn-action primary" id="btnInteract">
-                        <span>🔑</span> Login no Site
-                    </button>
-                    <button class="btn-action danger" id="btnClose">
-                        <span>✖</span> Fechar
-                    </button>
-                </div>
+               <div class="site-actions">
+    <button class="btn-action primary" id="btnScreenshot">
+        <span>📸</span> Screenshot
+    </button>
+    <button class="btn-action primary" id="btnInteract">
+        <span>🔑</span> Login no Site
+    </button>
+    <button class="btn-action" id="btnScrollUp">
+        <span>⬆️</span> Subir
+    </button>
+    <button class="btn-action" id="btnScrollDown">
+        <span>⬇️</span> Descer
+    </button>
+    <button class="btn-action danger" id="btnClose">
+        <span>✖</span> Fechar
+    </button>
+</div>
+
             </div>
             <div class="screenshot-preview" id="screenshotPreview">
                 <img id="screenshotImg" src="" alt="Screenshot do site">
@@ -323,3 +339,4 @@
 
 </body>
 </html>
+
