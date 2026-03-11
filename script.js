@@ -337,22 +337,28 @@ function openSite() {
 
 function takeScreenshot() {
     if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
-    apiJSON('/screenshot', 'POST', { session_id: state.sessionId })
-        .then(function(data) {
-            if (data.screenshot) {
-                var src = 'data:image/png;base64,' + data.screenshot;
-                if (DOM.screenshotImg) DOM.screenshotImg.src = src;
-                if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
+    apiBlob('/screenshot', 'POST', { session_id: state.sessionId })
+        .then(function(response) {
+            if (!response.ok) {
+                return response.text().then(function(t) {
+                    var msg = 'Erro ' + response.status;
+                    try { var d = JSON.parse(t); if (d.detail) msg = d.detail; } catch(e) { if (t) msg = t; }
+                    throw new Error(msg);
+                });
             }
-            // Update title/url if returned
-            if (data.title) {
-                state.siteTitle = data.title;
-                if (DOM.siteTitle) DOM.siteTitle.textContent = data.title;
+            return response.blob();
+        })
+        .then(function(blob) {
+            if (!blob) return;
+            var url = URL.createObjectURL(blob);
+            if (DOM.screenshotImg) {
+                // Revoke old URL to free memory
+                if (DOM.screenshotImg.src && DOM.screenshotImg.src.startsWith('blob:')) {
+                    URL.revokeObjectURL(DOM.screenshotImg.src);
+                }
+                DOM.screenshotImg.src = url;
             }
-            if (data.url) {
-                state.siteUrl = data.url;
-                if (DOM.siteUrl) DOM.siteUrl.textContent = data.url;
-            }
+            if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
         }).catch(function(err) {
             showToast('Erro ao tirar screenshot: ' + err.message, 'error');
         });
@@ -548,8 +554,42 @@ function refreshSeleniumPage() {
 }
 
 function refreshPreview() {
-    takeScreenshot();
+    if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
+    apiBlob('/screenshot', 'POST', { session_id: state.sessionId })
+        .then(function(response) {
+            if (!response.ok) {
+                return response.text().then(function(t) {
+                    var msg = 'Erro ' + response.status;
+                    try { var d = JSON.parse(t); if (d.detail) msg = d.detail; } catch(e) { if (t) msg = t; }
+                    throw new Error(msg);
+                });
+            }
+            return response.blob();
+        })
+        .then(function(blob) {
+            if (!blob) return;
+            var url = URL.createObjectURL(blob);
+            if (DOM.screenshotImg) {
+                if (DOM.screenshotImg.src && DOM.screenshotImg.src.startsWith('blob:')) {
+                    URL.revokeObjectURL(DOM.screenshotImg.src);
+                }
+                DOM.screenshotImg.src = url;
+            }
+            if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
+            // Also update login preview if visible
+            if (DOM.loginPreviewImg) {
+                if (DOM.loginPreviewImg.src && DOM.loginPreviewImg.src.startsWith('blob:')) {
+                    URL.revokeObjectURL(DOM.loginPreviewImg.src);
+                }
+                DOM.loginPreviewImg.src = url;
+            }
+            if (DOM.loginPreview) DOM.loginPreview.classList.add('active');
+            showToast('Preview atualizado!', 'success');
+        }).catch(function(err) {
+            showToast('Erro ao atualizar preview: ' + err.message, 'error');
+        });
 }
+
 
 // ===================== AUTO LOGIN =====================
 function autoLogin() {
@@ -1198,3 +1238,4 @@ if (document.readyState === 'loading') {
 }
 
 })();
+
