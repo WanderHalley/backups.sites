@@ -1025,11 +1025,15 @@ body {
     background: rgba(10, 10, 26, 0.92);
     backdrop-filter: blur(12px);
     z-index: 9000;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     padding: 20px;
     animation: fadeIn 0.3s ease;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
+
+
 
 .login-panel {
     background: rgba(255, 255, 255, 0.05);
@@ -1040,7 +1044,10 @@ body {
     width: 100%;
     max-width: 560px;
     animation: slideUp 0.4s ease;
+    margin: 20px auto;
+    max-height: none;
 }
+
 
 .login-panel-header {
     text-align: center;
@@ -1611,3 +1618,4 @@ body {
         font-size: 12px;
     }
 }
+
