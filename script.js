@@ -1,36 +1,28 @@
 // ============================================================
 // Site Backup & Error Checker - Frontend v1.3.0
 // ============================================================
+(function() {
+'use strict';
 
-(function () {
-    'use strict';
+// ===================== EXTENSION ID =====================
+let EXTENSION_ID = '';
 
-    // ===================== EXTENSION ID =====================
-    // Após instalar a extensão, copie o ID dela e cole aqui
-    // chrome://extensions → copie o ID da extensão "Site Backup - Cookie Sync"
-    var EXTENSION_ID = '';
+// ===================== STATE =====================
+const state = {
+    backendUrl: '',
+    token: null,
+    sessionId: null,
+    siteUrl: '',
+    siteTitle: '',
+    isConnected: false,
+    isAuthenticated: false,
+    extensionInstalled: false,
+    lastErrorReport: null,
+    lastSearchReport: null
+};
 
-    // Tentar carregar do config.js
-    if (typeof BACKEND_CONFIG !== 'undefined' && BACKEND_CONFIG.EXTENSION_ID) {
-        EXTENSION_ID = BACKEND_CONFIG.EXTENSION_ID;
-    }
-
-    // ===================== STATE =====================
-    const state = {
-        backendUrl: '',
-        token: '',
-        sessionId: null,
-        siteUrl: '',
-        siteTitle: '',
-        isConnected: false,
-        isAuthenticated: false,
-        extensionInstalled: false,
-        lastErrorReport: null,
-        lastSearchReport: null
-    };
-
-    // ===================== DOM ELEMENTS =====================
-   let DOM = {};
+// ===================== DOM (initialized later) =====================
+let DOM = {};
 
 function setupDOM() {
     DOM = {
@@ -67,19 +59,21 @@ function setupDOM() {
         loginPreviewImg: document.getElementById('loginPreviewImg'),
         loginPreviewStatus: document.getElementById('loginPreviewStatus'),
 
-        // Modules
+        // Backup
         backupFolder: document.getElementById('backupFolder'),
         btnBackup: document.getElementById('btnBackup'),
         backupProgress: document.getElementById('backupProgress'),
         backupProgressFill: document.getElementById('backupProgressFill'),
         backupProgressText: document.getElementById('backupProgressText'),
 
+        // Errors
         errorsFolder: document.getElementById('errorsFolder'),
         btnErrors: document.getElementById('btnErrors'),
         errorsProgress: document.getElementById('errorsProgress'),
         errorsProgressFill: document.getElementById('errorsProgressFill'),
         errorsProgressText: document.getElementById('errorsProgressText'),
 
+        // Search
         searchTerm: document.getElementById('searchTerm'),
         searchFolder: document.getElementById('searchFolder'),
         btnSearch: document.getElementById('btnSearch'),
@@ -93,868 +87,767 @@ function setupDOM() {
         searchResultsSection: document.getElementById('searchResultsSection'),
         searchContent: document.getElementById('searchContent'),
 
+        // Downloads & Clear
+        btnDownloadErrors: document.getElementById('btnDownloadErrors'),
+        btnDownloadSearch: document.getElementById('btnDownloadSearch'),
+        btnClearErrors: document.getElementById('btnClearErrors'),
+        btnClearSearch: document.getElementById('btnClearSearch'),
+
         // Toast & Loading
         toastContainer: document.getElementById('toastContainer'),
         loadingOverlay: document.getElementById('loadingOverlay'),
         loadingText: document.getElementById('loadingText'),
         loadingSubtext: document.getElementById('loadingSubtext')
     };
+
+    // Verify critical elements
+    var missing = [];
+    Object.keys(DOM).forEach(function(key) {
+        if (!DOM[key]) missing.push(key);
+    });
+    if (missing.length > 0) {
+        console.error('DOM elements missing:', missing.join(', '));
+    } else {
+        console.log('All DOM elements loaded successfully.');
+    }
 }
 
-    // ===================== UTILITIES =====================
-    function showToast(message, type, duration) {
-        type = type || 'info';
-        duration = duration || 4000;
-        var toast = document.createElement('div');
-        toast.className = 'toast toast-' + type;
-        toast.textContent = message;
-        DOM.toastContainer.appendChild(toast);
-        setTimeout(function () {
-            toast.style.animationDelay = '0s';
-            toast.style.animation = 'toastOut 0.3s ease forwards';
-            setTimeout(function () { toast.remove(); }, 300);
-        }, duration);
+// ===================== UTILITIES =====================
+function showToast(message, type, duration) {
+    type = type || 'info';
+    duration = duration || 4000;
+    if (!DOM.toastContainer) return;
+
+    var icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+    var toast = document.createElement('div');
+    toast.className = 'toast ' + type;
+    toast.innerHTML = '<span class="toast-icon">' + (icons[type] || 'ℹ️') + '</span><span>' + message + '</span>';
+    DOM.toastContainer.appendChild(toast);
+
+    setTimeout(function() {
+        toast.classList.add('removing');
+        setTimeout(function() {
+            if (toast.parentNode) toast.parentNode.removeChild(toast);
+        }, 300);
+    }, duration);
+}
+
+function showLoading(text, subtext) {
+    if (!DOM.loadingOverlay) return;
+    DOM.loadingText.textContent = text || 'Processando...';
+    DOM.loadingSubtext.textContent = subtext || '';
+    DOM.loadingOverlay.classList.add('active');
+}
+
+function hideLoading() {
+    if (!DOM.loadingOverlay) return;
+    DOM.loadingOverlay.classList.remove('active');
+}
+
+function updateServerStatus(status, text) {
+    if (!DOM.serverStatusDot || !DOM.serverStatusText) return;
+    DOM.serverStatusDot.className = 'status-dot ' + status;
+    DOM.serverStatusText.textContent = text || status;
+}
+
+function updateSessionBadge(show, text) {
+    if (!DOM.sessionBadge) return;
+    if (show) {
+        DOM.sessionBadge.classList.add('active');
+        if (DOM.sessionBadgeText) DOM.sessionBadgeText.textContent = text || 'Sessão ativa';
+    } else {
+        DOM.sessionBadge.classList.remove('active');
+    }
+}
+
+function updateModuleButtons(enabled) {
+    var buttons = [DOM.btnBackup, DOM.btnErrors, DOM.btnSearch];
+    buttons.forEach(function(btn) {
+        if (btn) btn.disabled = !enabled;
+    });
+}
+
+function downloadBlob(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function simulateProgress(fillEl, textEl, containerEl, steps) {
+    return new Promise(function(resolve) {
+        if (containerEl) containerEl.classList.add('active');
+        var i = 0;
+        var interval = setInterval(function() {
+            if (i < steps.length) {
+                if (fillEl) fillEl.style.width = steps[i].pct + '%';
+                if (textEl) textEl.textContent = steps[i].text;
+                i++;
+            } else {
+                clearInterval(interval);
+                resolve();
+            }
+        }, 800);
+    });
+}
+
+function escapeHTML(str) {
+    if (!str) return '';
+    var div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// ===================== API HELPERS =====================
+function apiRequest(endpoint, method, body, isBlob) {
+    method = method || 'GET';
+    isBlob = isBlob || false;
+
+    var url = state.backendUrl + endpoint;
+    var timeout = 120000;
+    if (typeof BACKEND_CONFIG !== 'undefined' && BACKEND_CONFIG.REQUEST_TIMEOUT) {
+        timeout = BACKEND_CONFIG.REQUEST_TIMEOUT;
     }
 
-    function showLoading(text, subtext) {
-        DOM.loadingText.textContent = text || 'Processando...';
-        DOM.loadingSubtext.textContent = subtext || '';
-        DOM.loadingOverlay.style.display = 'flex';
+    var headers = {};
+    if (state.token) {
+        headers['Authorization'] = 'Bearer ' + state.token;
+    }
+    if (body && typeof body === 'object') {
+        headers['Content-Type'] = 'application/json';
     }
 
-    function hideLoading() {
-        DOM.loadingOverlay.style.display = 'none';
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function() { controller.abort(); }, timeout);
+
+    var options = {
+        method: method,
+        headers: headers,
+        signal: controller.signal
+    };
+    if (body) {
+        options.body = JSON.stringify(body);
     }
 
-    function updateServerStatus(status, text) {
-        DOM.serverStatus.className = 'server-status ' + status;
-        DOM.serverStatus.querySelector('span').textContent = text;
-    }
-
-    function updateSessionBadge(show, text) {
-        DOM.sessionBadge.style.display = show ? 'flex' : 'none';
-        DOM.sessionBadgeText.textContent = text || 'Sessão ativa';
-    }
-
-    function updateModuleButtons(enabled) {
-        DOM.btnBackup.disabled = !enabled;
-        DOM.btnErrors.disabled = !enabled;
-        DOM.btnSearch.disabled = !enabled;
-    }
-
-    function downloadBlob(blob, filename) {
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
-
-    function simulateProgress(fillEl, textEl, containerEl, steps) {
-        return new Promise(function (resolve) {
-            containerEl.style.display = 'flex';
-            var i = 0;
-            var interval = setInterval(function () {
-                if (i < steps.length) {
-                    fillEl.style.width = steps[i].percent + '%';
-                    textEl.textContent = steps[i].percent + '%';
-                    i++;
-                } else {
-                    clearInterval(interval);
-                    resolve();
-                }
-            }, 600);
-        });
-    }
-
-    function escapeHTML(str) {
-        if (!str) return '';
-        var div = document.createElement('div');
-        div.appendChild(document.createTextNode(str));
-        return div.innerHTML;
-    }
-
-    // ===================== API HELPERS =====================
-    async function apiRequest(endpoint, method, body, isBlob) {
-        method = method || 'GET';
-        isBlob = isBlob || false;
-        var url = state.backendUrl + endpoint;
-        var headers = {};
-
-        if (state.token) {
-            headers['Authorization'] = 'Bearer ' + state.token;
+    return fetch(url, options).then(function(response) {
+        clearTimeout(timeoutId);
+        if (!response.ok) {
+            return response.json().then(function(errData) {
+                throw new Error(errData.detail || 'Erro ' + response.status);
+            }).catch(function(e) {
+                if (e.message && !e.message.startsWith('Erro ')) throw e;
+                throw new Error('Erro ' + response.status);
+            });
         }
-
-        var options = { method: method, headers: headers };
-
-        if (body) {
-            headers['Content-Type'] = 'application/json';
-            options.body = JSON.stringify(body);
+        if (isBlob) return response;
+        return response.json();
+    }).catch(function(err) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+            throw new Error('Timeout: servidor não respondeu a tempo.');
         }
+        throw err;
+    });
+}
 
-        var controller = new AbortController();
-        var timeoutMs = (typeof BACKEND_CONFIG !== 'undefined' && BACKEND_CONFIG.REQUEST_TIMEOUT) ? BACKEND_CONFIG.REQUEST_TIMEOUT : 120000;
-        var timeout = setTimeout(function () { controller.abort(); }, timeoutMs);
-        options.signal = controller.signal;
+function apiJSON(endpoint, method, body) {
+    return apiRequest(endpoint, method, body, false);
+}
 
-        try {
-            var response = await fetch(url, options);
-            clearTimeout(timeout);
+function apiBlob(endpoint, method, body) {
+    return apiRequest(endpoint, method, body, true);
+}
 
-            if (!response.ok) {
-                var errorMsg = 'Erro ' + response.status;
-                try {
-                    var errData = await response.json();
-                    errorMsg = errData.detail || errorMsg;
-                } catch (e) { }
-                throw new Error(errorMsg);
-            }
-
-            if (isBlob) {
-                return response;
-            }
-
-            return await response.json();
-        } catch (err) {
-            clearTimeout(timeout);
-            if (err.name === 'AbortError') {
-                throw new Error('Timeout: o servidor demorou para responder.');
-            }
-            throw err;
-        }
-    }
-
-    async function apiJSON(endpoint, method, body) {
-        return apiRequest(endpoint, method, body, false);
-    }
-
-    async function apiBlob(endpoint, method, body) {
-        return apiRequest(endpoint, method, body, true);
-    }
-
-    // ===================== EXTENSION COMMUNICATION =====================
-    function checkExtension() {
-        return new Promise(function (resolve) {
-            if (!EXTENSION_ID) {
-                resolve(false);
-                return;
-            }
-
-            try {
-                chrome.runtime.sendMessage(EXTENSION_ID, { action: 'ping' }, function (response) {
-                    if (chrome.runtime.lastError || !response) {
-                        resolve(false);
-                        return;
-                    }
-                    if (response.success) {
-                        resolve(true);
-                    } else {
-                        resolve(false);
-                    }
-                });
-            } catch (e) {
-                resolve(false);
-            }
-        });
-    }
-
-    function getCookiesFromExtension(url) {
-        return new Promise(function (resolve, reject) {
-            if (!EXTENSION_ID) {
-                reject(new Error('ID da extensão não configurado. Adicione EXTENSION_ID no config.js'));
-                return;
-            }
-
-            if (!state.extensionInstalled) {
-                reject(new Error('Extensão não detectada. Instale a extensão e recarregue a página.'));
-                return;
-            }
-
-            try {
-                chrome.runtime.sendMessage(EXTENSION_ID, { action: 'getCookiesFromTab', url: url }, function (response) {
-                    if (chrome.runtime.lastError) {
-                        reject(new Error('Erro na comunicação com a extensão: ' + chrome.runtime.lastError.message));
-                        return;
-                    }
-
-                    if (!response) {
-                        reject(new Error('Sem resposta da extensão. Verifique se está instalada.'));
-                        return;
-                    }
-
-                    if (response.success) {
-                        resolve(response);
-                    } else {
-                        reject(new Error(response.error || 'Erro ao capturar cookies'));
-                    }
-                });
-            } catch (e) {
-                reject(new Error('Falha ao comunicar com a extensão: ' + e.message));
-            }
-        });
-    }
-
-    // ===================== AUTHENTICATION =====================
-    function showAuthModal() {
-        DOM.authOverlay.style.display = 'flex';
-        DOM.authError.textContent = '';
-        DOM.authTokenInput.value = '';
-        DOM.authTokenInput.focus();
-    }
-
-    function hideAuthModal() {
-        DOM.authOverlay.style.display = 'none';
-    }
-
-    async function authenticate() {
-        var token = DOM.authTokenInput.value.trim();
-        if (!token) {
-            DOM.authError.textContent = 'Digite o token de acesso.';
+// ===================== EXTENSION COMMUNICATION =====================
+function checkExtension() {
+    return new Promise(function(resolve) {
+        if (!EXTENSION_ID) {
+            resolve(false);
             return;
         }
-
-        DOM.btnAuth.disabled = true;
-        DOM.authError.textContent = '';
-
         try {
-            if (typeof BACKEND_CONFIG !== 'undefined' && BACKEND_CONFIG.BACKEND_URL) {
-                state.backendUrl = BACKEND_CONFIG.BACKEND_URL.replace(/\/+$/, '');
-            } else {
-                DOM.authError.textContent = 'Erro: config.js não encontrado.';
-                DOM.btnAuth.disabled = false;
-                return;
-            }
-
-            state.token = token;
-            var statusResp = await apiJSON('/');
-
-            if (statusResp.auth_required) {
-                var authResp = await apiJSON('/auth/verify', 'POST');
-                if (!authResp.valid) {
-                    DOM.authError.textContent = 'Token inválido.';
-                    state.token = '';
-                    DOM.btnAuth.disabled = false;
+            chrome.runtime.sendMessage(EXTENSION_ID, { action: 'ping' }, function(response) {
+                if (chrome.runtime.lastError) {
+                    resolve(false);
                     return;
                 }
-            }
-
-            state.isAuthenticated = true;
-            state.isConnected = true;
-            sessionStorage.setItem('api_token', token);
-
-            hideAuthModal();
-            updateServerStatus('online', 'Conectado');
-            DOM.btnLogout.style.display = 'flex';
-            showToast('Autenticado com sucesso!', 'success');
-
-        } catch (err) {
-            DOM.authError.textContent = 'Erro ao conectar: ' + err.message;
-            state.token = '';
+                resolve(response && response.success);
+            });
+        } catch (e) {
+            resolve(false);
         }
+    });
+}
 
-        DOM.btnAuth.disabled = false;
+function getCookiesFromExtension(url) {
+    return new Promise(function(resolve, reject) {
+        if (!EXTENSION_ID) {
+            reject(new Error('Extension ID não configurado.'));
+            return;
+        }
+        try {
+            chrome.runtime.sendMessage(EXTENSION_ID, { action: 'getCookies', url: url }, function(response) {
+                if (chrome.runtime.lastError) {
+                    reject(new Error('Extensão não respondeu.'));
+                    return;
+                }
+                if (response && response.success) {
+                    resolve(response.cookies);
+                } else {
+                    reject(new Error(response ? response.error : 'Erro desconhecido'));
+                }
+            });
+        } catch (e) {
+            reject(new Error('Falha ao comunicar com extensão.'));
+        }
+    });
+}
+
+// ===================== AUTH =====================
+function showAuthModal() {
+    if (DOM.authOverlay) DOM.authOverlay.style.display = 'flex';
+}
+
+function hideAuthModal() {
+    if (DOM.authOverlay) DOM.authOverlay.style.display = 'none';
+}
+
+function authenticate() {
+    var token = DOM.authTokenInput ? DOM.authTokenInput.value.trim() : '';
+    if (!token) {
+        showToast('Digite o token de acesso.', 'warning');
+        return;
     }
 
-    function logout() {
-        state.token = '';
+    showLoading('Autenticando...');
+
+    fetch(state.backendUrl + '/auth/verify', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+        }
+    }).then(function(resp) {
+        hideLoading();
+        if (resp.ok) {
+            state.token = token;
+            state.isAuthenticated = true;
+            sessionStorage.setItem('auth_token', token);
+            hideAuthModal();
+            updateServerStatus('online', 'Autenticado');
+            if (DOM.btnLogout) DOM.btnLogout.style.display = 'flex';
+            updateModuleButtons(false);
+            showToast('Autenticado com sucesso!', 'success');
+        } else {
+            showToast('Token inválido.', 'error');
+        }
+    }).catch(function(err) {
+        hideLoading();
+        showToast('Erro na autenticação: ' + err.message, 'error');
+    });
+}
+
+function logout() {
+    state.token = null;
+    state.isAuthenticated = false;
+    state.sessionId = null;
+    state.siteUrl = '';
+    state.siteTitle = '';
+    sessionStorage.removeItem('auth_token');
+
+    if (DOM.btnLogout) DOM.btnLogout.style.display = 'none';
+    if (DOM.siteStatus) DOM.siteStatus.classList.remove('active');
+    if (DOM.screenshotPreview) DOM.screenshotPreview.classList.remove('active');
+    updateSessionBadge(false);
+    updateModuleButtons(false);
+    updateServerStatus('online', 'Desconectado');
+    showAuthModal();
+    showToast('Logout realizado.', 'info');
+}
+
+function togglePasswordVisibility() {
+    if (!DOM.authTokenInput) return;
+    var type = DOM.authTokenInput.type === 'password' ? 'text' : 'password';
+    DOM.authTokenInput.type = type;
+    if (DOM.authToggleVisibility) {
+        DOM.authToggleVisibility.textContent = type === 'password' ? '👁️' : '🙈';
+    }
+}
+
+// ===================== SITE ACTIONS =====================
+function openSite() {
+    var url = DOM.urlInput ? DOM.urlInput.value.trim() : '';
+    if (!url) {
+        showToast('Digite a URL do site.', 'warning');
+        return;
+    }
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+    }
+
+    showLoading('Abrindo site...', url);
+
+    apiJSON('/open', 'POST', { url: url }).then(function(data) {
+        hideLoading();
+        state.sessionId = data.session_id;
+        state.siteUrl = data.url || url;
+        state.siteTitle = data.title || 'Sem título';
+
+        if (DOM.siteTitle) DOM.siteTitle.textContent = state.siteTitle;
+        if (DOM.siteUrl) DOM.siteUrl.textContent = state.siteUrl;
+        if (DOM.siteStatus) DOM.siteStatus.classList.add('active');
+
+        updateSessionBadge(true, 'Sessão ativa');
+        updateModuleButtons(true);
+        showToast('Site aberto com sucesso!', 'success');
+    }).catch(function(err) {
+        hideLoading();
+        showToast('Erro ao abrir site: ' + err.message, 'error');
+    });
+}
+
+function takeScreenshot() {
+    if (!state.sessionId) {
+        showToast('Nenhuma sessão ativa.', 'warning');
+        return;
+    }
+
+    showLoading('Capturando screenshot...');
+
+    apiBlob('/screenshot', 'POST', { session_id: state.sessionId }).then(function(response) {
+        return response.blob();
+    }).then(function(blob) {
+        hideLoading();
+        var imgUrl = URL.createObjectURL(blob);
+        if (DOM.screenshotImg) DOM.screenshotImg.src = imgUrl;
+        if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
+        showToast('Screenshot capturado!', 'success');
+    }).catch(function(err) {
+        hideLoading();
+        showToast('Erro no screenshot: ' + err.message, 'error');
+    });
+}
+
+function closeSession() {
+    if (!state.sessionId) {
+        showToast('Nenhuma sessão ativa.', 'warning');
+        return;
+    }
+
+    showLoading('Fechando sessão...');
+
+    apiJSON('/close', 'POST', { session_id: state.sessionId }).then(function() {
+        hideLoading();
         state.sessionId = null;
-        state.isAuthenticated = false;
-        state.isConnected = false;
         state.siteUrl = '';
         state.siteTitle = '';
-        state.lastErrorReport = null;
-        state.lastSearchReport = null;
 
-        sessionStorage.removeItem('api_token');
-
-        updateServerStatus('', 'Desconectado');
+        if (DOM.siteStatus) DOM.siteStatus.classList.remove('active');
+        if (DOM.screenshotPreview) DOM.screenshotPreview.classList.remove('active');
+        if (DOM.screenshotImg) DOM.screenshotImg.src = '';
         updateSessionBadge(false);
         updateModuleButtons(false);
+        showToast('Sessão encerrada.', 'success');
+    }).catch(function(err) {
+        hideLoading();
+        showToast('Erro ao fechar: ' + err.message, 'error');
+    });
+}
 
-        DOM.siteStatus.style.display = 'none';
-        DOM.screenshotPreview.style.display = 'none';
-        DOM.errorResultsSection.style.display = 'none';
-        DOM.searchResultsSection.style.display = 'none';
-        DOM.btnLogout.style.display = 'none';
+// ===================== INTERACTION / LOGIN =====================
+function openInteraction() {
+    if (!state.sessionId) {
+        showToast('Abra um site primeiro.', 'warning');
+        return;
+    }
+    if (DOM.interactOverlay) DOM.interactOverlay.style.display = 'flex';
+    resetLoginSteps();
+    showToast('Siga os passos para fazer login no site.', 'info', 5000);
+}
 
-        showAuthModal();
-        showToast('Sessão encerrada.', 'info');
+function closeInteraction() {
+    if (DOM.interactOverlay) DOM.interactOverlay.style.display = 'none';
+    showToast('Painel de login fechado.', 'info');
+}
+
+function resetLoginSteps() {
+    if (DOM.cookiePasteArea) DOM.cookiePasteArea.value = '';
+    if (DOM.loginPreview) DOM.loginPreview.classList.remove('active');
+    if (DOM.loginPreviewImg) DOM.loginPreviewImg.src = '';
+    if (DOM.loginPreviewStatus) {
+        DOM.loginPreviewStatus.textContent = '';
+        DOM.loginPreviewStatus.className = 'login-preview-status';
+    }
+}
+
+function openSiteInNewTab() {
+    if (!state.siteUrl) {
+        showToast('Nenhum site aberto.', 'warning');
+        return;
+    }
+    window.open(state.siteUrl, '_blank');
+    showToast('Site aberto em nova aba. Faça login e depois volte aqui.', 'info', 5000);
+}
+
+function copyCommandToClipboard() {
+    var command = "copy(document.cookie.split(';').map(c=>{let [n,...v]=c.trim().split('=');return{name:n,value:v.join('='),domain:location.hostname,path:'/'}}))";
+
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(command).then(function() {
+            showToast('Comando copiado! Cole no console (F12) do site.', 'success');
+        }).catch(function() {
+            fallbackCopy(command);
+        });
+    } else {
+        fallbackCopy(command);
+    }
+}
+
+function fallbackCopy(text) {
+    var textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    showToast('Comando copiado!', 'success');
+}
+
+function syncCookies() {
+    if (!state.sessionId) {
+        showToast('Nenhuma sessão ativa.', 'warning');
+        return;
     }
 
-    function togglePasswordVisibility() {
-        var input = DOM.authTokenInput;
-        input.type = input.type === 'password' ? 'text' : 'password';
+    var cookieText = DOM.cookiePasteArea ? DOM.cookiePasteArea.value.trim() : '';
+    if (!cookieText) {
+        showToast('Cole os cookies no campo antes de sincronizar.', 'warning');
+        return;
     }
 
-    // ===================== CORE ACTIONS =====================
+    var cookies;
+    try {
+        cookies = JSON.parse(cookieText);
+        if (!Array.isArray(cookies)) {
+            throw new Error('Formato inválido');
+        }
+    } catch (e) {
+        showToast('Formato de cookies inválido. Certifique-se de usar o comando correto.', 'error');
+        return;
+    }
 
-    async function openSite() {
-        var url = DOM.urlInput.value.trim();
-        if (!url) {
-            showToast('Digite uma URL para abrir.', 'warning');
-            return;
+    showLoading('Sincronizando cookies...', 'Injetando ' + cookies.length + ' cookies no Selenium');
+
+    apiJSON('/inject-cookies', 'POST', {
+        session_id: state.sessionId,
+        cookies: cookies
+    }).then(function(data) {
+        hideLoading();
+
+        if (data.screenshot && DOM.loginPreviewImg && DOM.loginPreview) {
+            DOM.loginPreviewImg.src = 'data:image/png;base64,' + data.screenshot;
+            DOM.loginPreview.classList.add('active');
         }
 
-        if (!url.startsWith('http://') && !url.startsWith('https://')) {
-            url = 'https://' + url;
-        }
-
-        showLoading('Abrindo site...', url);
-        DOM.btnOpen.disabled = true;
-
-        try {
-            var data = await apiJSON('/open', 'POST', { url: url });
-
-            state.sessionId = data.session_id;
+        if (data.url) {
             state.siteUrl = data.url;
-            state.siteTitle = data.title || 'Sem título';
-
-            DOM.siteTitle.textContent = state.siteTitle;
-            DOM.siteUrl.textContent = state.siteUrl;
-            DOM.siteStatusText.textContent = 'Carregado';
-            DOM.siteStatus.style.display = 'flex';
-
-            updateSessionBadge(true, 'Sessão: ' + state.sessionId.substring(0, 8) + '...');
-            updateModuleButtons(true);
-
-            showToast('Site aberto com sucesso!', 'success');
-
-        } catch (err) {
-            showToast('Erro ao abrir site: ' + err.message, 'error');
+            state.siteTitle = data.title || state.siteTitle;
+            if (DOM.siteTitle) DOM.siteTitle.textContent = state.siteTitle;
+            if (DOM.siteUrl) DOM.siteUrl.textContent = state.siteUrl;
         }
 
-        DOM.btnOpen.disabled = false;
+        var msg = 'Cookies sincronizados! (' + (data.injected_count || cookies.length) + ' cookies)';
+        if (data.errors && data.errors.length > 0) {
+            msg += ' - ' + data.errors.length + ' erros.';
+        }
+        showToast(msg, 'success', 5000);
+
+    }).catch(function(err) {
         hideLoading();
+        showToast('Erro ao sincronizar cookies: ' + err.message, 'error');
+    });
+}
+
+function checkLoginState() {
+    if (!state.sessionId) {
+        showToast('Nenhuma sessão ativa.', 'warning');
+        return;
     }
 
-    async function takeScreenshot() {
-        if (!state.sessionId) {
-            showToast('Nenhuma sessão ativa.', 'warning');
-            return;
-        }
+    showLoading('Verificando estado do login...');
 
-        DOM.btnScreenshot.disabled = true;
-
-        try {
-            var response = await apiBlob('/screenshot', 'POST', {
-                session_id: state.sessionId
-            });
-            var blob = await response.blob();
-            var imgUrl = URL.createObjectURL(blob);
-            DOM.screenshotImg.src = imgUrl;
-            DOM.screenshotPreview.style.display = 'block';
-            showToast('Screenshot capturado!', 'success');
-        } catch (err) {
-            showToast('Erro ao capturar screenshot: ' + err.message, 'error');
-        }
-
-        DOM.btnScreenshot.disabled = false;
-    }
-
-    async function closeSession() {
-        if (!state.sessionId) return;
-
-        showLoading('Fechando sessão...');
-
-        try {
-            await apiJSON('/close', 'POST', { session_id: state.sessionId });
-
-            state.sessionId = null;
-            state.siteUrl = '';
-            state.siteTitle = '';
-
-            DOM.siteStatus.style.display = 'none';
-            DOM.screenshotPreview.style.display = 'none';
-            updateSessionBadge(false);
-            updateModuleButtons(false);
-
-            showToast('Sessão encerrada.', 'info');
-        } catch (err) {
-            showToast('Erro ao fechar sessão: ' + err.message, 'error');
-        }
-
+    apiJSON('/get-current-state', 'POST', { session_id: state.sessionId }).then(function(data) {
         hideLoading();
-    }
 
-    // ===================== INTERACTION / LOGIN =====================
-
-    async function openInteraction() {
-        if (!state.sessionId) {
-            showToast('Nenhuma sessão ativa.', 'warning');
-            return;
+        if (data.screenshot && DOM.loginPreviewImg && DOM.loginPreview) {
+            DOM.loginPreviewImg.src = 'data:image/png;base64,' + data.screenshot;
+            DOM.loginPreview.classList.add('active');
         }
 
-        resetLoginSteps();
-        DOM.interactOverlay.style.display = 'flex';
-
-        var stepUrl = document.getElementById('stepSiteUrl');
-        if (stepUrl) {
-            stepUrl.textContent = state.siteUrl;
-        }
-
-        // Verificar extensão
-        var extStatus = document.getElementById('extensionStatus');
-        if (extStatus) {
-            extStatus.innerHTML = '<div class="extension-checking">' +
-                '<div class="loading-spinner" style="width:20px;height:20px;border-width:2px;margin:0;"></div>' +
-                '<span>Verificando extensão...</span>' +
-                '</div>';
-        }
-
-        try {
-            var installed = await checkExtension();
-            state.extensionInstalled = installed;
-
-            if (extStatus) {
-                if (installed) {
-                    extStatus.innerHTML = '<div class="extension-ok">' +
-                        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2">' +
-                        '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>' +
-                        '<polyline points="22 4 12 14.01 9 11.01"/>' +
-                        '</svg>' +
-                        '<span>Extensão detectada! Pronta para sincronizar.</span>' +
-                        '</div>';
-                } else {
-                    extStatus.innerHTML = '<div class="extension-error">' +
-                        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2">' +
-                        '<circle cx="12" cy="12" r="10"/>' +
-                        '<line x1="15" y1="9" x2="9" y2="15"/>' +
-                        '<line x1="9" y1="9" x2="15" y2="15"/>' +
-                        '</svg>' +
-                        '<span>Extensão não detectada. Instale a extensão e configure o EXTENSION_ID no config.js</span>' +
-                        '</div>';
-                }
-            }
-        } catch (err) {
-            state.extensionInstalled = false;
-            if (extStatus) {
-                extStatus.innerHTML = '<div class="extension-error">' +
-                    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2">' +
-                    '<circle cx="12" cy="12" r="10"/>' +
-                    '<line x1="15" y1="9" x2="9" y2="15"/>' +
-                    '<line x1="9" y1="9" x2="15" y2="15"/>' +
-                    '</svg>' +
-                    '<span>Erro ao verificar extensão.</span>' +
-                    '</div>';
-            }
-        }
-    }
-
-    function closeInteraction() {
-        DOM.interactOverlay.style.display = 'none';
-    }
-
-    function resetLoginSteps() {
-        var step1 = document.getElementById('loginStep1');
-        var step2 = document.getElementById('loginStep2');
-
-        if (step1) { step1.className = 'login-step active'; }
-        if (step2) { step2.className = 'login-step'; }
-
-        var loginPreview = document.getElementById('loginPreview');
-        if (loginPreview) loginPreview.style.display = 'none';
-
-        var btnDone = document.getElementById('btnLoginDone');
-        if (btnDone) btnDone.style.display = 'none';
-    }
-
-    function openSiteInNewTab() {
-        if (!state.siteUrl) {
-            showToast('Nenhum site aberto.', 'warning');
-            return;
-        }
-
-        window.open(state.siteUrl, '_blank');
-
-        var step1 = document.getElementById('loginStep1');
-        var step2 = document.getElementById('loginStep2');
-
-        if (step1) { step1.className = 'login-step done'; }
-        if (step2) { step2.className = 'login-step active'; }
-
-        showToast('Site aberto em nova aba. Faça login e volte aqui.', 'info', 6000);
-    }
-
-    async function syncCookies() {
-        if (!state.sessionId) {
-            showToast('Nenhuma sessão ativa.', 'warning');
-            return;
-        }
-
-        if (!state.extensionInstalled) {
-            showToast('Extensão não detectada. Instale a extensão primeiro.', 'error');
-            return;
-        }
-
-        showLoading('Capturando cookies...', 'Comunicando com a extensão');
-
-        try {
-            // Pegar cookies da extensão
-            var cookieData = await getCookiesFromExtension(state.siteUrl);
-
-            if (!cookieData.cookies || cookieData.cookies.length === 0) {
-                hideLoading();
-                showToast('Nenhum cookie encontrado. Verifique se fez login no site.', 'warning');
-                return;
-            }
-
-            showLoading('Sincronizando cookies...', cookieData.total + ' cookies capturados');
-
-            // Enviar cookies para o backend
-            var data = await apiJSON('/inject-cookies', 'POST', {
-                session_id: state.sessionId,
-                cookies: cookieData.cookies
-            });
-
-            hideLoading();
-
-            // Mostrar preview
-            var loginPreview = document.getElementById('loginPreview');
-            var loginPreviewImg = document.getElementById('loginPreviewImg');
-            var loginStatusText = document.getElementById('loginStatusText');
-
-            if (data.screenshot && loginPreviewImg) {
-                loginPreviewImg.src = 'data:image/png;base64,' + data.screenshot;
-                if (loginPreview) loginPreview.style.display = 'block';
-            }
-
-            // Atualizar info da sessão
-            if (data.url) {
-                state.siteUrl = data.url;
-                state.siteTitle = data.title || 'Sem título';
-                DOM.siteTitle.textContent = state.siteTitle;
-                DOM.siteUrl.textContent = state.siteUrl;
-            }
-
-            var injected = data.injected || 0;
-            var total = data.total || 0;
-            var errors = data.errors || [];
-
-            if (injected > 0) {
-                showToast(injected + '/' + total + ' cookies sincronizados!', 'success');
-
-                // Marcar step 2 como done
-                var step2 = document.getElementById('loginStep2');
-                if (step2) { step2.className = 'login-step done'; }
-
-                if (loginStatusText) {
-                    loginStatusText.textContent = 'Cookies sincronizados com sucesso! Verifique a imagem.';
-                    loginStatusText.className = 'login-status status-success';
-                }
-
-                // Mostrar botão "Pronto"
-                var btnDone = document.getElementById('btnLoginDone');
-                if (btnDone) btnDone.style.display = 'inline-flex';
-
+        if (DOM.loginPreviewStatus) {
+            if (data.probably_logged_in) {
+                DOM.loginPreviewStatus.className = 'login-preview-status logged-in';
+                DOM.loginPreviewStatus.textContent = '✅ Parece que você está logado!';
             } else {
-                showToast('Nenhum cookie foi injetado. Verifique se fez login.', 'error');
-                if (loginStatusText) {
-                    loginStatusText.textContent = 'Falha ao injetar cookies. Tente novamente.';
-                    loginStatusText.className = 'login-status status-failed';
-                }
+                DOM.loginPreviewStatus.className = 'login-preview-status not-logged';
+                DOM.loginPreviewStatus.textContent = '⚠️ Login não detectado. Tente sincronizar os cookies novamente.';
             }
-
-            if (errors.length > 0) {
-                showToast(errors.length + ' cookie(s) com erro.', 'warning');
-            }
-
-        } catch (err) {
-            hideLoading();
-            showToast('Erro ao sincronizar: ' + err.message, 'error');
-        }
-    }
-
-    async function checkLoginState() {
-        if (!state.sessionId) return;
-
-        showLoading('Verificando estado...');
-
-        try {
-            var data = await apiJSON('/get-current-state', 'POST', {
-                session_id: state.sessionId
-            });
-
-            hideLoading();
-
-            var loginPreview = document.getElementById('loginPreview');
-            var loginPreviewImg = document.getElementById('loginPreviewImg');
-            var loginStatusText = document.getElementById('loginStatusText');
-
-            if (data.screenshot && loginPreviewImg) {
-                loginPreviewImg.src = 'data:image/png;base64,' + data.screenshot;
-                if (loginPreview) loginPreview.style.display = 'block';
-            }
-
-            if (data.url) {
-                state.siteUrl = data.url;
-                state.siteTitle = data.title || 'Sem título';
-                DOM.siteTitle.textContent = state.siteTitle;
-                DOM.siteUrl.textContent = state.siteUrl;
-            }
-
-            if (loginStatusText) {
-                if (data.probably_logged_in) {
-                    loginStatusText.textContent = 'Login detectado! O site parece estar logado.';
-                    loginStatusText.className = 'login-status status-success';
-
-                    var btnDone = document.getElementById('btnLoginDone');
-                    if (btnDone) btnDone.style.display = 'inline-flex';
-
-                    showToast('Login detectado com sucesso!', 'success');
-                } else {
-                    loginStatusText.textContent = 'Login não detectado. Tente sincronizar novamente.';
-                    loginStatusText.className = 'login-status status-uncertain';
-                    showToast('Login não detectado.', 'warning');
-                }
-            }
-
-        } catch (err) {
-            hideLoading();
-            showToast('Erro ao verificar estado: ' + err.message, 'error');
-        }
-    }
-
-    function finishLogin() {
-        closeInteraction();
-        showToast('Login concluído! Agora pode usar Backup, Erros e Busca.', 'success', 5000);
-    }
-
-    // ===================== BACKUP =====================
-
-    async function backupSite() {
-        if (!state.sessionId) {
-            showToast('Nenhuma sessão ativa.', 'warning');
-            return;
         }
 
-        var folder = DOM.backupFolder.value.trim() || 'backup';
-        DOM.btnBackup.disabled = true;
+        if (data.url) {
+            state.siteUrl = data.url;
+            state.siteTitle = data.title || state.siteTitle;
+            if (DOM.siteTitle) DOM.siteTitle.textContent = state.siteTitle;
+            if (DOM.siteUrl) DOM.siteUrl.textContent = state.siteUrl;
+        }
 
-        var steps = [
-            { percent: 10 }, { percent: 25 }, { percent: 40 },
-            { percent: 55 }, { percent: 70 }, { percent: 85 }
-        ];
+    }).catch(function(err) {
+        hideLoading();
+        showToast('Erro ao verificar estado: ' + err.message, 'error');
+    });
+}
 
-        simulateProgress(DOM.backupProgressFill, DOM.backupProgressText, DOM.backupProgress, steps);
+function finishLogin() {
+    closeInteraction();
+    showToast('Login finalizado! Agora use os módulos de Backup, Erros e Busca.', 'success', 5000);
+}
 
-        try {
-            var response = await apiBlob('/backup', 'POST', {
-                session_id: state.sessionId,
-                folder_name: folder
-            });
+// ===================== BACKUP MODULE =====================
+function backupSite() {
+    if (!state.sessionId) {
+        showToast('Abra um site primeiro.', 'warning');
+        return;
+    }
 
-            DOM.backupProgressFill.style.width = '100%';
-            DOM.backupProgressText.textContent = '100%';
+    var folder = DOM.backupFolder ? DOM.backupFolder.value.trim() : 'meu-backup';
+    if (!folder) folder = 'meu-backup';
 
-            var blob = await response.blob();
+    showToast('Iniciando backup...', 'info');
 
-            var filename = folder + '_backup.zip';
-            var disposition = response.headers.get('Content-Disposition');
-            if (disposition) {
-                var match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-                if (match && match[1]) {
-                    filename = match[1].replace(/['"]/g, '');
-                }
+    var progressSteps = [
+        { pct: 10, text: 'Conectando ao site...' },
+        { pct: 25, text: 'Analisando estrutura...' },
+        { pct: 40, text: 'Baixando HTML...' },
+        { pct: 55, text: 'Baixando CSS e JS...' },
+        { pct: 70, text: 'Baixando imagens...' },
+        { pct: 85, text: 'Compactando arquivos...' }
+    ];
+
+    simulateProgress(DOM.backupProgressFill, DOM.backupProgressText, DOM.backupProgress, progressSteps);
+
+    apiBlob('/backup', 'POST', { session_id: state.sessionId, folder_name: folder }).then(function(response) {
+        var disposition = response.headers.get('Content-Disposition');
+        var backupErrors = response.headers.get('X-Backup-Errors');
+        var filename = 'backup.zip';
+
+        if (disposition) {
+            var match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+            if (match && match[1]) {
+                filename = match[1].replace(/['"]/g, '');
             }
+        }
+
+        return response.blob().then(function(blob) {
+            if (DOM.backupProgressFill) DOM.backupProgressFill.style.width = '100%';
+            if (DOM.backupProgressText) DOM.backupProgressText.textContent = 'Concluído!';
 
             downloadBlob(blob, filename);
-            showToast('Backup realizado com sucesso!', 'success');
 
-            var backupErrors = response.headers.get('X-Backup-Errors');
-            if (backupErrors && parseInt(backupErrors) > 0) {
-                showToast('Backup concluído com ' + backupErrors + ' aviso(s).', 'warning');
-            }
-
-        } catch (err) {
-            showToast('Erro no backup: ' + err.message, 'error');
-        }
-
-        DOM.btnBackup.disabled = false;
-        setTimeout(function () {
-            DOM.backupProgress.style.display = 'none';
-            DOM.backupProgressFill.style.width = '0%';
-            DOM.backupProgressText.textContent = '0%';
-        }, 2000);
-    }
-
-    // ===================== ERROR CHECK =====================
-
-    async function checkErrors() {
-        if (!state.sessionId) {
-            showToast('Nenhuma sessão ativa.', 'warning');
-            return;
-        }
-
-        var folder = DOM.errorsFolder.value.trim() || 'erros';
-        DOM.btnErrors.disabled = true;
-
-        var steps = [
-            { percent: 10 }, { percent: 20 }, { percent: 35 },
-            { percent: 50 }, { percent: 65 }, { percent: 80 }, { percent: 90 }
-        ];
-
-        simulateProgress(DOM.errorsProgressFill, DOM.errorsProgressText, DOM.errorsProgress, steps);
-
-        try {
-            var data = await apiJSON('/check-errors-json', 'POST', {
-                session_id: state.sessionId,
-                folder_name: folder
-            });
-
-            DOM.errorsProgressFill.style.width = '100%';
-            DOM.errorsProgressText.textContent = '100%';
-
-            state.lastErrorReport = data;
-            displayErrorResults(data);
-
-            var totalE = data.total_errors || 0;
-            var totalW = data.total_warnings || 0;
-
-            if (totalE === 0 && totalW === 0) {
-                showToast('Nenhum erro encontrado!', 'success');
+            var msg = 'Backup baixado com sucesso!';
+            if (backupErrors && backupErrors !== '0') {
+                msg += ' (' + backupErrors + ' avisos)';
+                showToast(msg, 'warning');
             } else {
-                showToast('Encontrados: ' + totalE + ' erro(s) e ' + totalW + ' aviso(s).', totalE > 0 ? 'error' : 'warning');
+                showToast(msg, 'success');
             }
 
-        } catch (err) {
-            showToast('Erro na verificação: ' + err.message, 'error');
-        }
+            setTimeout(function() {
+                if (DOM.backupProgress) DOM.backupProgress.classList.remove('active');
+            }, 3000);
+        });
+    }).catch(function(err) {
+        if (DOM.backupProgress) DOM.backupProgress.classList.remove('active');
+        showToast('Erro no backup: ' + err.message, 'error');
+    });
+}
 
-        DOM.btnErrors.disabled = false;
-        setTimeout(function () {
-            DOM.errorsProgress.style.display = 'none';
-            DOM.errorsProgressFill.style.width = '0%';
-            DOM.errorsProgressText.textContent = '0%';
-        }, 2000);
+// ===================== ERROR CHECK MODULE =====================
+function checkErrors() {
+    if (!state.sessionId) {
+        showToast('Abra um site primeiro.', 'warning');
+        return;
     }
 
-    async function downloadErrorReport() {
-        if (!state.sessionId) {
-            showToast('Nenhuma sessão ativa.', 'warning');
-            return;
+    var folder = DOM.errorsFolder ? DOM.errorsFolder.value.trim() : 'meus-erros';
+    if (!folder) folder = 'meus-erros';
+
+    showToast('Iniciando verificação de erros...', 'info');
+
+    var progressSteps = [
+        { pct: 10, text: 'Verificando console...' },
+        { pct: 25, text: 'Analisando JavaScript...' },
+        { pct: 40, text: 'Verificando rede...' },
+        { pct: 55, text: 'Analisando CSS/HTML...' },
+        { pct: 70, text: 'Verificando segurança...' },
+        { pct: 85, text: 'Analisando SEO...' }
+    ];
+
+    simulateProgress(DOM.errorsProgressFill, DOM.errorsProgressText, DOM.errorsProgress, progressSteps);
+
+    apiJSON('/check-errors-json', 'POST', { session_id: state.sessionId, folder_name: folder }).then(function(data) {
+        if (DOM.errorsProgressFill) DOM.errorsProgressFill.style.width = '100%';
+        if (DOM.errorsProgressText) DOM.errorsProgressText.textContent = 'Concluído!';
+
+        state.lastErrorReport = data;
+        displayErrorResults(data);
+
+        var totalE = data.total_errors || 0;
+        var totalW = data.total_warnings || 0;
+        showToast('Verificação concluída: ' + totalE + ' erros, ' + totalW + ' avisos.', totalE > 0 ? 'warning' : 'success');
+
+        setTimeout(function() {
+            if (DOM.errorsProgress) DOM.errorsProgress.classList.remove('active');
+        }, 3000);
+    }).catch(function(err) {
+        if (DOM.errorsProgress) DOM.errorsProgress.classList.remove('active');
+        showToast('Erro na verificação: ' + err.message, 'error');
+    });
+}
+
+function downloadErrorReport() {
+    if (!state.sessionId) {
+        showToast('Nenhuma sessão ativa.', 'warning');
+        return;
+    }
+
+    var folder = DOM.errorsFolder ? DOM.errorsFolder.value.trim() : 'meus-erros';
+    if (!folder) folder = 'meus-erros';
+
+    showLoading('Gerando relatório...');
+
+    apiBlob('/check-errors', 'POST', { session_id: state.sessionId, folder_name: folder }).then(function(response) {
+        var disposition = response.headers.get('Content-Disposition');
+        var filename = 'relatorio-erros.txt';
+
+        if (disposition) {
+            var match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+            if (match && match[1]) {
+                filename = match[1].replace(/['"]/g, '');
+            }
         }
 
-        var folder = DOM.errorsFolder.value.trim() || 'erros';
-
-        try {
-            var response = await apiBlob('/check-errors', 'POST', {
-                session_id: state.sessionId,
-                folder_name: folder
-            });
-
-            var blob = await response.blob();
-
-            var filename = folder + '_erros.txt';
-            var disposition = response.headers.get('Content-Disposition');
-            if (disposition) {
-                var match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-                if (match && match[1]) {
-                    filename = match[1].replace(/['"]/g, '');
-                }
-            }
-
+        return response.blob().then(function(blob) {
+            hideLoading();
             downloadBlob(blob, filename);
             showToast('Relatório de erros baixado!', 'success');
-        } catch (err) {
-            showToast('Erro ao baixar relatório: ' + err.message, 'error');
-        }
+        });
+    }).catch(function(err) {
+        hideLoading();
+        showToast('Erro ao baixar relatório: ' + err.message, 'error');
+    });
+}
+
+// ===================== SEARCH MODULE =====================
+function searchSite() {
+    if (!state.sessionId) {
+        showToast('Abra um site primeiro.', 'warning');
+        return;
     }
 
-    // ===================== SEARCH =====================
-
-    async function searchSite() {
-        if (!state.sessionId) {
-            showToast('Nenhuma sessão ativa.', 'warning');
-            return;
-        }
-
-        var term = DOM.searchTerm.value.trim();
-        if (!term) {
-            showToast('Digite o que deseja buscar.', 'warning');
-            return;
-        }
-
-        var folder = DOM.searchFolder.value.trim() || 'busca';
-        DOM.btnSearch.disabled = true;
-
-        var steps = [
-            { percent: 15 }, { percent: 30 }, { percent: 50 },
-            { percent: 70 }, { percent: 85 }
-        ];
-
-        simulateProgress(DOM.searchProgressFill, DOM.searchProgressText, DOM.searchProgress, steps);
-
-        try {
-            var data = await apiJSON('/search-site', 'POST', {
-                session_id: state.sessionId,
-                term: term,
-                folder_name: folder
-            });
-
-            DOM.searchProgressFill.style.width = '100%';
-            DOM.searchProgressText.textContent = '100%';
-
-            state.lastSearchReport = data;
-            displaySearchResults(data);
-
-            var total = data.total_found || 0;
-            if (total === 0) {
-                showToast('Nenhum resultado encontrado para "' + term + '".', 'info');
-            } else {
-                showToast('Encontrados ' + total + ' resultado(s) para "' + term + '".', 'success');
-            }
-
-        } catch (err) {
-            showToast('Erro na busca: ' + err.message, 'error');
-        }
-
-        DOM.btnSearch.disabled = false;
-        setTimeout(function () {
-            DOM.searchProgress.style.display = 'none';
-            DOM.searchProgressFill.style.width = '0%';
-            DOM.searchProgressText.textContent = '0%';
-        }, 2000);
+    var term = DOM.searchTerm ? DOM.searchTerm.value.trim() : '';
+    if (!term) {
+        showToast('Digite o que deseja buscar.', 'warning');
+        return;
     }
 
-    async function downloadSearchReport() {
-        if (!state.sessionId) {
-            showToast('Nenhuma sessão ativa.', 'warning');
-            return;
+    var folder = DOM.searchFolder ? DOM.searchFolder.value.trim() : 'minha-busca';
+    if (!folder) folder = 'minha-busca';
+
+    showToast('Iniciando busca...', 'info');
+
+    var progressSteps = [
+        { pct: 10, text: 'Preparando busca...' },
+        { pct: 25, text: 'Buscando APIs e links...' },
+        { pct: 40, text: 'Buscando imagens e forms...' },
+        { pct: 55, text: 'Buscando scripts e meta...' },
+        { pct: 70, text: 'Buscando CSS e fontes...' },
+        { pct: 85, text: 'Buscando cookies e storage...' }
+    ];
+
+    simulateProgress(DOM.searchProgressFill, DOM.searchProgressText, DOM.searchProgress, progressSteps);
+
+    apiJSON('/search-site', 'POST', {
+        session_id: state.sessionId,
+        term: term,
+        folder_name: folder
+    }).then(function(data) {
+        if (DOM.searchProgressFill) DOM.searchProgressFill.style.width = '100%';
+        if (DOM.searchProgressText) DOM.searchProgressText.textContent = 'Concluído!';
+
+        state.lastSearchReport = data;
+        displaySearchResults(data);
+
+        var total = data.total_found || 0;
+        showToast('Busca concluída: ' + total + ' resultados encontrados.', total > 0 ? 'success' : 'warning');
+
+        setTimeout(function() {
+            if (DOM.searchProgress) DOM.searchProgress.classList.remove('active');
+        }, 3000);
+    }).catch(function(err) {
+        if (DOM.searchProgress) DOM.searchProgress.classList.remove('active');
+        showToast('Erro na busca: ' + err.message, 'error');
+    });
+}
+
+function downloadSearchReport() {
+    if (!state.sessionId) {
+        showToast('Nenhuma sessão ativa.', 'warning');
+        return;
+    }
+
+    var term = DOM.searchTerm ? DOM.searchTerm.value.trim() : '';
+    if (!term) {
+        showToast('Digite o termo de busca.', 'warning');
+        return;
+    }
+
+    var folder = DOM.searchFolder ? DOM.searchFolder.value.trim() : 'minha-busca';
+    if (!folder) folder = 'minha-busca';
+
+    showLoading('Gerando relatório de busca...');
+
+    apiBlob('/search-site-txt', 'POST', {
+        session_id: state.sessionId,
+        term: term,
+        folder_name: folder
+    }).then(function(response) {
+        var disposition = response.headers.get('Content-Disposition');
+        var filename = 'relatorio-busca.txt';
+
+        if (disposition) {
+            var match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+            if (match && match[1]) {
+                filename = match[1].replace(/['"]/g, '');
+            }
         }
 
-        var term = DOM.searchTerm.value.trim() || 'busca';
-        var folder = DOM.searchFolder.value.trim() || 'busca';
-
-        try {
-            var response = await apiBlob('/search-site-txt', 'POST', {
-                session_id: state.sessionId,
-                term: term,
-                folder_name: folder
-            });
-
-            var blob = await response.blob();
-
-            var filename = folder + '_' + term + '.txt';
-            var disposition = response.headers.get('Content-Disposition');
-            if (disposition) {
-                var match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-                if (match && match[1]) {
-                    filename = match[1].replace(/['"]/g, '');
-                }
-            }
-
+        return response.blob().then(function(blob) {
+            hideLoading();
             downloadBlob(blob, filename);
             showToast('Relatório de busca baixado!', 'success');
-        } catch (err) {
-            showToast('Erro ao baixar relatório: ' + err.message, 'error');
-        }
-    }
+        });
+    }).catch(function(err) {
+        hideLoading();
+        showToast('Erro ao baixar relatório: ' + err.message, 'error');
+    });
+}
 
 // ===================== DISPLAY ERROR RESULTS =====================
-const categoryLabels = {
+var categoryLabels = {
     'console': 'Console',
     'javascript': 'Erros JavaScript',
     'network': 'Rede / Network',
@@ -978,16 +871,16 @@ function extractErrorMessage(item) {
 
 function getErrorLevel(item) {
     if (typeof item === 'string') {
-        if (item.toLowerCase().includes('error')) return 'error';
-        if (item.toLowerCase().includes('warning') || item.toLowerCase().includes('aviso')) return 'warning';
+        if (item.toLowerCase().indexOf('error') !== -1) return 'error';
+        if (item.toLowerCase().indexOf('warning') !== -1 || item.toLowerCase().indexOf('aviso') !== -1) return 'warning';
         return 'info';
     }
     if (item.level) return item.level.toLowerCase();
     if (item.severity) return item.severity.toLowerCase();
     if (item.type) {
-        const t = item.type.toLowerCase();
-        if (t.includes('error')) return 'error';
-        if (t.includes('warning')) return 'warning';
+        var t = item.type.toLowerCase();
+        if (t.indexOf('error') !== -1) return 'error';
+        if (t.indexOf('warning') !== -1) return 'warning';
     }
     return 'info';
 }
@@ -998,49 +891,47 @@ function displayErrorResults(data) {
         return;
     }
 
-    DOM.errorResultsSection.style.display = 'block';
+    if (DOM.errorResultsSection) DOM.errorResultsSection.style.display = 'block';
 
-    const totalErrors = data.total_errors || 0;
-    const totalWarnings = data.total_warnings || 0;
-    const totalErrorsEl = document.getElementById('totalErrors');
-    const totalWarningsEl = document.getElementById('totalWarnings');
+    var totalErrors = data.total_errors || 0;
+    var totalWarnings = data.total_warnings || 0;
+    var totalErrorsEl = document.getElementById('totalErrors');
+    var totalWarningsEl = document.getElementById('totalWarnings');
     if (totalErrorsEl) totalErrorsEl.textContent = totalErrors;
     if (totalWarningsEl) totalWarningsEl.textContent = totalWarnings;
 
-    const details = data.details;
-    const categories = Object.keys(details).filter(k => {
-        const items = details[k];
+    var details = data.details;
+    var categories = Object.keys(details).filter(function(k) {
+        var items = details[k];
         return Array.isArray(items) && items.length > 0;
     });
 
     // Create tabs
-    const tabsContainer = DOM.errorResultsSection.querySelector('.result-tabs') || document.createElement('div');
+    var existingTabs = DOM.errorResultsSection ? DOM.errorResultsSection.querySelector('.result-tabs') : null;
+    var tabsContainer = document.createElement('div');
     tabsContainer.className = 'result-tabs';
-    tabsContainer.innerHTML = '';
 
     // "All" tab
-    const allTab = document.createElement('button');
+    var allTab = document.createElement('button');
     allTab.className = 'result-tab active';
     allTab.dataset.tab = 'all';
-    let totalItems = 0;
-    categories.forEach(c => { totalItems += details[c].length; });
-    allTab.textContent = `Todos (${totalItems})`;
+    var totalItems = 0;
+    categories.forEach(function(c) { totalItems += details[c].length; });
+    allTab.textContent = 'Todos (' + totalItems + ')';
     tabsContainer.appendChild(allTab);
 
-    categories.forEach(cat => {
-        const tab = document.createElement('button');
+    categories.forEach(function(cat) {
+        var tab = document.createElement('button');
         tab.className = 'result-tab';
         tab.dataset.tab = cat;
-        const label = categoryLabels[cat] || cat;
-        tab.textContent = `${label} (${details[cat].length})`;
+        var label = categoryLabels[cat] || cat;
+        tab.textContent = label + ' (' + details[cat].length + ')';
         tabsContainer.appendChild(tab);
     });
 
-    // Insert tabs if not already in DOM
-    const existingTabs = DOM.errorResultsSection.querySelector('.result-tabs');
     if (existingTabs) {
         existingTabs.replaceWith(tabsContainer);
-    } else {
+    } else if (DOM.errorsContent && DOM.errorsContent.parentNode) {
         DOM.errorsContent.parentNode.insertBefore(tabsContainer, DOM.errorsContent);
     }
 
@@ -1048,11 +939,13 @@ function displayErrorResults(data) {
     renderErrorsTab('all', details, categories);
 
     // Tab click listeners
-    tabsContainer.querySelectorAll('.result-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            tabsContainer.querySelectorAll('.result-tab').forEach(t => t.classList.remove('active'));
+    tabsContainer.querySelectorAll('.result-tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            tabsContainer.querySelectorAll('.result-tab').forEach(function(t) {
+                t.classList.remove('active');
+            });
             tab.classList.add('active');
-            const selectedTab = tab.dataset.tab;
+            var selectedTab = tab.dataset.tab;
             if (selectedTab === 'all') {
                 renderErrorsTab('all', details, categories);
             } else {
@@ -1063,10 +956,11 @@ function displayErrorResults(data) {
 }
 
 function renderErrorsTab(tab, details, categories) {
+    if (!DOM.errorsContent) return;
     DOM.errorsContent.innerHTML = '';
 
-    let hasItems = false;
-    categories.forEach(cat => {
+    var hasItems = false;
+    categories.forEach(function(cat) {
         if (details[cat] && details[cat].length > 0) {
             hasItems = true;
         }
@@ -1077,39 +971,39 @@ function renderErrorsTab(tab, details, categories) {
         return;
     }
 
-    categories.forEach(cat => {
+    categories.forEach(function(cat) {
         if (details[cat] && details[cat].length > 0) {
-            const block = createErrorCategoryBlock(cat, details[cat]);
+            var block = createErrorCategoryBlock(cat, details[cat]);
             DOM.errorsContent.appendChild(block);
         }
     });
 }
 
 function createErrorCategoryBlock(category, items) {
-    const block = document.createElement('div');
+    var block = document.createElement('div');
     block.className = 'error-category-block';
 
-    const title = document.createElement('div');
+    var title = document.createElement('div');
     title.className = 'error-category-title';
-    const label = categoryLabels[category] || category;
-    title.innerHTML = `<strong>${escapeHTML(label)}</strong> <span class="error-count">(${items.length})</span>`;
+    var label = categoryLabels[category] || category;
+    title.innerHTML = '<strong>' + escapeHTML(label) + '</strong> <span class="error-count">(' + items.length + ')</span>';
     block.appendChild(title);
 
-    const list = document.createElement('div');
+    var list = document.createElement('div');
     list.className = 'error-list';
 
-    items.forEach(item => {
-        const entry = document.createElement('div');
-        const level = getErrorLevel(item);
-        entry.className = `error-item level-${level}`;
+    items.forEach(function(item) {
+        var entry = document.createElement('div');
+        var level = getErrorLevel(item);
+        entry.className = 'error-item level-' + level;
 
-        const message = extractErrorMessage(item);
-        let html = `<span class="error-level">${level.toUpperCase()}</span> ${message}`;
+        var message = extractErrorMessage(item);
+        var html = '<span class="error-level">' + level.toUpperCase() + '</span> ' + message;
 
         if (typeof item === 'object') {
-            if (item.source) html += `<div class="error-source">Fonte: ${escapeHTML(item.source)}</div>`;
-            if (item.url) html += `<div class="error-source">URL: ${escapeHTML(item.url)}</div>`;
-            if (item.line) html += `<div class="error-source">Linha: ${item.line}</div>`;
+            if (item.source) html += '<div class="error-source">Fonte: ' + escapeHTML(item.source) + '</div>';
+            if (item.url) html += '<div class="error-source">URL: ' + escapeHTML(item.url) + '</div>';
+            if (item.line) html += '<div class="error-source">Linha: ' + item.line + '</div>';
         }
 
         entry.innerHTML = html;
@@ -1127,17 +1021,19 @@ function displaySearchResults(data) {
         return;
     }
 
-    DOM.searchResultsSection.style.display = 'block';
+    if (DOM.searchResultsSection) DOM.searchResultsSection.style.display = 'block';
 
-    const findings = data.findings;
-    const totalFound = data.total_found || 0;
-    const categoriesSet = new Set(findings.map(f => f.category));
+    var findings = data.findings;
+    var totalFound = data.total_found || 0;
+    var categoriesSet = {};
+    findings.forEach(function(f) { categoriesSet[f.category || 'Outros'] = true; });
 
-    const totalFoundEl = document.getElementById('totalFound');
-    const totalCategoriesEl = document.getElementById('totalCategories');
+    var totalFoundEl = document.getElementById('totalFound');
+    var totalCategoriesEl = document.getElementById('totalCategories');
     if (totalFoundEl) totalFoundEl.textContent = totalFound;
-    if (totalCategoriesEl) totalCategoriesEl.textContent = categoriesSet.size;
+    if (totalCategoriesEl) totalCategoriesEl.textContent = Object.keys(categoriesSet).length;
 
+    if (!DOM.searchContent) return;
     DOM.searchContent.innerHTML = '';
 
     if (findings.length === 0) {
@@ -1146,33 +1042,33 @@ function displaySearchResults(data) {
     }
 
     // Group by category
-    const grouped = {};
-    findings.forEach(f => {
-        const cat = f.category || 'Outros';
+    var grouped = {};
+    findings.forEach(function(f) {
+        var cat = f.category || 'Outros';
         if (!grouped[cat]) grouped[cat] = [];
         grouped[cat].push(f);
     });
 
-    Object.keys(grouped).forEach(cat => {
-        const block = document.createElement('div');
+    Object.keys(grouped).forEach(function(cat) {
+        var block = document.createElement('div');
         block.className = 'search-category-block';
 
-        const title = document.createElement('div');
+        var title = document.createElement('div');
         title.className = 'search-category-title';
-        title.innerHTML = `<strong>${escapeHTML(cat)}</strong> <span class="search-count">(${grouped[cat].length})</span>`;
+        title.innerHTML = '<strong>' + escapeHTML(cat) + '</strong> <span class="search-count">(' + grouped[cat].length + ')</span>';
         block.appendChild(title);
 
-        const list = document.createElement('div');
+        var list = document.createElement('div');
         list.className = 'search-list';
 
-        grouped[cat].forEach(item => {
-            const entry = document.createElement('div');
+        grouped[cat].forEach(function(item) {
+            var entry = document.createElement('div');
             entry.className = 'search-item';
 
-            let html = '';
-            if (item.type) html += `<span class="search-type">${escapeHTML(item.type)}</span> `;
-            if (item.value) html += `<span class="search-value">${escapeHTML(item.value)}</span>`;
-            if (item.details) html += `<div class="search-details">${escapeHTML(item.details)}</div>`;
+            var html = '';
+            if (item.type) html += '<span class="search-type">' + escapeHTML(item.type) + '</span> ';
+            if (item.value) html += '<span class="search-value">' + escapeHTML(item.value) + '</span>';
+            if (item.details) html += '<div class="search-details">' + escapeHTML(item.details) + '</div>';
 
             entry.innerHTML = html;
             list.appendChild(entry);
@@ -1186,34 +1082,38 @@ function displaySearchResults(data) {
 // ===================== EVENT LISTENERS =====================
 function setupEventListeners() {
     // Auth
-    DOM.btnAuth.addEventListener('click', authenticate);
-    DOM.authTokenInput.addEventListener('keydown', e => { if (e.key === 'Enter') authenticate(); });
-    DOM.authToggleVisibility.addEventListener('click', togglePasswordVisibility);
-    DOM.btnLogout.addEventListener('click', logout);
+    if (DOM.btnAuth) DOM.btnAuth.addEventListener('click', authenticate);
+    if (DOM.authTokenInput) DOM.authTokenInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') authenticate(); });
+    if (DOM.authToggleVisibility) DOM.authToggleVisibility.addEventListener('click', togglePasswordVisibility);
+    if (DOM.btnLogout) DOM.btnLogout.addEventListener('click', logout);
 
     // URL / Site
-    DOM.btnOpen.addEventListener('click', openSite);
-    DOM.urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') openSite(); });
-    DOM.btnScreenshot.addEventListener('click', takeScreenshot);
-    DOM.btnClose.addEventListener('click', closeSession);
+    if (DOM.btnOpen) DOM.btnOpen.addEventListener('click', openSite);
+    if (DOM.urlInput) DOM.urlInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') openSite(); });
+    if (DOM.btnScreenshot) DOM.btnScreenshot.addEventListener('click', takeScreenshot);
+    if (DOM.btnClose) DOM.btnClose.addEventListener('click', closeSession);
 
     // Interaction / Login
-    DOM.btnInteract.addEventListener('click', openInteraction);
+    if (DOM.btnInteract) DOM.btnInteract.addEventListener('click', openInteraction);
 
     var btnOpenSiteTab = document.getElementById('btnOpenSiteTab');
     if (btnOpenSiteTab) btnOpenSiteTab.addEventListener('click', openSiteInNewTab);
+
+    var btnCopyCommand = document.getElementById('btnCopyCommand');
+    if (btnCopyCommand) btnCopyCommand.addEventListener('click', copyCommandToClipboard);
 
     var btnSyncCookies = document.getElementById('btnSyncCookies');
     if (btnSyncCookies) btnSyncCookies.addEventListener('click', syncCookies);
 
     var btnCheckExtension = document.getElementById('btnCheckExtension');
-    if (btnCheckExtension) btnCheckExtension.addEventListener('click', async () => {
-        const ok = await checkExtension();
-        if (ok) {
-            showToast('Extensão detectada e funcionando!', 'success');
-        } else {
-            showToast('Extensão não detectada. Verifique a instalação.', 'warning');
-        }
+    if (btnCheckExtension) btnCheckExtension.addEventListener('click', function() {
+        checkExtension().then(function(ok) {
+            if (ok) {
+                showToast('Extensão detectada e funcionando!', 'success');
+            } else {
+                showToast('Extensão não detectada. Verifique a instalação.', 'warning');
+            }
+        });
     });
 
     var btnLoginRefresh = document.getElementById('btnLoginRefresh');
@@ -1226,28 +1126,31 @@ function setupEventListeners() {
     if (btnLoginDone) btnLoginDone.addEventListener('click', finishLogin);
 
     // Modules
-    DOM.btnBackup.addEventListener('click', backupSite);
-    DOM.btnErrors.addEventListener('click', checkErrors);
-    DOM.btnSearch.addEventListener('click', searchSite);
+    if (DOM.btnBackup) DOM.btnBackup.addEventListener('click', backupSite);
+    if (DOM.btnErrors) DOM.btnErrors.addEventListener('click', checkErrors);
+    if (DOM.btnSearch) DOM.btnSearch.addEventListener('click', searchSite);
 
     // Downloads
-    DOM.btnDownloadErrors.addEventListener('click', downloadErrorReport);
-    DOM.btnDownloadSearch.addEventListener('click', downloadSearchReport);
+    if (DOM.btnDownloadErrors) DOM.btnDownloadErrors.addEventListener('click', downloadErrorReport);
+    if (DOM.btnDownloadSearch) DOM.btnDownloadSearch.addEventListener('click', downloadSearchReport);
 
     // Clear
-    DOM.btnClearErrors.addEventListener('click', () => {
-        DOM.errorResultsSection.style.display = 'none';
-        DOM.errorsContent.innerHTML = '';
+    if (DOM.btnClearErrors) DOM.btnClearErrors.addEventListener('click', function() {
+        if (DOM.errorResultsSection) DOM.errorResultsSection.style.display = 'none';
+        if (DOM.errorsContent) DOM.errorsContent.innerHTML = '';
         state.lastErrorReport = null;
         showToast('Resultados de erros limpos.', 'info');
     });
-    DOM.btnClearSearch.addEventListener('click', () => {
-        DOM.searchResultsSection.style.display = 'none';
-        DOM.searchContent.innerHTML = '';
+    if (DOM.btnClearSearch) DOM.btnClearSearch.addEventListener('click', function() {
+        if (DOM.searchResultsSection) DOM.searchResultsSection.style.display = 'none';
+        if (DOM.searchContent) DOM.searchContent.innerHTML = '';
         state.lastSearchReport = null;
         showToast('Resultados de busca limpos.', 'info');
     });
+
+    console.log('Event listeners configurados com sucesso.');
 }
+
 // ===================== INIT =====================
 async function init() {
     console.log('Iniciando Site Backup & Error Checker...');
@@ -1270,7 +1173,7 @@ async function init() {
 
     // Check server status
     try {
-        const response = await fetch(state.backendUrl + '/', {
+        var response = await fetch(state.backendUrl + '/', {
             method: 'GET',
             headers: { 'Accept': 'application/json' }
         });
@@ -1279,23 +1182,23 @@ async function init() {
             throw new Error('Servidor respondeu com status ' + response.status);
         }
 
-        const data = await response.json();
+        var data = await response.json();
         console.log('Servidor respondeu:', data);
 
         state.isConnected = true;
         updateServerStatus('online', 'Conectado');
 
-        // *** FIX: Always check auth_required ***
+        // Check auth_required
         if (data.auth_required === true) {
             console.log('Autenticação requerida pelo servidor.');
 
             // Try saved token first
-            const savedToken = sessionStorage.getItem('auth_token');
+            var savedToken = sessionStorage.getItem('auth_token');
             if (savedToken) {
                 console.log('Token salvo encontrado, verificando...');
                 state.token = savedToken;
                 try {
-                    const verifyResp = await fetch(state.backendUrl + '/auth/verify', {
+                    var verifyResp = await fetch(state.backendUrl + '/auth/verify', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -1308,6 +1211,7 @@ async function init() {
                         state.isAuthenticated = true;
                         hideAuthModal();
                         updateServerStatus('online', 'Autenticado');
+                        if (DOM.btnLogout) DOM.btnLogout.style.display = 'flex';
                         updateSessionBadge(false);
                         updateModuleButtons(false);
                         showToast('Reconectado com sucesso!', 'success');
@@ -1347,13 +1251,11 @@ async function init() {
         state.isConnected = false;
         updateServerStatus('offline', 'Desconectado');
         showToast('Não foi possível conectar ao servidor. Verifique se o backend está ativo.', 'error', 8000);
-
-        // Show auth modal anyway so user can try
         showAuthModal();
     }
 
     // Check extension (non-blocking)
-    checkExtension().then(ok => {
+    checkExtension().then(function(ok) {
         state.extensionInstalled = ok;
         if (ok) {
             console.log('Extensão Chrome detectada!');
@@ -1365,7 +1267,7 @@ async function init() {
     console.log('%c Site Backup & Error Checker v1.3.0 ', 'background: #667eea; color: white; font-size: 14px; padding: 4px 8px; border-radius: 4px;');
 }
 
-// Start - wait for DOM to be ready
+// ===================== START =====================
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
         setupDOM();
@@ -1379,6 +1281,3 @@ if (document.readyState === 'loading') {
 }
 
 })();
-
-
-
