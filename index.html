@@ -78,10 +78,12 @@
 
                     <div class="cookie-methods">
                         <div class="cookie-method">
-                            <div class="cookie-method-title">📋 Comando para o Console</div>
-                            <textarea class="cookie-command" rows="3" readonly>copy(document.cookie.split(';').map(c=>{let [n,...v]=c.trim().split('=');return{name:n,value:v.join('='),domain:location.hostname,path:'/'}}))</textarea>
-                            <button class="btn-step primary" id="btnCopyCommand" style="font-size:12px; padding:6px 14px;">📋 Copiar Comando</button>
+                         <div class="cookie-method-title">📋 Comando para o Console (Cole no F12 do site logado)</div>
+                          <textarea class="cookie-command" rows="5" readonly>cookieStore.getAll().then(c=>copy(c.map(k=>({name:k.name,value:k.value,domain:k.domain||location.hostname,path:k.path||'/',secure:location.protocol==='https:',expiry:k.expires?Math.floor(k.expires/1000):undefined,sameSite:k.sameSite||'Lax'})))).then(()=>console.log('✅ Cookies copiados! Volte ao painel e cole com Ctrl+V')).catch(()=>{copy(document.cookie.split(';').filter(c=>c.trim()).map(c=>{let[n,...v]=c.trim().split('=');return{name:n,value:v.join('='),domain:location.hostname,path:'/',secure:location.protocol==='https:'}}));console.log('✅ Cookies copiados (método alternativo)! Volte ao painel e cole com Ctrl+V')})</textarea>
+                          <button class="btn-step primary" id="btnCopyCommand" style="font-size:12px; padding:6px 14px;">📋 Copiar Comando</button>
+                           <p style="margin-top:6px; font-size:11px; color:#4ade80;">Após colar e executar no console, você verá "✅ Cookies copiados!" — volte aqui e Ctrl+V</p>
                         </div>
+
                         <div class="cookie-method">
                             <div class="cookie-method-title">📥 Colar Cookies Aqui</div>
                             <textarea class="cookie-paste-area" id="cookiePasteArea" rows="4" placeholder="Após executar o comando, volte aqui e pressione Ctrl+V para colar os cookies..."></textarea>
@@ -350,5 +352,6 @@
 
 </body>
 </html>
+
 
 
