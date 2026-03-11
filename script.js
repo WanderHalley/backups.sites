@@ -30,35 +30,42 @@
     };
 
     // ===================== DOM ELEMENTS =====================
-    const DOM = {
+   let DOM = {};
+
+function setupDOM() {
+    DOM = {
         // Auth
         authOverlay: document.getElementById('authOverlay'),
         authTokenInput: document.getElementById('authTokenInput'),
         btnAuth: document.getElementById('btnAuth'),
-        authError: document.getElementById('authError'),
         authToggleVisibility: document.getElementById('authToggleVisibility'),
         btnLogout: document.getElementById('btnLogout'),
 
         // Header
-        serverStatus: document.getElementById('serverStatus'),
+        serverStatusDot: document.getElementById('serverStatusDot'),
+        serverStatusText: document.getElementById('serverStatusText'),
         sessionBadge: document.getElementById('sessionBadge'),
         sessionBadgeText: document.getElementById('sessionBadgeText'),
 
-        // URL
+        // URL / Site
         urlInput: document.getElementById('urlInput'),
         btnOpen: document.getElementById('btnOpen'),
         siteStatus: document.getElementById('siteStatus'),
         siteTitle: document.getElementById('siteTitle'),
         siteUrl: document.getElementById('siteUrl'),
-        siteStatusText: document.getElementById('siteStatusText'),
+        siteStatusBadge: document.getElementById('siteStatusBadge'),
         btnScreenshot: document.getElementById('btnScreenshot'),
         btnInteract: document.getElementById('btnInteract'),
         btnClose: document.getElementById('btnClose'),
         screenshotPreview: document.getElementById('screenshotPreview'),
         screenshotImg: document.getElementById('screenshotImg'),
 
-        // Interaction (Login)
+        // Interaction / Login
         interactOverlay: document.getElementById('interactOverlay'),
+        cookiePasteArea: document.getElementById('cookiePasteArea'),
+        loginPreview: document.getElementById('loginPreview'),
+        loginPreviewImg: document.getElementById('loginPreviewImg'),
+        loginPreviewStatus: document.getElementById('loginPreviewStatus'),
 
         // Modules
         backupFolder: document.getElementById('backupFolder'),
@@ -80,30 +87,19 @@
         searchProgressFill: document.getElementById('searchProgressFill'),
         searchProgressText: document.getElementById('searchProgressText'),
 
-        // Error Results
+        // Results
         errorResultsSection: document.getElementById('errorResultsSection'),
-        errorsSummary: document.getElementById('errorsSummary'),
-        totalErrors: document.getElementById('totalErrors'),
-        totalWarnings: document.getElementById('totalWarnings'),
-        errorsTabs: document.getElementById('errorsTabs'),
         errorsContent: document.getElementById('errorsContent'),
-        btnDownloadErrors: document.getElementById('btnDownloadErrors'),
-        btnClearErrors: document.getElementById('btnClearErrors'),
-
-        // Search Results
         searchResultsSection: document.getElementById('searchResultsSection'),
-        totalFound: document.getElementById('totalFound'),
-        totalCategories: document.getElementById('totalCategories'),
         searchContent: document.getElementById('searchContent'),
-        btnDownloadSearch: document.getElementById('btnDownloadSearch'),
-        btnClearSearch: document.getElementById('btnClearSearch'),
 
-        // Global
+        // Toast & Loading
         toastContainer: document.getElementById('toastContainer'),
         loadingOverlay: document.getElementById('loadingOverlay'),
         loadingText: document.getElementById('loadingText'),
         loadingSubtext: document.getElementById('loadingSubtext')
     };
+}
 
     // ===================== UTILITIES =====================
     function showToast(message, type, duration) {
@@ -1371,3 +1367,4 @@ async function init() {
 // Start
 init();
 })();
+
