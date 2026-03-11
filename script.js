@@ -1,5 +1,5 @@
 // ============================================================
-// Site Backup & Error Checker - Frontend v1.2.0
+// Site Backup & Error Checker - Frontend v1.3.0
 // ============================================================
 
 (function () {
@@ -15,8 +15,7 @@
         isConnected: false,
         isAuthenticated: false,
         lastErrorReport: null,
-        lastSearchReport: null,
-        interactInterval: null
+        lastSearchReport: null
     };
 
     // ===================== DOM ELEMENTS =====================
@@ -47,14 +46,8 @@
         screenshotPreview: document.getElementById('screenshotPreview'),
         screenshotImg: document.getElementById('screenshotImg'),
 
-        // Interaction Modal
+        // Interaction (Login)
         interactOverlay: document.getElementById('interactOverlay'),
-        interactScreenImg: document.getElementById('interactScreenImg'),
-        clickIndicator: document.getElementById('clickIndicator'),
-        interactTextInput: document.getElementById('interactTextInput'),
-        btnInteractSend: document.getElementById('btnInteractSend'),
-        btnInteractRefresh: document.getElementById('btnInteractRefresh'),
-        btnInteractContinue: document.getElementById('btnInteractContinue'),
 
         // Modules
         backupFolder: document.getElementById('backupFolder'),
@@ -253,7 +246,6 @@
         DOM.authError.textContent = '';
 
         try {
-            // Carrega URL do backend do config.js
             if (typeof BACKEND_CONFIG !== 'undefined' && BACKEND_CONFIG.BACKEND_URL) {
                 state.backendUrl = BACKEND_CONFIG.BACKEND_URL.replace(/\/+$/, '');
             } else {
@@ -262,12 +254,10 @@
                 return;
             }
 
-            // Testa conexão primeiro
             state.token = token;
             const statusResp = await apiJSON('/');
 
             if (statusResp.auth_required) {
-                // Valida token
                 const authResp = await apiJSON('/auth/verify', 'POST');
                 if (!authResp.valid) {
                     DOM.authError.textContent = 'Token inválido.';
@@ -277,7 +267,6 @@
                 }
             }
 
-            // Sucesso
             state.isAuthenticated = true;
             state.isConnected = true;
             sessionStorage.setItem('api_token', token);
@@ -416,215 +405,233 @@
         hideLoading();
     }
 
-        // ===================== INTERACTION (LOGIN) =====================
+    // ===================== INTERACTION / LOGIN =====================
 
-    let interactViewport = { width: 1920, height: 1080 };
-
-    async function openInteraction() {
+    function openInteraction() {
         if (!state.sessionId) {
             showToast('Nenhuma sessão ativa.', 'warning');
             return;
         }
 
+        resetLoginSteps();
         DOM.interactOverlay.style.display = 'flex';
-        DOM.interactTextInput.value = '';
 
-        // Capturar primeiro screenshot com viewport
-        await refreshInteractionScreen();
-
-        // Iniciar auto-refresh a cada 2 segundos
-        startInteractionAutoRefresh();
-
-        showToast('Clique na tela para interagir. Digite no campo abaixo.', 'info', 5000);
+        var stepUrl = document.getElementById('stepSiteUrl');
+        if (stepUrl) {
+            stepUrl.textContent = state.siteUrl;
+        }
     }
 
     function closeInteraction() {
         DOM.interactOverlay.style.display = 'none';
-        stopInteractionAutoRefresh();
-
-        // Atualizar info da sessão após interação
-        updateSessionAfterInteract();
-
-        showToast('Interação finalizada. Pode continuar usando os módulos.', 'success');
     }
 
-    async function updateSessionAfterInteract() {
-        if (!state.sessionId) return;
+    function resetLoginSteps() {
+        var step1 = document.getElementById('loginStep1');
+        var step2 = document.getElementById('loginStep2');
+        var step3 = document.getElementById('loginStep3');
+
+        if (step1) { step1.className = 'login-step active'; }
+        if (step2) { step2.className = 'login-step'; }
+        if (step3) { step3.className = 'login-step'; }
+
+        var cookieInput = document.getElementById('cookieInput');
+        if (cookieInput) cookieInput.value = '';
+
+        var loginPreview = document.getElementById('loginPreview');
+        if (loginPreview) loginPreview.style.display = 'none';
+
+        var btnDone = document.getElementById('btnLoginDone');
+        if (btnDone) btnDone.style.display = 'none';
+
+        var btnSync = document.getElementById('btnSyncCookies');
+        if (btnSync) btnSync.style.display = 'inline-flex';
+    }
+
+    function openSiteInNewTab() {
+        if (!state.siteUrl) {
+            showToast('Nenhum site aberto.', 'warning');
+            return;
+        }
+
+        window.open(state.siteUrl, '_blank');
+
+        var step1 = document.getElementById('loginStep1');
+        var step2 = document.getElementById('loginStep2');
+
+        if (step1) { step1.className = 'login-step done'; }
+        if (step2) { step2.className = 'login-step active'; }
+
+        showToast('Site aberto em nova aba. Faça login e volte aqui.', 'info', 6000);
+    }
+
+    function copyCommandToClipboard() {
+        var command = document.getElementById('cookieCommand');
+        if (!command) return;
+
+        var text = command.textContent;
+
+        navigator.clipboard.writeText(text).then(function () {
+            showToast('Comando copiado! Cole no Console (F12) do site.', 'success', 4000);
+        }).catch(function () {
+            var textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            showToast('Comando copiado!', 'success', 3000);
+        });
+    }
+
+    async function syncCookies() {
+        var cookieInput = document.getElementById('cookieInput');
+        if (!cookieInput) return;
+
+        var raw = cookieInput.value.trim();
+        if (!raw) {
+            showToast('Cole os cookies no campo antes de sincronizar.', 'warning');
+            return;
+        }
+
+        var cookies = [];
         try {
-            const data = await apiJSON('/session/status', 'POST', {
-                session_id: state.sessionId
+            cookies = JSON.parse(raw);
+            if (!Array.isArray(cookies)) {
+                cookies = [cookies];
+            }
+        } catch (e) {
+            try {
+                cookies = raw.split(';').map(function (c) {
+                    var parts = c.trim().split('=');
+                    var name = parts[0];
+                    var value = parts.slice(1).join('=');
+                    return { name: name, value: value, path: '/' };
+                }).filter(function (c) { return c.name; });
+            } catch (e2) {
+                showToast('Formato de cookies inválido. Use o comando do DevTools.', 'error');
+                return;
+            }
+        }
+
+        if (cookies.length === 0) {
+            showToast('Nenhum cookie encontrado no texto colado.', 'warning');
+            return;
+        }
+
+        var step2 = document.getElementById('loginStep2');
+        var step3 = document.getElementById('loginStep3');
+        if (step2) { step2.className = 'login-step done'; }
+        if (step3) { step3.className = 'login-step active'; }
+
+        showLoading('Sincronizando cookies...', cookies.length + ' cookies encontrados');
+
+        try {
+            var data = await apiJSON('/inject-cookies', 'POST', {
+                session_id: state.sessionId,
+                cookies: cookies
             });
+
+            hideLoading();
+
+            var loginPreview = document.getElementById('loginPreview');
+            var loginPreviewImg = document.getElementById('loginPreviewImg');
+            var loginStatusText = document.getElementById('loginStatusText');
+
+            if (data.screenshot && loginPreviewImg) {
+                loginPreviewImg.src = 'data:image/png;base64,' + data.screenshot;
+                if (loginPreview) loginPreview.style.display = 'block';
+            }
+
             if (data.url) {
                 state.siteUrl = data.url;
                 state.siteTitle = data.title || 'Sem título';
                 DOM.siteTitle.textContent = state.siteTitle;
                 DOM.siteUrl.textContent = state.siteUrl;
             }
-        } catch (err) {
-            // Silencioso
-        }
-    }
 
-    function startInteractionAutoRefresh() {
-        stopInteractionAutoRefresh();
-        state.interactInterval = setInterval(async () => {
-            await refreshInteractionScreenSilent();
-        }, 2000);
-    }
+            var injected = data.injected || 0;
+            var total = data.total || 0;
+            var errors = data.errors || [];
 
-    function stopInteractionAutoRefresh() {
-        if (state.interactInterval) {
-            clearInterval(state.interactInterval);
-            state.interactInterval = null;
-        }
-    }
+            if (injected > 0) {
+                showToast(injected + '/' + total + ' cookies injetados com sucesso!', 'success');
 
-    async function refreshInteractionScreen() {
-        try {
-            const data = await apiJSON('/interact/screenshot', 'POST', {
-                session_id: state.sessionId
-            });
-            if (data.screenshot) {
-                DOM.interactScreenImg.src = 'data:image/png;base64,' + data.screenshot;
-            }
-            if (data.viewport) {
-                interactViewport = data.viewport;
-            }
-        } catch (err) {
-            showToast('Erro ao atualizar tela: ' + err.message, 'error');
-        }
-    }
+                if (loginStatusText) {
+                    loginStatusText.textContent = 'Cookies sincronizados! Verifique a imagem acima.';
+                    loginStatusText.className = 'login-status status-success';
+                }
 
-    async function refreshInteractionScreenSilent() {
-        try {
-            const data = await apiJSON('/interact/screenshot', 'POST', {
-                session_id: state.sessionId
-            });
-            if (data.screenshot) {
-                DOM.interactScreenImg.src = 'data:image/png;base64,' + data.screenshot;
-            }
-            if (data.viewport) {
-                interactViewport = data.viewport;
-            }
-        } catch (err) {
-            // Silencioso
-        }
-    }
+                var btnDone = document.getElementById('btnLoginDone');
+                if (btnDone) btnDone.style.display = 'inline-flex';
 
-    async function handleInteractClick(event) {
-        event.preventDefault();
-
-        const img = DOM.interactScreenImg;
-        const rect = img.getBoundingClientRect();
-
-        // Posição do clique relativo à imagem exibida
-        const clickX = event.clientX - rect.left;
-        const clickY = event.clientY - rect.top;
-
-        // Calcular escala: imagem exibida vs viewport real do Selenium
-        // A screenshot tem o tamanho do viewport do Selenium (1920x1080)
-        // A imagem exibida está redimensionada no CSS
-        const scaleX = interactViewport.width / rect.width;
-        const scaleY = interactViewport.height / rect.height;
-
-        // Coordenadas reais no viewport do Selenium
-        const realX = Math.round(clickX * scaleX);
-        const realY = Math.round(clickY * scaleY);
-
-        // Mostrar indicador de clique visual
-        const indicator = DOM.clickIndicator;
-        indicator.style.left = clickX + 'px';
-        indicator.style.top = clickY + 'px';
-        indicator.style.display = 'block';
-        indicator.style.animation = 'none';
-        indicator.offsetHeight; // Force reflow
-        indicator.style.animation = 'clickPulse 0.6s ease forwards';
-        setTimeout(() => { indicator.style.display = 'none'; }, 600);
-
-        // Pausar auto-refresh durante o clique
-        stopInteractionAutoRefresh();
-
-        try {
-            const data = await apiJSON('/interact/click', 'POST', {
-                session_id: state.sessionId,
-                x: realX,
-                y: realY
-            });
-
-            if (data.screenshot) {
-                DOM.interactScreenImg.src = 'data:image/png;base64,' + data.screenshot;
-            }
-
-            // Se clicou em um campo de input, focar no campo de texto
-            if (data.focused_element && data.focused_element.isInput) {
-                DOM.interactTextInput.focus();
-                DOM.interactTextInput.placeholder = 'Campo focado: ' + 
-                    data.focused_element.tag.toLowerCase() + 
-                    (data.focused_element.type ? '[type=' + data.focused_element.type + ']' : '') +
-                    ' — digite aqui e pressione Enter';
             } else {
-                DOM.interactTextInput.placeholder = 'Digite o texto e pressione Enter...';
+                showToast('Nenhum cookie foi injetado. Verifique o formato.', 'error');
+                if (loginStatusText) {
+                    loginStatusText.textContent = 'Falha ao injetar cookies.';
+                    loginStatusText.className = 'login-status status-failed';
+                }
+            }
+
+            if (errors.length > 0) {
+                showToast(errors.length + ' cookie(s) com erro.', 'warning');
             }
 
         } catch (err) {
-            showToast('Erro no clique: ' + err.message, 'error');
+            hideLoading();
+            showToast('Erro ao sincronizar: ' + err.message, 'error');
         }
-
-        // Retomar auto-refresh
-        startInteractionAutoRefresh();
     }
 
-    async function handleInteractType() {
-        const text = DOM.interactTextInput.value;
-        if (!text) return;
-
-        // Pausar auto-refresh
-        stopInteractionAutoRefresh();
+    async function checkLoginState() {
+        if (!state.sessionId) return;
 
         try {
-            const data = await apiJSON('/interact/type', 'POST', {
-                session_id: state.sessionId,
-                text: text
+            var data = await apiJSON('/get-current-state', 'POST', {
+                session_id: state.sessionId
             });
 
-            DOM.interactTextInput.value = '';
+            var loginPreview = document.getElementById('loginPreview');
+            var loginPreviewImg = document.getElementById('loginPreviewImg');
+            var loginStatusText = document.getElementById('loginStatusText');
 
-            if (data.screenshot) {
-                DOM.interactScreenImg.src = 'data:image/png;base64,' + data.screenshot;
+            if (data.screenshot && loginPreviewImg) {
+                loginPreviewImg.src = 'data:image/png;base64,' + data.screenshot;
+                if (loginPreview) loginPreview.style.display = 'block';
             }
 
-            showToast('Texto enviado!', 'success', 2000);
+            if (data.url) {
+                state.siteUrl = data.url;
+                state.siteTitle = data.title || 'Sem título';
+                DOM.siteTitle.textContent = state.siteTitle;
+                DOM.siteUrl.textContent = state.siteUrl;
+            }
 
-        } catch (err) {
-            showToast('Erro ao digitar: ' + err.message, 'error');
-        }
+            if (loginStatusText) {
+                if (data.probably_logged_in) {
+                    loginStatusText.textContent = 'Login detectado! O site parece estar logado.';
+                    loginStatusText.className = 'login-status status-success';
 
-        // Retomar auto-refresh
-        startInteractionAutoRefresh();
-    }
+                    var btnDone = document.getElementById('btnLoginDone');
+                    if (btnDone) btnDone.style.display = 'inline-flex';
 
-    async function handleInteractKey(key) {
-        // Pausar auto-refresh
-        stopInteractionAutoRefresh();
-
-        try {
-            const data = await apiJSON('/interact/key', 'POST', {
-                session_id: state.sessionId,
-                key: key
-            });
-
-            if (data.screenshot) {
-                DOM.interactScreenImg.src = 'data:image/png;base64,' + data.screenshot;
+                    showToast('Login detectado com sucesso!', 'success');
+                } else {
+                    loginStatusText.textContent = 'Login não detectado. Tente sincronizar os cookies novamente.';
+                    loginStatusText.className = 'login-status status-uncertain';
+                    showToast('Login não detectado. Verifique se fez login corretamente.', 'warning');
+                }
             }
 
         } catch (err) {
-            showToast('Erro ao pressionar tecla: ' + err.message, 'error');
+            showToast('Erro ao verificar estado: ' + err.message, 'error');
         }
-
-        // Retomar auto-refresh
-        startInteractionAutoRefresh();
     }
 
+    function finishLogin() {
+        closeInteraction();
+        showToast('Login concluído! Agora pode usar Backup, Erros e Busca.', 'success', 5000);
+    }
 
     // ===================== BACKUP =====================
 
@@ -634,42 +641,31 @@
             return;
         }
 
-        const folder = DOM.backupFolder.value.trim() || 'backup';
+        var folder = DOM.backupFolder.value.trim() || 'backup';
         DOM.btnBackup.disabled = true;
 
-        const steps = [
-            { percent: 10 },
-            { percent: 25 },
-            { percent: 40 },
-            { percent: 55 },
-            { percent: 70 },
-            { percent: 85 }
+        var steps = [
+            { percent: 10 }, { percent: 25 }, { percent: 40 },
+            { percent: 55 }, { percent: 70 }, { percent: 85 }
         ];
 
-        simulateProgress(
-            DOM.backupProgressFill,
-            DOM.backupProgressText,
-            DOM.backupProgress,
-            steps
-        );
+        simulateProgress(DOM.backupProgressFill, DOM.backupProgressText, DOM.backupProgress, steps);
 
         try {
-            const response = await apiBlob('/backup', 'POST', {
+            var response = await apiBlob('/backup', 'POST', {
                 session_id: state.sessionId,
                 folder_name: folder
             });
 
-            // Finalizar progresso
             DOM.backupProgressFill.style.width = '100%';
             DOM.backupProgressText.textContent = '100%';
 
-            const blob = await response.blob();
+            var blob = await response.blob();
 
-            // Extrair nome do arquivo
-            let filename = folder + '_backup.zip';
-            const disposition = response.headers.get('Content-Disposition');
+            var filename = folder + '_backup.zip';
+            var disposition = response.headers.get('Content-Disposition');
             if (disposition) {
-                const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                var match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
                 if (match && match[1]) {
                     filename = match[1].replace(/['"]/g, '');
                 }
@@ -678,10 +674,9 @@
             downloadBlob(blob, filename);
             showToast('Backup realizado com sucesso!', 'success');
 
-            // Verificar warnings
-            const backupErrors = response.headers.get('X-Backup-Errors');
+            var backupErrors = response.headers.get('X-Backup-Errors');
             if (backupErrors && parseInt(backupErrors) > 0) {
-                showToast(`Backup concluído com ${backupErrors} aviso(s).`, 'warning');
+                showToast('Backup concluído com ' + backupErrors + ' aviso(s).', 'warning');
             }
 
         } catch (err) {
@@ -689,7 +684,7 @@
         }
 
         DOM.btnBackup.disabled = false;
-        setTimeout(() => {
+        setTimeout(function () {
             DOM.backupProgress.style.display = 'none';
             DOM.backupProgressFill.style.width = '0%';
             DOM.backupProgressText.textContent = '0%';
@@ -704,28 +699,18 @@
             return;
         }
 
-        const folder = DOM.errorsFolder.value.trim() || 'erros';
+        var folder = DOM.errorsFolder.value.trim() || 'erros';
         DOM.btnErrors.disabled = true;
 
-        const steps = [
-            { percent: 10 },
-            { percent: 20 },
-            { percent: 35 },
-            { percent: 50 },
-            { percent: 65 },
-            { percent: 80 },
-            { percent: 90 }
+        var steps = [
+            { percent: 10 }, { percent: 20 }, { percent: 35 },
+            { percent: 50 }, { percent: 65 }, { percent: 80 }, { percent: 90 }
         ];
 
-        simulateProgress(
-            DOM.errorsProgressFill,
-            DOM.errorsProgressText,
-            DOM.errorsProgress,
-            steps
-        );
+        simulateProgress(DOM.errorsProgressFill, DOM.errorsProgressText, DOM.errorsProgress, steps);
 
         try {
-            const data = await apiJSON('/check-errors-json', 'POST', {
+            var data = await apiJSON('/check-errors-json', 'POST', {
                 session_id: state.sessionId,
                 folder_name: folder
             });
@@ -736,13 +721,13 @@
             state.lastErrorReport = data;
             displayErrorResults(data);
 
-            const totalE = data.total_errors || 0;
-            const totalW = data.total_warnings || 0;
+            var totalE = data.total_errors || 0;
+            var totalW = data.total_warnings || 0;
 
             if (totalE === 0 && totalW === 0) {
                 showToast('Nenhum erro encontrado!', 'success');
             } else {
-                showToast(`Encontrados: ${totalE} erro(s) e ${totalW} aviso(s).`, totalE > 0 ? 'error' : 'warning');
+                showToast('Encontrados: ' + totalE + ' erro(s) e ' + totalW + ' aviso(s).', totalE > 0 ? 'error' : 'warning');
             }
 
         } catch (err) {
@@ -750,7 +735,7 @@
         }
 
         DOM.btnErrors.disabled = false;
-        setTimeout(() => {
+        setTimeout(function () {
             DOM.errorsProgress.style.display = 'none';
             DOM.errorsProgressFill.style.width = '0%';
             DOM.errorsProgressText.textContent = '0%';
@@ -763,20 +748,20 @@
             return;
         }
 
-        const folder = DOM.errorsFolder.value.trim() || 'erros';
+        var folder = DOM.errorsFolder.value.trim() || 'erros';
 
         try {
-            const response = await apiBlob('/check-errors', 'POST', {
+            var response = await apiBlob('/check-errors', 'POST', {
                 session_id: state.sessionId,
                 folder_name: folder
             });
 
-            const blob = await response.blob();
+            var blob = await response.blob();
 
-            let filename = folder + '_erros.txt';
-            const disposition = response.headers.get('Content-Disposition');
+            var filename = folder + '_erros.txt';
+            var disposition = response.headers.get('Content-Disposition');
             if (disposition) {
-                const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                var match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
                 if (match && match[1]) {
                     filename = match[1].replace(/['"]/g, '');
                 }
@@ -797,32 +782,24 @@
             return;
         }
 
-        const term = DOM.searchTerm.value.trim();
+        var term = DOM.searchTerm.value.trim();
         if (!term) {
             showToast('Digite o que deseja buscar.', 'warning');
             return;
         }
 
-        const folder = DOM.searchFolder.value.trim() || 'busca';
+        var folder = DOM.searchFolder.value.trim() || 'busca';
         DOM.btnSearch.disabled = true;
 
-        const steps = [
-            { percent: 15 },
-            { percent: 30 },
-            { percent: 50 },
-            { percent: 70 },
-            { percent: 85 }
+        var steps = [
+            { percent: 15 }, { percent: 30 }, { percent: 50 },
+            { percent: 70 }, { percent: 85 }
         ];
 
-        simulateProgress(
-            DOM.searchProgressFill,
-            DOM.searchProgressText,
-            DOM.searchProgress,
-            steps
-        );
+        simulateProgress(DOM.searchProgressFill, DOM.searchProgressText, DOM.searchProgress, steps);
 
         try {
-            const data = await apiJSON('/search-site', 'POST', {
+            var data = await apiJSON('/search-site', 'POST', {
                 session_id: state.sessionId,
                 term: term,
                 folder_name: folder
@@ -834,11 +811,11 @@
             state.lastSearchReport = data;
             displaySearchResults(data);
 
-            const total = data.total_found || 0;
+            var total = data.total_found || 0;
             if (total === 0) {
                 showToast('Nenhum resultado encontrado para "' + term + '".', 'info');
             } else {
-                showToast(`Encontrados ${total} resultado(s) para "${term}".`, 'success');
+                showToast('Encontrados ' + total + ' resultado(s) para "' + term + '".', 'success');
             }
 
         } catch (err) {
@@ -846,7 +823,7 @@
         }
 
         DOM.btnSearch.disabled = false;
-        setTimeout(() => {
+        setTimeout(function () {
             DOM.searchProgress.style.display = 'none';
             DOM.searchProgressFill.style.width = '0%';
             DOM.searchProgressText.textContent = '0%';
@@ -859,22 +836,22 @@
             return;
         }
 
-        const term = DOM.searchTerm.value.trim() || 'busca';
-        const folder = DOM.searchFolder.value.trim() || 'busca';
+        var term = DOM.searchTerm.value.trim() || 'busca';
+        var folder = DOM.searchFolder.value.trim() || 'busca';
 
         try {
-            const response = await apiBlob('/search-site-txt', 'POST', {
+            var response = await apiBlob('/search-site-txt', 'POST', {
                 session_id: state.sessionId,
                 term: term,
                 folder_name: folder
             });
 
-            const blob = await response.blob();
+            var blob = await response.blob();
 
-            let filename = folder + '_' + term + '.txt';
-            const disposition = response.headers.get('Content-Disposition');
+            var filename = folder + '_' + term + '.txt';
+            var disposition = response.headers.get('Content-Disposition');
             if (disposition) {
-                const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                var match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
                 if (match && match[1]) {
                     filename = match[1].replace(/['"]/g, '');
                 }
@@ -904,40 +881,37 @@
     };
 
     function displayErrorResults(data) {
-        const details = data.details || {};
-        const totalE = data.total_errors || 0;
-        const totalW = data.total_warnings || 0;
+        var details = data.details || {};
+        var totalE = data.total_errors || 0;
+        var totalW = data.total_warnings || 0;
 
         DOM.totalErrors.textContent = totalE;
         DOM.totalWarnings.textContent = totalW;
 
-        // Gerar tabs
         DOM.errorsTabs.innerHTML = '<button class="tab-btn active" data-tab="all">Todos</button>';
 
-        const categories = Object.keys(details).filter(cat => {
-            const items = details[cat];
+        var categories = Object.keys(details).filter(function (cat) {
+            var items = details[cat];
             return Array.isArray(items) && items.length > 0;
         });
 
-        categories.forEach(cat => {
-            const label = categoryLabels[cat] || cat;
-            const count = details[cat].length;
-            const btn = document.createElement('button');
+        categories.forEach(function (cat) {
+            var label = categoryLabels[cat] || cat;
+            var count = details[cat].length;
+            var btn = document.createElement('button');
             btn.className = 'tab-btn';
             btn.dataset.tab = cat;
-            btn.textContent = `${label} (${count})`;
+            btn.textContent = label + ' (' + count + ')';
             DOM.errorsTabs.appendChild(btn);
         });
 
-        // Renderizar aba "Todos"
         renderErrorsTab('all', details, categories);
 
-        // Listeners nas tabs
-        DOM.errorsTabs.querySelectorAll('.tab-btn').forEach(btn => {
+        DOM.errorsTabs.querySelectorAll('.tab-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                DOM.errorsTabs.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                DOM.errorsTabs.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
                 this.classList.add('active');
-                const tab = this.dataset.tab;
+                var tab = this.dataset.tab;
                 if (tab === 'all') {
                     renderErrorsTab('all', details, categories);
                 } else {
@@ -954,39 +928,37 @@
         DOM.errorsContent.innerHTML = '';
 
         if (categories.length === 0) {
-            DOM.errorsContent.innerHTML = `
-                <div class="no-results">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                        <polyline points="22 4 12 14.01 9 11.01"/>
-                    </svg>
-                    <p>Nenhum erro encontrado!</p>
-                </div>
-            `;
+            DOM.errorsContent.innerHTML = '<div class="no-results">' +
+                '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">' +
+                '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>' +
+                '<polyline points="22 4 12 14.01 9 11.01"/>' +
+                '</svg>' +
+                '<p>Nenhum erro encontrado!</p>' +
+                '</div>';
             return;
         }
 
-        categories.forEach(cat => {
-            const items = details[cat];
+        categories.forEach(function (cat) {
+            var items = details[cat];
             if (!Array.isArray(items) || items.length === 0) return;
             DOM.errorsContent.appendChild(createErrorCategoryBlock(cat, items));
         });
     }
 
     function createErrorCategoryBlock(category, items) {
-        const block = document.createElement('div');
+        var block = document.createElement('div');
         block.className = 'error-category-block';
 
-        const title = document.createElement('div');
+        var title = document.createElement('div');
         title.className = 'error-category-title';
-        title.textContent = (categoryLabels[category] || category) + ` (${items.length})`;
+        title.textContent = (categoryLabels[category] || category) + ' (' + items.length + ')';
         block.appendChild(title);
 
-        items.forEach(item => {
-            const div = document.createElement('div');
-            const level = item.level || item.type || 'info';
+        items.forEach(function (item) {
+            var div = document.createElement('div');
+            var level = item.level || item.type || 'info';
 
-            let levelClass = 'level-info';
+            var levelClass = 'level-info';
             if (level === 'error' || level === 'SEVERE' || level === 'severe') {
                 levelClass = 'level-error';
             } else if (level === 'warning' || level === 'WARNING') {
@@ -1013,62 +985,64 @@
     // ===================== SEARCH RESULTS DISPLAY =====================
 
     function displaySearchResults(data) {
-        const findings = data.findings || [];
-        const totalF = data.total_found || 0;
+        var findings = data.findings || [];
+        var totalF = data.total_found || 0;
 
         DOM.totalFound.textContent = totalF;
 
-        // Contar categorias únicas
-        const uniqueCategories = [...new Set(findings.map(f => f.category || 'geral'))];
+        var uniqueCategories = [];
+        findings.forEach(function (f) {
+            var cat = f.category || 'geral';
+            if (uniqueCategories.indexOf(cat) === -1) {
+                uniqueCategories.push(cat);
+            }
+        });
         DOM.totalCategories.textContent = uniqueCategories.length;
 
         DOM.searchContent.innerHTML = '';
 
         if (findings.length === 0) {
-            DOM.searchContent.innerHTML = `
-                <div class="no-results">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <circle cx="11" cy="11" r="8"/>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                    </svg>
-                    <p>Nenhum resultado encontrado.</p>
-                </div>
-            `;
+            DOM.searchContent.innerHTML = '<div class="no-results">' +
+                '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">' +
+                '<circle cx="11" cy="11" r="8"/>' +
+                '<line x1="21" y1="21" x2="16.65" y2="16.65"/>' +
+                '</svg>' +
+                '<p>Nenhum resultado encontrado.</p>' +
+                '</div>';
             DOM.searchResultsSection.style.display = 'block';
             DOM.searchResultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
             return;
         }
 
-        // Agrupar por categoria
-        const grouped = {};
-        findings.forEach(f => {
-            const cat = f.category || 'geral';
+        var grouped = {};
+        findings.forEach(function (f) {
+            var cat = f.category || 'geral';
             if (!grouped[cat]) grouped[cat] = [];
             grouped[cat].push(f);
         });
 
-        Object.keys(grouped).forEach(cat => {
-            const block = document.createElement('div');
+        Object.keys(grouped).forEach(function (cat) {
+            var block = document.createElement('div');
             block.className = 'search-category-block';
 
-            const title = document.createElement('div');
+            var title = document.createElement('div');
             title.className = 'search-category-title';
-            title.textContent = cat.charAt(0).toUpperCase() + cat.slice(1) + ` (${grouped[cat].length})`;
+            title.textContent = cat.charAt(0).toUpperCase() + cat.slice(1) + ' (' + grouped[cat].length + ')';
             block.appendChild(title);
 
-            grouped[cat].forEach(item => {
-                const div = document.createElement('div');
+            grouped[cat].forEach(function (item) {
+                var div = document.createElement('div');
                 div.className = 'search-item';
 
-                let html = '';
+                var html = '';
                 if (item.type) {
-                    html += `<div class="search-item-type">${escapeHTML(item.type)}</div>`;
+                    html += '<div class="search-item-type">' + escapeHTML(item.type) + '</div>';
                 }
                 if (item.value) {
-                    html += `<div class="search-item-value">${escapeHTML(item.value)}</div>`;
+                    html += '<div class="search-item-value">' + escapeHTML(item.value) + '</div>';
                 }
                 if (item.details) {
-                    html += `<div class="search-item-details">${escapeHTML(item.details)}</div>`;
+                    html += '<div class="search-item-details">' + escapeHTML(item.details) + '</div>';
                 }
 
                 div.innerHTML = html;
@@ -1100,25 +1074,38 @@
     DOM.btnScreenshot.addEventListener('click', takeScreenshot);
     DOM.btnClose.addEventListener('click', closeSession);
 
-    // Interaction
+    // Interaction / Login
     DOM.btnInteract.addEventListener('click', openInteraction);
-    DOM.btnInteractContinue.addEventListener('click', closeInteraction);
-    DOM.btnInteractRefresh.addEventListener('click', refreshInteractionScreen);
 
-    DOM.interactScreenImg.addEventListener('click', handleInteractClick);
+    var btnOpenSiteTab = document.getElementById('btnOpenSiteTab');
+    if (btnOpenSiteTab) {
+        btnOpenSiteTab.addEventListener('click', openSiteInNewTab);
+    }
 
-    DOM.btnInteractSend.addEventListener('click', handleInteractType);
-    DOM.interactTextInput.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') handleInteractType();
-    });
+    var btnCopyCommand = document.getElementById('btnCopyCommand');
+    if (btnCopyCommand) {
+        btnCopyCommand.addEventListener('click', copyCommandToClipboard);
+    }
 
-    // Teclas especiais na interação
-    document.querySelectorAll('.interact-keys .btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-            const key = this.dataset.key;
-            if (key) handleInteractKey(key);
-        });
-    });
+    var btnSyncCookies = document.getElementById('btnSyncCookies');
+    if (btnSyncCookies) {
+        btnSyncCookies.addEventListener('click', syncCookies);
+    }
+
+    var btnLoginRefresh = document.getElementById('btnLoginRefresh');
+    if (btnLoginRefresh) {
+        btnLoginRefresh.addEventListener('click', checkLoginState);
+    }
+
+    var btnLoginCancel = document.getElementById('btnLoginCancel');
+    if (btnLoginCancel) {
+        btnLoginCancel.addEventListener('click', closeInteraction);
+    }
+
+    var btnLoginDone = document.getElementById('btnLoginDone');
+    if (btnLoginDone) {
+        btnLoginDone.addEventListener('click', finishLogin);
+    }
 
     // Modules
     DOM.btnBackup.addEventListener('click', backupSite);
@@ -1144,10 +1131,9 @@
         showToast('Resultados de busca limpos.', 'info');
     });
 
-     // ===================== INITIALIZATION =====================
+    // ===================== INITIALIZATION =====================
 
     async function init() {
-        // Carregar backend URL do config.js
         if (typeof BACKEND_CONFIG !== 'undefined' && BACKEND_CONFIG.BACKEND_URL) {
             state.backendUrl = BACKEND_CONFIG.BACKEND_URL.replace(/\/+$/, '');
         }
@@ -1157,26 +1143,22 @@
             return;
         }
 
-        // Verificar token salvo
-        const savedToken = sessionStorage.getItem('api_token');
+        var savedToken = sessionStorage.getItem('api_token');
 
-        // Primeiro, verificar se o servidor está online e se precisa de auth
         try {
-            const statusResp = await fetch(state.backendUrl + '/', {
+            var statusResp = await fetch(state.backendUrl + '/', {
                 method: 'GET',
                 signal: AbortSignal.timeout(10000)
             });
-            const data = await statusResp.json();
+            var data = await statusResp.json();
 
             if (data.auth_required) {
-                // Servidor EXIGE token
                 updateServerStatus('online', 'Aguardando login');
 
                 if (savedToken) {
-                    // Tentar reconectar com token salvo
                     state.token = savedToken;
                     try {
-                        const authResp = await apiJSON('/auth/verify', 'POST');
+                        var authResp = await apiJSON('/auth/verify', 'POST');
                         if (authResp.valid) {
                             state.isAuthenticated = true;
                             state.isConnected = true;
@@ -1189,16 +1171,13 @@
                     } catch (err) {
                         // Token salvo inválido
                     }
-                    // Se chegou aqui, token salvo falhou
                     state.token = '';
                     sessionStorage.removeItem('api_token');
                 }
 
-                // Mostrar modal de login
                 showAuthModal();
 
             } else {
-                // Servidor NÃO exige token
                 state.isAuthenticated = true;
                 state.isConnected = true;
                 hideAuthModal();
@@ -1211,9 +1190,8 @@
             showAuthModal();
         }
 
-        // Banner
         console.log(
-            '%c Site Backup & Error Checker v1.2.0 ',
+            '%c Site Backup & Error Checker v1.3.0 ',
             'background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 8px 16px; border-radius: 4px; font-size: 14px; font-weight: bold;'
         );
     }
@@ -1221,4 +1199,3 @@
     init();
 
 })();
-
