@@ -55,6 +55,128 @@
         </div>
     </div>
 
+    <!-- Login / Interaction Panel -->
+    <div class="interact-overlay" id="interactOverlay" style="display:none;">
+        <div class="interact-modal">
+            <div class="interact-header">
+                <h3>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                    Login no Site
+                </h3>
+            </div>
+            <div class="interact-body">
+                <!-- Steps -->
+                <div class="login-steps">
+                    <!-- Step 1 -->
+                    <div class="login-step active" id="loginStep1">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h4>Abrir site no seu navegador</h4>
+                            <p>Clique no botão abaixo para abrir o site em uma nova aba. Faça login normalmente com seu usuário e senha.</p>
+                            <button class="btn btn-primary" id="btnOpenSiteTab">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                    <polyline points="15 3 21 3 21 9"/>
+                                    <line x1="10" y1="14" x2="21" y2="3"/>
+                                </svg>
+                                Abrir Site na Nova Aba
+                            </button>
+                            <div class="step-site-url" id="stepSiteUrl"></div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div class="login-step" id="loginStep2">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h4>Copiar cookies do navegador</h4>
+                            <p>Após fazer login, copie os cookies do site. Siga as instruções:</p>
+                            
+                            <div class="cookie-methods">
+                                <div class="cookie-method">
+                                    <h5>Método Rápido (DevTools)</h5>
+                                    <div class="cookie-instructions">
+                                        <span class="instruction-step">1</span> Na aba do site logado, pressione <kbd>F12</kbd>
+                                        <br>
+                                        <span class="instruction-step">2</span> Vá na aba <kbd>Console</kbd>
+                                        <br>
+                                        <span class="instruction-step">3</span> Cole o comando abaixo e pressione <kbd>Enter</kbd>
+                                    </div>
+                                    <div class="cookie-command-box">
+                                        <code id="cookieCommand">copy(document.cookie.split(';').map(c=>{let [n,...v]=c.trim().split('=');return{name:n,value:v.join('='),domain:location.hostname,path:'/'}}))</code>
+                                        <button class="btn btn-sm btn-ghost" id="btnCopyCommand" title="Copiar comando">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    <span class="cookie-note">Os cookies serão copiados para sua área de transferência.</span>
+                                </div>
+                            </div>
+
+                            <!-- Área para colar cookies -->
+                            <div class="cookie-paste-area">
+                                <label for="cookieInput">Cole os cookies aqui:</label>
+                                <textarea id="cookieInput" rows="5" placeholder='Cole aqui o resultado do comando (será um JSON com os cookies)...'></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div class="login-step" id="loginStep3">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h4>Sincronizar e verificar</h4>
+                            <p>Clique para injetar os cookies no sistema e verificar se o login foi bem sucedido.</p>
+                            
+                            <!-- Preview do estado atual -->
+                            <div class="login-preview" id="loginPreview" style="display:none;">
+                                <img id="loginPreviewImg" alt="Preview do site">
+                                <div class="login-status" id="loginStatusText"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="interact-actions">
+                    <button class="btn btn-ghost" id="btnLoginCancel">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                        Cancelar
+                    </button>
+                    <button class="btn btn-ghost" id="btnLoginRefresh" title="Ver estado atual do site">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="23 4 23 10 17 10"/>
+                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                        </svg>
+                        Ver Estado
+                    </button>
+                    <button class="btn btn-primary" id="btnSyncCookies">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="16 16 12 12 8 16"/>
+                            <line x1="12" y1="12" x2="12" y2="21"/>
+                            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+                        </svg>
+                        Sincronizar Cookies
+                    </button>
+                    <button class="btn btn-primary" id="btnLoginDone" style="display:none;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        Pronto, Continuar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Main Container -->
     <div class="container">
         <!-- Header -->
@@ -74,7 +196,7 @@
                     </svg>
                     <div>
                         <h1>Site Backup & Error Checker</h1>
-                        <span class="version">v1.2.0</span>
+                        <span class="version">v1.3.0</span>
                     </div>
                 </div>
             </div>
@@ -150,11 +272,10 @@
                                 <polyline points="21 15 16 10 5 21"/>
                             </svg>
                         </button>
-                        <button class="btn btn-ghost btn-sm" id="btnInteract" title="Interagir com o Site (Login)">
+                        <button class="btn btn-ghost btn-sm" id="btnInteract" title="Login no Site">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-                                <polyline points="10 17 15 12 10 7"/>
-                                <line x1="15" y1="12" x2="3" y2="12"/>
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                             </svg>
                         </button>
                         <button class="btn btn-ghost btn-sm btn-danger" id="btnClose" title="Fechar Sessão">
@@ -172,61 +293,6 @@
                 </div>
             </div>
         </section>
-
-        <!-- Interaction Modal -->
-        <div class="interact-overlay" id="interactOverlay" style="display:none;">
-            <div class="interact-modal">
-                <div class="interact-header">
-                    <h3>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-                            <line x1="8" y1="21" x2="16" y2="21"/>
-                            <line x1="12" y1="17" x2="12" y2="21"/>
-                        </svg>
-                        Interação com o Site
-                    </h3>
-                    <p class="interact-hint">Clique na imagem para interagir. Use o campo abaixo para digitar texto.</p>
-                </div>
-                <div class="interact-body">
-                    <div class="interact-screen-container">
-                        <img id="interactScreenImg" class="interact-screen" alt="Tela do site" draggable="false">
-                        <div class="interact-click-indicator" id="clickIndicator" style="display:none;"></div>
-                    </div>
-                    <div class="interact-controls">
-                        <div class="interact-input-row">
-                            <input type="text" id="interactTextInput" placeholder="Digite o texto e pressione Enter..." autocomplete="off">
-                            <button class="btn btn-sm btn-ghost" id="btnInteractSend" title="Enviar texto">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <line x1="22" y1="2" x2="11" y2="13"/>
-                                    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                                </svg>
-                            </button>
-                        </div>
-                        <div class="interact-keys">
-                            <button class="btn btn-sm btn-ghost" data-key="enter" title="Enter">Enter</button>
-                            <button class="btn btn-sm btn-ghost" data-key="tab" title="Tab">Tab</button>
-                            <button class="btn btn-sm btn-ghost" data-key="escape" title="Escape">Esc</button>
-                            <button class="btn btn-sm btn-ghost" data-key="backspace" title="Backspace">&#9003;</button>
-                        </div>
-                        <div class="interact-actions">
-                            <button class="btn btn-sm btn-ghost" id="btnInteractRefresh" title="Atualizar screenshot">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polyline points="23 4 23 10 17 10"/>
-                                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-                                </svg>
-                                Atualizar
-                            </button>
-                            <button class="btn btn-sm btn-primary" id="btnInteractContinue">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polyline points="9 18 15 12 9 6"/>
-                                </svg>
-                                Continuar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <!-- Modules -->
         <section class="modules-grid">
@@ -357,7 +423,6 @@
                 </div>
             </div>
             <div class="panel-body">
-                <!-- Summary -->
                 <div class="results-summary" id="errorsSummary">
                     <div class="summary-item summary-errors">
                         <span class="summary-number" id="totalErrors">0</span>
@@ -368,11 +433,9 @@
                         <span class="summary-label">Avisos</span>
                     </div>
                 </div>
-                <!-- Tabs -->
                 <div class="results-tabs" id="errorsTabs">
                     <button class="tab-btn active" data-tab="all">Todos</button>
                 </div>
-                <!-- Content -->
                 <div class="results-content" id="errorsContent"></div>
             </div>
         </section>
@@ -422,7 +485,7 @@
 
         <!-- Footer -->
         <footer class="footer">
-            <p>Site Backup & Error Checker v1.2.0 &mdash; Selenium + FastAPI</p>
+            <p>Site Backup & Error Checker v1.3.0 &mdash; Selenium + FastAPI</p>
         </footer>
     </div>
 
