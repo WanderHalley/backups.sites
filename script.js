@@ -1184,69 +1184,70 @@ function displaySearchResults(data) {
 }
 
 // ===================== EVENT LISTENERS =====================
-// Auth
-DOM.btnAuth.addEventListener('click', authenticate);
-DOM.authTokenInput.addEventListener('keydown', e => { if (e.key === 'Enter') authenticate(); });
-DOM.authToggleVisibility.addEventListener('click', togglePasswordVisibility);
-DOM.btnLogout.addEventListener('click', logout);
+function setupEventListeners() {
+    // Auth
+    DOM.btnAuth.addEventListener('click', authenticate);
+    DOM.authTokenInput.addEventListener('keydown', e => { if (e.key === 'Enter') authenticate(); });
+    DOM.authToggleVisibility.addEventListener('click', togglePasswordVisibility);
+    DOM.btnLogout.addEventListener('click', logout);
 
-// URL / Site
-DOM.btnOpen.addEventListener('click', openSite);
-DOM.urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') openSite(); });
-DOM.btnScreenshot.addEventListener('click', takeScreenshot);
-DOM.btnClose.addEventListener('click', closeSession);
+    // URL / Site
+    DOM.btnOpen.addEventListener('click', openSite);
+    DOM.urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') openSite(); });
+    DOM.btnScreenshot.addEventListener('click', takeScreenshot);
+    DOM.btnClose.addEventListener('click', closeSession);
 
-// Interaction / Login
-DOM.btnInteract.addEventListener('click', openInteraction);
+    // Interaction / Login
+    DOM.btnInteract.addEventListener('click', openInteraction);
 
-var btnOpenSiteTab = document.getElementById('btnOpenSiteTab');
-if (btnOpenSiteTab) btnOpenSiteTab.addEventListener('click', openSiteInNewTab);
+    var btnOpenSiteTab = document.getElementById('btnOpenSiteTab');
+    if (btnOpenSiteTab) btnOpenSiteTab.addEventListener('click', openSiteInNewTab);
 
-var btnSyncCookies = document.getElementById('btnSyncCookies');
-if (btnSyncCookies) btnSyncCookies.addEventListener('click', syncCookies);
+    var btnSyncCookies = document.getElementById('btnSyncCookies');
+    if (btnSyncCookies) btnSyncCookies.addEventListener('click', syncCookies);
 
-var btnCheckExtension = document.getElementById('btnCheckExtension');
-if (btnCheckExtension) btnCheckExtension.addEventListener('click', async () => {
-    const ok = await checkExtension();
-    if (ok) {
-        showToast('Extensão detectada e funcionando!', 'success');
-    } else {
-        showToast('Extensão não detectada. Verifique a instalação.', 'warning');
-    }
-});
+    var btnCheckExtension = document.getElementById('btnCheckExtension');
+    if (btnCheckExtension) btnCheckExtension.addEventListener('click', async () => {
+        const ok = await checkExtension();
+        if (ok) {
+            showToast('Extensão detectada e funcionando!', 'success');
+        } else {
+            showToast('Extensão não detectada. Verifique a instalação.', 'warning');
+        }
+    });
 
-var btnLoginRefresh = document.getElementById('btnLoginRefresh');
-if (btnLoginRefresh) btnLoginRefresh.addEventListener('click', checkLoginState);
+    var btnLoginRefresh = document.getElementById('btnLoginRefresh');
+    if (btnLoginRefresh) btnLoginRefresh.addEventListener('click', checkLoginState);
 
-var btnLoginCancel = document.getElementById('btnLoginCancel');
-if (btnLoginCancel) btnLoginCancel.addEventListener('click', closeInteraction);
+    var btnLoginCancel = document.getElementById('btnLoginCancel');
+    if (btnLoginCancel) btnLoginCancel.addEventListener('click', closeInteraction);
 
-var btnLoginDone = document.getElementById('btnLoginDone');
-if (btnLoginDone) btnLoginDone.addEventListener('click', finishLogin);
+    var btnLoginDone = document.getElementById('btnLoginDone');
+    if (btnLoginDone) btnLoginDone.addEventListener('click', finishLogin);
 
-// Modules
-DOM.btnBackup.addEventListener('click', backupSite);
-DOM.btnErrors.addEventListener('click', checkErrors);
-DOM.btnSearch.addEventListener('click', searchSite);
+    // Modules
+    DOM.btnBackup.addEventListener('click', backupSite);
+    DOM.btnErrors.addEventListener('click', checkErrors);
+    DOM.btnSearch.addEventListener('click', searchSite);
 
-// Downloads
-DOM.btnDownloadErrors.addEventListener('click', downloadErrorReport);
-DOM.btnDownloadSearch.addEventListener('click', downloadSearchReport);
+    // Downloads
+    DOM.btnDownloadErrors.addEventListener('click', downloadErrorReport);
+    DOM.btnDownloadSearch.addEventListener('click', downloadSearchReport);
 
-// Clear
-DOM.btnClearErrors.addEventListener('click', () => {
-    DOM.errorResultsSection.style.display = 'none';
-    DOM.errorsContent.innerHTML = '';
-    state.lastErrorReport = null;
-    showToast('Resultados de erros limpos.', 'info');
-});
-DOM.btnClearSearch.addEventListener('click', () => {
-    DOM.searchResultsSection.style.display = 'none';
-    DOM.searchContent.innerHTML = '';
-    state.lastSearchReport = null;
-    showToast('Resultados de busca limpos.', 'info');
-});
-
+    // Clear
+    DOM.btnClearErrors.addEventListener('click', () => {
+        DOM.errorResultsSection.style.display = 'none';
+        DOM.errorsContent.innerHTML = '';
+        state.lastErrorReport = null;
+        showToast('Resultados de erros limpos.', 'info');
+    });
+    DOM.btnClearSearch.addEventListener('click', () => {
+        DOM.searchResultsSection.style.display = 'none';
+        DOM.searchContent.innerHTML = '';
+        state.lastSearchReport = null;
+        showToast('Resultados de busca limpos.', 'info');
+    });
+}
 // ===================== INIT =====================
 async function init() {
     console.log('Iniciando Site Backup & Error Checker...');
@@ -1364,7 +1365,20 @@ async function init() {
     console.log('%c Site Backup & Error Checker v1.3.0 ', 'background: #667eea; color: white; font-size: 14px; padding: 4px 8px; border-radius: 4px;');
 }
 
-// Start
-init();
+// Start - wait for DOM to be ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+        setupDOM();
+        setupEventListeners();
+        init();
+    });
+} else {
+    setupDOM();
+    setupEventListeners();
+    init();
+}
+
 })();
+
+
 
