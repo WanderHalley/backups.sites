@@ -32,32 +32,50 @@
         </div>
     </div>
 
-    <!-- Login / Interaction Overlay -->
+        <!-- Login / Interaction Overlay -->
     <div class="interact-overlay" id="interactOverlay">
         <div class="login-panel">
             <div class="login-panel-header">
                 <h3>🔑 Login no Site</h3>
-                <p>Faça login no site e sincronize os cookies com o sistema</p>
+                <p>Faça login no site de forma automática ou manual</p>
             </div>
 
             <div class="login-steps">
-                <!-- Step 1: Open site -->
+
+                <!-- Step 1: Auto Login -->
                 <div class="login-step">
                     <div class="step-header">
                         <div class="step-number">1</div>
-                        <div class="step-title">Abrir Site na Nova Aba</div>
+                        <div class="step-title">Login Automático (Recomendado)</div>
                     </div>
-                    <p class="step-description">Clique no botão abaixo para abrir o site em uma nova aba. Faça login normalmente.</p>
-                    <button class="btn-step primary" id="btnOpenSiteTab">🌐 Abrir Site na Nova Aba</button>
+                    <p class="step-description">Digite seu email e senha. O sistema vai clicar no botão de login, preencher os campos e entrar automaticamente.</p>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <input type="email" id="autoLoginEmail" placeholder="Seu email..." style="width:100%; padding:10px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:10px; color:#fff; font-size:14px; outline:none;">
+                        <div style="position:relative;">
+                            <input type="password" id="autoLoginPassword" placeholder="Sua senha..." style="width:100%; padding:10px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:10px; color:#fff; font-size:14px; outline:none; padding-right:45px;">
+                            <button id="btnToggleAutoPass" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; color:#666; cursor:pointer; font-size:16px; padding:4px;">👁️</button>
+                        </div>
+                        <button class="btn-step success" id="btnAutoLogin">🤖 Fazer Login Automático</button>
+                    </div>
+                    <!-- Auto login preview -->
+                    <div class="login-preview" id="autoLoginPreview">
+                        <div class="login-preview-title">Resultado do Login</div>
+                        <img id="autoLoginPreviewImg" src="" alt="Preview">
+                        <div class="login-preview-status" id="autoLoginStatus"></div>
+                        <div id="autoLoginSteps" style="margin-top:8px; font-size:11px; color:#888; max-height:100px; overflow-y:auto;"></div>
+                    </div>
                 </div>
 
-                <!-- Step 2: Get cookies -->
+                <!-- Step 2: Manual Login (alternative) -->
                 <div class="login-step">
                     <div class="step-header">
                         <div class="step-number">2</div>
-                        <div class="step-title">Copiar Cookies</div>
+                        <div class="step-title">Login Manual (Alternativa)</div>
                     </div>
-                    <p class="step-description">Após fazer login, abra o console (F12 → Console) na aba do site e cole o comando abaixo:</p>
+                    <p class="step-description">Se o login automático não funcionar, abra o site em uma nova aba, faça login, depois copie os cookies.</p>
+                    
+                    <button class="btn-step primary" id="btnOpenSiteTab" style="margin-bottom:12px;">🌐 Abrir Site na Nova Aba</button>
+
                     <div class="cookie-methods">
                         <div class="cookie-method">
                             <div class="cookie-method-title">📋 Comando para o Console</div>
@@ -65,37 +83,29 @@
                             <button class="btn-step primary" id="btnCopyCommand" style="font-size:12px; padding:6px 14px;">📋 Copiar Comando</button>
                         </div>
                         <div class="cookie-method">
-    <div class="cookie-method-title">📥 Colar Cookies Aqui</div>
-    <textarea class="cookie-paste-area" id="cookiePasteArea" rows="4" placeholder="Após executar o comando, volte aqui e pressione Ctrl+V para colar os cookies..."></textarea>
-</div>
-<div class="cookie-method">
-    <div class="cookie-method-title">🤖 Método Alternativo — Capturar do Selenium</div>
-    <p class="step-description" style="margin-bottom:8px; font-size:12px;">Se o comando do console não funcionou, abra o site na nova aba, faça login, depois clique abaixo para o Selenium capturar os cookies da própria sessão dele.</p>
-    <div style="display:flex; gap:8px; flex-wrap:wrap;">
-        <button class="btn-step primary" id="btnGetSeleniumCookies" style="font-size:12px; padding:8px 14px;">🤖 Capturar Cookies do Selenium</button>
-        <button class="btn-step primary" id="btnRefreshSelenium" style="font-size:12px; padding:8px 14px;">🔄 Atualizar Página no Selenium</button>
-    </div>
-</div>
-
+                            <div class="cookie-method-title">📥 Colar Cookies Aqui</div>
+                            <textarea class="cookie-paste-area" id="cookiePasteArea" rows="4" placeholder="Após executar o comando, volte aqui e pressione Ctrl+V para colar os cookies..."></textarea>
+                        </div>
+                        <div class="cookie-method">
+                            <div class="cookie-method-title">🤖 Capturar do Selenium</div>
+                            <p class="step-description" style="margin-bottom:8px; font-size:12px;">Se o comando do console não funcionou, use este botão após fazer login na nova aba.</p>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                <button class="btn-step primary" id="btnGetSeleniumCookies" style="font-size:12px; padding:8px 14px;">🤖 Capturar Cookies</button>
+                                <button class="btn-step primary" id="btnRefreshSelenium" style="font-size:12px; padding:8px 14px;">🔄 Atualizar Página</button>
+                            </div>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Step 3: Sync -->
-                <div class="login-step">
-                    <div class="step-header">
-                        <div class="step-number">3</div>
-                        <div class="step-title">Sincronizar Cookies</div>
-                    </div>
-                    <p class="step-description">Clique para enviar os cookies ao sistema. O Selenium usará esses cookies para manter o login.</p>
-                    <button class="btn-step success" id="btnSyncCookies">🔄 Sincronizar Cookies</button>
+                    <button class="btn-step success" id="btnSyncCookies" style="margin-top:12px;">🔄 Sincronizar Cookies</button>
 
-                    <!-- Preview -->
+                    <!-- Manual login preview -->
                     <div class="login-preview" id="loginPreview">
                         <div class="login-preview-title">Preview do Site</div>
                         <img id="loginPreviewImg" src="" alt="Preview">
                         <div class="login-preview-status" id="loginPreviewStatus"></div>
                     </div>
                 </div>
+
             </div>
 
             <div class="login-panel-footer">
@@ -107,6 +117,7 @@
             </div>
         </div>
     </div>
+
 
     <!-- MAIN CONTAINER -->
     <div class="main-container">
@@ -339,4 +350,5 @@
 
 </body>
 </html>
+
 
