@@ -395,7 +395,33 @@ function scrollPage(direction) {
 function openInteraction() {
     if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
     if (DOM.interactOverlay) DOM.interactOverlay.classList.add('active');
+
+    // Load live preview automatically
+    var liveImg = document.getElementById('livePreviewImg');
+    if (liveImg) {
+        // If main screenshot already has an image, copy it
+        if (DOM.screenshotImg && DOM.screenshotImg.src && DOM.screenshotImg.src !== '' && DOM.screenshotImg.src !== window.location.href) {
+            liveImg.src = DOM.screenshotImg.src;
+        } else {
+            // Take a fresh screenshot for the live preview
+            apiBlob('/screenshot', 'POST', { session_id: state.sessionId })
+                .then(function(response) {
+                    if (!response.ok) throw new Error('Erro ' + response.status);
+                    return response.blob();
+                })
+                .then(function(blob) {
+                    if (!blob) return;
+                    var url = URL.createObjectURL(blob);
+                    liveImg.src = url;
+                    if (DOM.screenshotImg) DOM.screenshotImg.src = url;
+                    if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
+                }).catch(function(err) {
+                    showToast('Erro ao carregar preview: ' + err.message, 'error');
+                });
+        }
+    }
 }
+
 
 function closeInteraction() {
     if (DOM.interactOverlay) DOM.interactOverlay.classList.remove('active');
@@ -1520,5 +1546,6 @@ if (document.readyState === 'loading') {
 }
 
 })();
+
 
 
