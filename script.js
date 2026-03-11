@@ -5,6 +5,16 @@
 (function () {
     'use strict';
 
+    // ===================== EXTENSION ID =====================
+    // Após instalar a extensão, copie o ID dela e cole aqui
+    // chrome://extensions → copie o ID da extensão "Site Backup - Cookie Sync"
+    var EXTENSION_ID = '';
+
+    // Tentar carregar do config.js
+    if (typeof BACKEND_CONFIG !== 'undefined' && BACKEND_CONFIG.EXTENSION_ID) {
+        EXTENSION_ID = BACKEND_CONFIG.EXTENSION_ID;
+    }
+
     // ===================== STATE =====================
     const state = {
         backendUrl: '',
@@ -14,6 +24,7 @@
         siteTitle: '',
         isConnected: false,
         isAuthenticated: false,
+        extensionInstalled: false,
         lastErrorReport: null,
         lastSearchReport: null
     };
@@ -95,21 +106,23 @@
     };
 
     // ===================== UTILITIES =====================
-    function showToast(message, type = 'info', duration = 4000) {
-        const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
+    function showToast(message, type, duration) {
+        type = type || 'info';
+        duration = duration || 4000;
+        var toast = document.createElement('div');
+        toast.className = 'toast toast-' + type;
         toast.textContent = message;
         DOM.toastContainer.appendChild(toast);
-        setTimeout(() => {
+        setTimeout(function () {
             toast.style.animationDelay = '0s';
             toast.style.animation = 'toastOut 0.3s ease forwards';
-            setTimeout(() => toast.remove(), 300);
+            setTimeout(function () { toast.remove(); }, 300);
         }, duration);
     }
 
-    function showLoading(text = 'Processando...', subtext = '') {
-        DOM.loadingText.textContent = text;
-        DOM.loadingSubtext.textContent = subtext;
+    function showLoading(text, subtext) {
+        DOM.loadingText.textContent = text || 'Processando...';
+        DOM.loadingSubtext.textContent = subtext || '';
         DOM.loadingOverlay.style.display = 'flex';
     }
 
@@ -118,13 +131,13 @@
     }
 
     function updateServerStatus(status, text) {
-        DOM.serverStatus.className = `server-status ${status}`;
+        DOM.serverStatus.className = 'server-status ' + status;
         DOM.serverStatus.querySelector('span').textContent = text;
     }
 
-    function updateSessionBadge(show, text = 'Sessão ativa') {
+    function updateSessionBadge(show, text) {
         DOM.sessionBadge.style.display = show ? 'flex' : 'none';
-        DOM.sessionBadgeText.textContent = text;
+        DOM.sessionBadgeText.textContent = text || 'Sessão ativa';
     }
 
     function updateModuleButtons(enabled) {
@@ -134,8 +147,8 @@
     }
 
     function downloadBlob(blob, filename) {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
         a.href = url;
         a.download = filename;
         document.body.appendChild(a);
@@ -145,10 +158,10 @@
     }
 
     function simulateProgress(fillEl, textEl, containerEl, steps) {
-        return new Promise((resolve) => {
+        return new Promise(function (resolve) {
             containerEl.style.display = 'flex';
-            let i = 0;
-            const interval = setInterval(() => {
+            var i = 0;
+            var interval = setInterval(function () {
                 if (i < steps.length) {
                     fillEl.style.width = steps[i].percent + '%';
                     textEl.textContent = steps[i].percent + '%';
@@ -163,39 +176,42 @@
 
     function escapeHTML(str) {
         if (!str) return '';
-        const div = document.createElement('div');
+        var div = document.createElement('div');
         div.appendChild(document.createTextNode(str));
         return div.innerHTML;
     }
 
     // ===================== API HELPERS =====================
-    async function apiRequest(endpoint, method = 'GET', body = null, isBlob = false) {
-        const url = state.backendUrl + endpoint;
-        const headers = {};
+    async function apiRequest(endpoint, method, body, isBlob) {
+        method = method || 'GET';
+        isBlob = isBlob || false;
+        var url = state.backendUrl + endpoint;
+        var headers = {};
 
         if (state.token) {
             headers['Authorization'] = 'Bearer ' + state.token;
         }
 
-        const options = { method, headers };
+        var options = { method: method, headers: headers };
 
         if (body) {
             headers['Content-Type'] = 'application/json';
             options.body = JSON.stringify(body);
         }
 
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), (typeof BACKEND_CONFIG !== 'undefined' ? BACKEND_CONFIG.REQUEST_TIMEOUT : 120000));
+        var controller = new AbortController();
+        var timeoutMs = (typeof BACKEND_CONFIG !== 'undefined' && BACKEND_CONFIG.REQUEST_TIMEOUT) ? BACKEND_CONFIG.REQUEST_TIMEOUT : 120000;
+        var timeout = setTimeout(function () { controller.abort(); }, timeoutMs);
         options.signal = controller.signal;
 
         try {
-            const response = await fetch(url, options);
+            var response = await fetch(url, options);
             clearTimeout(timeout);
 
             if (!response.ok) {
-                let errorMsg = `Erro ${response.status}`;
+                var errorMsg = 'Erro ' + response.status;
                 try {
-                    const errData = await response.json();
+                    var errData = await response.json();
                     errorMsg = errData.detail || errorMsg;
                 } catch (e) { }
                 throw new Error(errorMsg);
@@ -215,12 +231,74 @@
         }
     }
 
-    async function apiJSON(endpoint, method = 'GET', body = null) {
+    async function apiJSON(endpoint, method, body) {
         return apiRequest(endpoint, method, body, false);
     }
 
-    async function apiBlob(endpoint, method = 'GET', body = null) {
+    async function apiBlob(endpoint, method, body) {
         return apiRequest(endpoint, method, body, true);
+    }
+
+    // ===================== EXTENSION COMMUNICATION =====================
+    function checkExtension() {
+        return new Promise(function (resolve) {
+            if (!EXTENSION_ID) {
+                resolve(false);
+                return;
+            }
+
+            try {
+                chrome.runtime.sendMessage(EXTENSION_ID, { action: 'ping' }, function (response) {
+                    if (chrome.runtime.lastError || !response) {
+                        resolve(false);
+                        return;
+                    }
+                    if (response.success) {
+                        resolve(true);
+                    } else {
+                        resolve(false);
+                    }
+                });
+            } catch (e) {
+                resolve(false);
+            }
+        });
+    }
+
+    function getCookiesFromExtension(url) {
+        return new Promise(function (resolve, reject) {
+            if (!EXTENSION_ID) {
+                reject(new Error('ID da extensão não configurado. Adicione EXTENSION_ID no config.js'));
+                return;
+            }
+
+            if (!state.extensionInstalled) {
+                reject(new Error('Extensão não detectada. Instale a extensão e recarregue a página.'));
+                return;
+            }
+
+            try {
+                chrome.runtime.sendMessage(EXTENSION_ID, { action: 'getCookiesFromTab', url: url }, function (response) {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error('Erro na comunicação com a extensão: ' + chrome.runtime.lastError.message));
+                        return;
+                    }
+
+                    if (!response) {
+                        reject(new Error('Sem resposta da extensão. Verifique se está instalada.'));
+                        return;
+                    }
+
+                    if (response.success) {
+                        resolve(response);
+                    } else {
+                        reject(new Error(response.error || 'Erro ao capturar cookies'));
+                    }
+                });
+            } catch (e) {
+                reject(new Error('Falha ao comunicar com a extensão: ' + e.message));
+            }
+        });
     }
 
     // ===================== AUTHENTICATION =====================
@@ -236,7 +314,7 @@
     }
 
     async function authenticate() {
-        const token = DOM.authTokenInput.value.trim();
+        var token = DOM.authTokenInput.value.trim();
         if (!token) {
             DOM.authError.textContent = 'Digite o token de acesso.';
             return;
@@ -255,10 +333,10 @@
             }
 
             state.token = token;
-            const statusResp = await apiJSON('/');
+            var statusResp = await apiJSON('/');
 
             if (statusResp.auth_required) {
-                const authResp = await apiJSON('/auth/verify', 'POST');
+                var authResp = await apiJSON('/auth/verify', 'POST');
                 if (!authResp.valid) {
                     DOM.authError.textContent = 'Token inválido.';
                     state.token = '';
@@ -311,14 +389,14 @@
     }
 
     function togglePasswordVisibility() {
-        const input = DOM.authTokenInput;
+        var input = DOM.authTokenInput;
         input.type = input.type === 'password' ? 'text' : 'password';
     }
 
     // ===================== CORE ACTIONS =====================
 
     async function openSite() {
-        let url = DOM.urlInput.value.trim();
+        var url = DOM.urlInput.value.trim();
         if (!url) {
             showToast('Digite uma URL para abrir.', 'warning');
             return;
@@ -332,7 +410,7 @@
         DOM.btnOpen.disabled = true;
 
         try {
-            const data = await apiJSON('/open', 'POST', { url });
+            var data = await apiJSON('/open', 'POST', { url: url });
 
             state.sessionId = data.session_id;
             state.siteUrl = data.url;
@@ -365,11 +443,11 @@
         DOM.btnScreenshot.disabled = true;
 
         try {
-            const response = await apiBlob('/screenshot', 'POST', {
+            var response = await apiBlob('/screenshot', 'POST', {
                 session_id: state.sessionId
             });
-            const blob = await response.blob();
-            const imgUrl = URL.createObjectURL(blob);
+            var blob = await response.blob();
+            var imgUrl = URL.createObjectURL(blob);
             DOM.screenshotImg.src = imgUrl;
             DOM.screenshotPreview.style.display = 'block';
             showToast('Screenshot capturado!', 'success');
@@ -407,7 +485,7 @@
 
     // ===================== INTERACTION / LOGIN =====================
 
-    function openInteraction() {
+    async function openInteraction() {
         if (!state.sessionId) {
             showToast('Nenhuma sessão ativa.', 'warning');
             return;
@@ -420,6 +498,53 @@
         if (stepUrl) {
             stepUrl.textContent = state.siteUrl;
         }
+
+        // Verificar extensão
+        var extStatus = document.getElementById('extensionStatus');
+        if (extStatus) {
+            extStatus.innerHTML = '<div class="extension-checking">' +
+                '<div class="loading-spinner" style="width:20px;height:20px;border-width:2px;margin:0;"></div>' +
+                '<span>Verificando extensão...</span>' +
+                '</div>';
+        }
+
+        try {
+            var installed = await checkExtension();
+            state.extensionInstalled = installed;
+
+            if (extStatus) {
+                if (installed) {
+                    extStatus.innerHTML = '<div class="extension-ok">' +
+                        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2">' +
+                        '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>' +
+                        '<polyline points="22 4 12 14.01 9 11.01"/>' +
+                        '</svg>' +
+                        '<span>Extensão detectada! Pronta para sincronizar.</span>' +
+                        '</div>';
+                } else {
+                    extStatus.innerHTML = '<div class="extension-error">' +
+                        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2">' +
+                        '<circle cx="12" cy="12" r="10"/>' +
+                        '<line x1="15" y1="9" x2="9" y2="15"/>' +
+                        '<line x1="9" y1="9" x2="15" y2="15"/>' +
+                        '</svg>' +
+                        '<span>Extensão não detectada. Instale a extensão e configure o EXTENSION_ID no config.js</span>' +
+                        '</div>';
+                }
+            }
+        } catch (err) {
+            state.extensionInstalled = false;
+            if (extStatus) {
+                extStatus.innerHTML = '<div class="extension-error">' +
+                    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2">' +
+                    '<circle cx="12" cy="12" r="10"/>' +
+                    '<line x1="15" y1="9" x2="9" y2="15"/>' +
+                    '<line x1="9" y1="9" x2="15" y2="15"/>' +
+                    '</svg>' +
+                    '<span>Erro ao verificar extensão.</span>' +
+                    '</div>';
+            }
+        }
     }
 
     function closeInteraction() {
@@ -429,23 +554,15 @@
     function resetLoginSteps() {
         var step1 = document.getElementById('loginStep1');
         var step2 = document.getElementById('loginStep2');
-        var step3 = document.getElementById('loginStep3');
 
         if (step1) { step1.className = 'login-step active'; }
         if (step2) { step2.className = 'login-step'; }
-        if (step3) { step3.className = 'login-step'; }
-
-        var cookieInput = document.getElementById('cookieInput');
-        if (cookieInput) cookieInput.value = '';
 
         var loginPreview = document.getElementById('loginPreview');
         if (loginPreview) loginPreview.style.display = 'none';
 
         var btnDone = document.getElementById('btnLoginDone');
         if (btnDone) btnDone.style.display = 'none';
-
-        var btnSync = document.getElementById('btnSyncCookies');
-        if (btnSync) btnSync.style.display = 'inline-flex';
     }
 
     function openSiteInNewTab() {
@@ -465,75 +582,40 @@
         showToast('Site aberto em nova aba. Faça login e volte aqui.', 'info', 6000);
     }
 
-    function copyCommandToClipboard() {
-        var command = document.getElementById('cookieCommand');
-        if (!command) return;
-
-        var text = command.textContent;
-
-        navigator.clipboard.writeText(text).then(function () {
-            showToast('Comando copiado! Cole no Console (F12) do site.', 'success', 4000);
-        }).catch(function () {
-            var textarea = document.createElement('textarea');
-            textarea.value = text;
-            document.body.appendChild(textarea);
-            textarea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textarea);
-            showToast('Comando copiado!', 'success', 3000);
-        });
-    }
-
     async function syncCookies() {
-        var cookieInput = document.getElementById('cookieInput');
-        if (!cookieInput) return;
-
-        var raw = cookieInput.value.trim();
-        if (!raw) {
-            showToast('Cole os cookies no campo antes de sincronizar.', 'warning');
+        if (!state.sessionId) {
+            showToast('Nenhuma sessão ativa.', 'warning');
             return;
         }
 
-        var cookies = [];
+        if (!state.extensionInstalled) {
+            showToast('Extensão não detectada. Instale a extensão primeiro.', 'error');
+            return;
+        }
+
+        showLoading('Capturando cookies...', 'Comunicando com a extensão');
+
         try {
-            cookies = JSON.parse(raw);
-            if (!Array.isArray(cookies)) {
-                cookies = [cookies];
-            }
-        } catch (e) {
-            try {
-                cookies = raw.split(';').map(function (c) {
-                    var parts = c.trim().split('=');
-                    var name = parts[0];
-                    var value = parts.slice(1).join('=');
-                    return { name: name, value: value, path: '/' };
-                }).filter(function (c) { return c.name; });
-            } catch (e2) {
-                showToast('Formato de cookies inválido. Use o comando do DevTools.', 'error');
+            // Pegar cookies da extensão
+            var cookieData = await getCookiesFromExtension(state.siteUrl);
+
+            if (!cookieData.cookies || cookieData.cookies.length === 0) {
+                hideLoading();
+                showToast('Nenhum cookie encontrado. Verifique se fez login no site.', 'warning');
                 return;
             }
-        }
 
-        if (cookies.length === 0) {
-            showToast('Nenhum cookie encontrado no texto colado.', 'warning');
-            return;
-        }
+            showLoading('Sincronizando cookies...', cookieData.total + ' cookies capturados');
 
-        var step2 = document.getElementById('loginStep2');
-        var step3 = document.getElementById('loginStep3');
-        if (step2) { step2.className = 'login-step done'; }
-        if (step3) { step3.className = 'login-step active'; }
-
-        showLoading('Sincronizando cookies...', cookies.length + ' cookies encontrados');
-
-        try {
+            // Enviar cookies para o backend
             var data = await apiJSON('/inject-cookies', 'POST', {
                 session_id: state.sessionId,
-                cookies: cookies
+                cookies: cookieData.cookies
             });
 
             hideLoading();
 
+            // Mostrar preview
             var loginPreview = document.getElementById('loginPreview');
             var loginPreviewImg = document.getElementById('loginPreviewImg');
             var loginStatusText = document.getElementById('loginStatusText');
@@ -543,6 +625,7 @@
                 if (loginPreview) loginPreview.style.display = 'block';
             }
 
+            // Atualizar info da sessão
             if (data.url) {
                 state.siteUrl = data.url;
                 state.siteTitle = data.title || 'Sem título';
@@ -555,20 +638,25 @@
             var errors = data.errors || [];
 
             if (injected > 0) {
-                showToast(injected + '/' + total + ' cookies injetados com sucesso!', 'success');
+                showToast(injected + '/' + total + ' cookies sincronizados!', 'success');
+
+                // Marcar step 2 como done
+                var step2 = document.getElementById('loginStep2');
+                if (step2) { step2.className = 'login-step done'; }
 
                 if (loginStatusText) {
-                    loginStatusText.textContent = 'Cookies sincronizados! Verifique a imagem acima.';
+                    loginStatusText.textContent = 'Cookies sincronizados com sucesso! Verifique a imagem.';
                     loginStatusText.className = 'login-status status-success';
                 }
 
+                // Mostrar botão "Pronto"
                 var btnDone = document.getElementById('btnLoginDone');
                 if (btnDone) btnDone.style.display = 'inline-flex';
 
             } else {
-                showToast('Nenhum cookie foi injetado. Verifique o formato.', 'error');
+                showToast('Nenhum cookie foi injetado. Verifique se fez login.', 'error');
                 if (loginStatusText) {
-                    loginStatusText.textContent = 'Falha ao injetar cookies.';
+                    loginStatusText.textContent = 'Falha ao injetar cookies. Tente novamente.';
                     loginStatusText.className = 'login-status status-failed';
                 }
             }
@@ -586,10 +674,14 @@
     async function checkLoginState() {
         if (!state.sessionId) return;
 
+        showLoading('Verificando estado...');
+
         try {
             var data = await apiJSON('/get-current-state', 'POST', {
                 session_id: state.sessionId
             });
+
+            hideLoading();
 
             var loginPreview = document.getElementById('loginPreview');
             var loginPreviewImg = document.getElementById('loginPreviewImg');
@@ -617,13 +709,14 @@
 
                     showToast('Login detectado com sucesso!', 'success');
                 } else {
-                    loginStatusText.textContent = 'Login não detectado. Tente sincronizar os cookies novamente.';
+                    loginStatusText.textContent = 'Login não detectado. Tente sincronizar novamente.';
                     loginStatusText.className = 'login-status status-uncertain';
-                    showToast('Login não detectado. Verifique se fez login corretamente.', 'warning');
+                    showToast('Login não detectado.', 'warning');
                 }
             }
 
         } catch (err) {
+            hideLoading();
             showToast('Erro ao verificar estado: ' + err.message, 'error');
         }
     }
@@ -864,338 +957,417 @@
         }
     }
 
-    // ===================== ERROR RESULTS DISPLAY =====================
+// ===================== DISPLAY ERROR RESULTS =====================
+const categoryLabels = {
+    'console': 'Console',
+    'javascript': 'Erros JavaScript',
+    'network': 'Rede / Network',
+    'css': 'CSS',
+    'html': 'HTML',
+    'accessibility': 'Acessibilidade',
+    'security': 'Segurança',
+    'performance': 'Performance',
+    'broken_links': 'Links Quebrados',
+    'seo': 'SEO'
+};
 
-    const categoryLabels = {
-        'console': 'Console do Navegador',
-        'javascript': 'Erros JavaScript',
-        'network': 'Erros de Rede',
-        'resources': 'Recursos',
-        'css': 'Erros CSS',
-        'html': 'Erros HTML',
-        'accessibility': 'Acessibilidade',
-        'security': 'Segurança',
-        'performance': 'Performance',
-        'broken_links': 'Links Quebrados',
-        'seo': 'SEO'
-    };
+function extractErrorMessage(item) {
+    if (typeof item === 'string') return escapeHTML(item);
+    if (item.message) return escapeHTML(item.message);
+    if (item.text) return escapeHTML(item.text);
+    if (item.description) return escapeHTML(item.description);
+    if (item.url) return escapeHTML(item.url);
+    return escapeHTML(JSON.stringify(item));
+}
 
-    function displayErrorResults(data) {
-        var details = data.details || {};
-        var totalE = data.total_errors || 0;
-        var totalW = data.total_warnings || 0;
+function getErrorLevel(item) {
+    if (typeof item === 'string') {
+        if (item.toLowerCase().includes('error')) return 'error';
+        if (item.toLowerCase().includes('warning') || item.toLowerCase().includes('aviso')) return 'warning';
+        return 'info';
+    }
+    if (item.level) return item.level.toLowerCase();
+    if (item.severity) return item.severity.toLowerCase();
+    if (item.type) {
+        const t = item.type.toLowerCase();
+        if (t.includes('error')) return 'error';
+        if (t.includes('warning')) return 'warning';
+    }
+    return 'info';
+}
 
-        DOM.totalErrors.textContent = totalE;
-        DOM.totalWarnings.textContent = totalW;
-
-        DOM.errorsTabs.innerHTML = '<button class="tab-btn active" data-tab="all">Todos</button>';
-
-        var categories = Object.keys(details).filter(function (cat) {
-            var items = details[cat];
-            return Array.isArray(items) && items.length > 0;
-        });
-
-        categories.forEach(function (cat) {
-            var label = categoryLabels[cat] || cat;
-            var count = details[cat].length;
-            var btn = document.createElement('button');
-            btn.className = 'tab-btn';
-            btn.dataset.tab = cat;
-            btn.textContent = label + ' (' + count + ')';
-            DOM.errorsTabs.appendChild(btn);
-        });
-
-        renderErrorsTab('all', details, categories);
-
-        DOM.errorsTabs.querySelectorAll('.tab-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                DOM.errorsTabs.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
-                this.classList.add('active');
-                var tab = this.dataset.tab;
-                if (tab === 'all') {
-                    renderErrorsTab('all', details, categories);
-                } else {
-                    renderErrorsTab(tab, details, [tab]);
-                }
-            });
-        });
-
-        DOM.errorResultsSection.style.display = 'block';
-        DOM.errorResultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+function displayErrorResults(data) {
+    if (!data || !data.details) {
+        showToast('Nenhum dado de erro para exibir.', 'warning');
+        return;
     }
 
-    function renderErrorsTab(tab, details, categories) {
-        DOM.errorsContent.innerHTML = '';
+    DOM.errorResultsSection.style.display = 'block';
 
-        if (categories.length === 0) {
-            DOM.errorsContent.innerHTML = '<div class="no-results">' +
-                '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">' +
-                '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>' +
-                '<polyline points="22 4 12 14.01 9 11.01"/>' +
-                '</svg>' +
-                '<p>Nenhum erro encontrado!</p>' +
-                '</div>';
-            return;
+    const totalErrors = data.total_errors || 0;
+    const totalWarnings = data.total_warnings || 0;
+    const totalErrorsEl = document.getElementById('totalErrors');
+    const totalWarningsEl = document.getElementById('totalWarnings');
+    if (totalErrorsEl) totalErrorsEl.textContent = totalErrors;
+    if (totalWarningsEl) totalWarningsEl.textContent = totalWarnings;
+
+    const details = data.details;
+    const categories = Object.keys(details).filter(k => {
+        const items = details[k];
+        return Array.isArray(items) && items.length > 0;
+    });
+
+    // Create tabs
+    const tabsContainer = DOM.errorResultsSection.querySelector('.result-tabs') || document.createElement('div');
+    tabsContainer.className = 'result-tabs';
+    tabsContainer.innerHTML = '';
+
+    // "All" tab
+    const allTab = document.createElement('button');
+    allTab.className = 'result-tab active';
+    allTab.dataset.tab = 'all';
+    let totalItems = 0;
+    categories.forEach(c => { totalItems += details[c].length; });
+    allTab.textContent = `Todos (${totalItems})`;
+    tabsContainer.appendChild(allTab);
+
+    categories.forEach(cat => {
+        const tab = document.createElement('button');
+        tab.className = 'result-tab';
+        tab.dataset.tab = cat;
+        const label = categoryLabels[cat] || cat;
+        tab.textContent = `${label} (${details[cat].length})`;
+        tabsContainer.appendChild(tab);
+    });
+
+    // Insert tabs if not already in DOM
+    const existingTabs = DOM.errorResultsSection.querySelector('.result-tabs');
+    if (existingTabs) {
+        existingTabs.replaceWith(tabsContainer);
+    } else {
+        DOM.errorsContent.parentNode.insertBefore(tabsContainer, DOM.errorsContent);
+    }
+
+    // Render "All" tab initially
+    renderErrorsTab('all', details, categories);
+
+    // Tab click listeners
+    tabsContainer.querySelectorAll('.result-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabsContainer.querySelectorAll('.result-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            const selectedTab = tab.dataset.tab;
+            if (selectedTab === 'all') {
+                renderErrorsTab('all', details, categories);
+            } else {
+                renderErrorsTab(selectedTab, details, [selectedTab]);
+            }
+        });
+    });
+}
+
+function renderErrorsTab(tab, details, categories) {
+    DOM.errorsContent.innerHTML = '';
+
+    let hasItems = false;
+    categories.forEach(cat => {
+        if (details[cat] && details[cat].length > 0) {
+            hasItems = true;
+        }
+    });
+
+    if (!hasItems) {
+        DOM.errorsContent.innerHTML = '<div class="no-results">Nenhum erro encontrado! O site parece estar limpo.</div>';
+        return;
+    }
+
+    categories.forEach(cat => {
+        if (details[cat] && details[cat].length > 0) {
+            const block = createErrorCategoryBlock(cat, details[cat]);
+            DOM.errorsContent.appendChild(block);
+        }
+    });
+}
+
+function createErrorCategoryBlock(category, items) {
+    const block = document.createElement('div');
+    block.className = 'error-category-block';
+
+    const title = document.createElement('div');
+    title.className = 'error-category-title';
+    const label = categoryLabels[category] || category;
+    title.innerHTML = `<strong>${escapeHTML(label)}</strong> <span class="error-count">(${items.length})</span>`;
+    block.appendChild(title);
+
+    const list = document.createElement('div');
+    list.className = 'error-list';
+
+    items.forEach(item => {
+        const entry = document.createElement('div');
+        const level = getErrorLevel(item);
+        entry.className = `error-item level-${level}`;
+
+        const message = extractErrorMessage(item);
+        let html = `<span class="error-level">${level.toUpperCase()}</span> ${message}`;
+
+        if (typeof item === 'object') {
+            if (item.source) html += `<div class="error-source">Fonte: ${escapeHTML(item.source)}</div>`;
+            if (item.url) html += `<div class="error-source">URL: ${escapeHTML(item.url)}</div>`;
+            if (item.line) html += `<div class="error-source">Linha: ${item.line}</div>`;
         }
 
-        categories.forEach(function (cat) {
-            var items = details[cat];
-            if (!Array.isArray(items) || items.length === 0) return;
-            DOM.errorsContent.appendChild(createErrorCategoryBlock(cat, items));
-        });
+        entry.innerHTML = html;
+        list.appendChild(entry);
+    });
+
+    block.appendChild(list);
+    return block;
+}
+
+// ===================== DISPLAY SEARCH RESULTS =====================
+function displaySearchResults(data) {
+    if (!data || !data.findings) {
+        showToast('Nenhum dado de busca para exibir.', 'warning');
+        return;
     }
 
-    function createErrorCategoryBlock(category, items) {
-        var block = document.createElement('div');
-        block.className = 'error-category-block';
+    DOM.searchResultsSection.style.display = 'block';
 
-        var title = document.createElement('div');
-        title.className = 'error-category-title';
-        title.textContent = (categoryLabels[category] || category) + ' (' + items.length + ')';
+    const findings = data.findings;
+    const totalFound = data.total_found || 0;
+    const categoriesSet = new Set(findings.map(f => f.category));
+
+    const totalFoundEl = document.getElementById('totalFound');
+    const totalCategoriesEl = document.getElementById('totalCategories');
+    if (totalFoundEl) totalFoundEl.textContent = totalFound;
+    if (totalCategoriesEl) totalCategoriesEl.textContent = categoriesSet.size;
+
+    DOM.searchContent.innerHTML = '';
+
+    if (findings.length === 0) {
+        DOM.searchContent.innerHTML = '<div class="no-results">Nenhum resultado encontrado para o termo buscado.</div>';
+        return;
+    }
+
+    // Group by category
+    const grouped = {};
+    findings.forEach(f => {
+        const cat = f.category || 'Outros';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(f);
+    });
+
+    Object.keys(grouped).forEach(cat => {
+        const block = document.createElement('div');
+        block.className = 'search-category-block';
+
+        const title = document.createElement('div');
+        title.className = 'search-category-title';
+        title.innerHTML = `<strong>${escapeHTML(cat)}</strong> <span class="search-count">(${grouped[cat].length})</span>`;
         block.appendChild(title);
 
-        items.forEach(function (item) {
-            var div = document.createElement('div');
-            var level = item.level || item.type || 'info';
+        const list = document.createElement('div');
+        list.className = 'search-list';
 
-            var levelClass = 'level-info';
-            if (level === 'error' || level === 'SEVERE' || level === 'severe') {
-                levelClass = 'level-error';
-            } else if (level === 'warning' || level === 'WARNING') {
-                levelClass = 'level-warning';
-            }
+        grouped[cat].forEach(item => {
+            const entry = document.createElement('div');
+            entry.className = 'search-item';
 
-            div.className = 'error-item ' + levelClass;
-            div.innerHTML = escapeHTML(extractErrorMessage(item));
-            block.appendChild(div);
+            let html = '';
+            if (item.type) html += `<span class="search-type">${escapeHTML(item.type)}</span> `;
+            if (item.value) html += `<span class="search-value">${escapeHTML(item.value)}</span>`;
+            if (item.details) html += `<div class="search-details">${escapeHTML(item.details)}</div>`;
+
+            entry.innerHTML = html;
+            list.appendChild(entry);
         });
 
-        return block;
+        block.appendChild(list);
+        DOM.searchContent.appendChild(block);
+    });
+}
+
+// ===================== EVENT LISTENERS =====================
+// Auth
+DOM.btnAuth.addEventListener('click', authenticate);
+DOM.authTokenInput.addEventListener('keydown', e => { if (e.key === 'Enter') authenticate(); });
+DOM.authToggleVisibility.addEventListener('click', togglePasswordVisibility);
+DOM.btnLogout.addEventListener('click', logout);
+
+// URL / Site
+DOM.btnOpen.addEventListener('click', openSite);
+DOM.urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') openSite(); });
+DOM.btnScreenshot.addEventListener('click', takeScreenshot);
+DOM.btnClose.addEventListener('click', closeSession);
+
+// Interaction / Login
+DOM.btnInteract.addEventListener('click', openInteraction);
+
+var btnOpenSiteTab = document.getElementById('btnOpenSiteTab');
+if (btnOpenSiteTab) btnOpenSiteTab.addEventListener('click', openSiteInNewTab);
+
+var btnSyncCookies = document.getElementById('btnSyncCookies');
+if (btnSyncCookies) btnSyncCookies.addEventListener('click', syncCookies);
+
+var btnCheckExtension = document.getElementById('btnCheckExtension');
+if (btnCheckExtension) btnCheckExtension.addEventListener('click', async () => {
+    const ok = await checkExtension();
+    if (ok) {
+        showToast('Extensão detectada e funcionando!', 'success');
+    } else {
+        showToast('Extensão não detectada. Verifique a instalação.', 'warning');
+    }
+});
+
+var btnLoginRefresh = document.getElementById('btnLoginRefresh');
+if (btnLoginRefresh) btnLoginRefresh.addEventListener('click', checkLoginState);
+
+var btnLoginCancel = document.getElementById('btnLoginCancel');
+if (btnLoginCancel) btnLoginCancel.addEventListener('click', closeInteraction);
+
+var btnLoginDone = document.getElementById('btnLoginDone');
+if (btnLoginDone) btnLoginDone.addEventListener('click', finishLogin);
+
+// Modules
+DOM.btnBackup.addEventListener('click', backupSite);
+DOM.btnErrors.addEventListener('click', checkErrors);
+DOM.btnSearch.addEventListener('click', searchSite);
+
+// Downloads
+DOM.btnDownloadErrors.addEventListener('click', downloadErrorReport);
+DOM.btnDownloadSearch.addEventListener('click', downloadSearchReport);
+
+// Clear
+DOM.btnClearErrors.addEventListener('click', () => {
+    DOM.errorResultsSection.style.display = 'none';
+    DOM.errorsContent.innerHTML = '';
+    state.lastErrorReport = null;
+    showToast('Resultados de erros limpos.', 'info');
+});
+DOM.btnClearSearch.addEventListener('click', () => {
+    DOM.searchResultsSection.style.display = 'none';
+    DOM.searchContent.innerHTML = '';
+    state.lastSearchReport = null;
+    showToast('Resultados de busca limpos.', 'info');
+});
+
+// ===================== INIT =====================
+async function init() {
+    console.log('Iniciando Site Backup & Error Checker...');
+
+    // Load backend URL from config
+    if (typeof BACKEND_CONFIG !== 'undefined' && BACKEND_CONFIG.BACKEND_URL) {
+        state.backendUrl = BACKEND_CONFIG.BACKEND_URL.replace(/\/+$/, '');
+        console.log('Backend URL:', state.backendUrl);
+    } else {
+        console.error('BACKEND_CONFIG não encontrado! Verifique config.js');
+        showToast('Erro: config.js não encontrado ou inválido.', 'error');
+        updateServerStatus('offline', 'Config ausente');
+        return;
     }
 
-    function extractErrorMessage(item) {
-        if (typeof item === 'string') return item;
-        if (item.message) return item.message;
-        if (item.description) return item.description;
-        if (item.text) return item.text;
-        if (item.url) return item.url;
-        return JSON.stringify(item);
+    // Load extension ID from config
+    if (typeof BACKEND_CONFIG !== 'undefined' && BACKEND_CONFIG.EXTENSION_ID) {
+        EXTENSION_ID = BACKEND_CONFIG.EXTENSION_ID;
     }
 
-    // ===================== SEARCH RESULTS DISPLAY =====================
-
-    function displaySearchResults(data) {
-        var findings = data.findings || [];
-        var totalF = data.total_found || 0;
-
-        DOM.totalFound.textContent = totalF;
-
-        var uniqueCategories = [];
-        findings.forEach(function (f) {
-            var cat = f.category || 'geral';
-            if (uniqueCategories.indexOf(cat) === -1) {
-                uniqueCategories.push(cat);
-            }
+    // Check server status
+    try {
+        const response = await fetch(state.backendUrl + '/', {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
         });
-        DOM.totalCategories.textContent = uniqueCategories.length;
 
-        DOM.searchContent.innerHTML = '';
-
-        if (findings.length === 0) {
-            DOM.searchContent.innerHTML = '<div class="no-results">' +
-                '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">' +
-                '<circle cx="11" cy="11" r="8"/>' +
-                '<line x1="21" y1="21" x2="16.65" y2="16.65"/>' +
-                '</svg>' +
-                '<p>Nenhum resultado encontrado.</p>' +
-                '</div>';
-            DOM.searchResultsSection.style.display = 'block';
-            DOM.searchResultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            return;
+        if (!response.ok) {
+            throw new Error('Servidor respondeu com status ' + response.status);
         }
 
-        var grouped = {};
-        findings.forEach(function (f) {
-            var cat = f.category || 'geral';
-            if (!grouped[cat]) grouped[cat] = [];
-            grouped[cat].push(f);
-        });
+        const data = await response.json();
+        console.log('Servidor respondeu:', data);
 
-        Object.keys(grouped).forEach(function (cat) {
-            var block = document.createElement('div');
-            block.className = 'search-category-block';
+        state.isConnected = true;
+        updateServerStatus('online', 'Conectado');
 
-            var title = document.createElement('div');
-            title.className = 'search-category-title';
-            title.textContent = cat.charAt(0).toUpperCase() + cat.slice(1) + ' (' + grouped[cat].length + ')';
-            block.appendChild(title);
+        // *** FIX: Always check auth_required ***
+        if (data.auth_required === true) {
+            console.log('Autenticação requerida pelo servidor.');
 
-            grouped[cat].forEach(function (item) {
-                var div = document.createElement('div');
-                div.className = 'search-item';
-
-                var html = '';
-                if (item.type) {
-                    html += '<div class="search-item-type">' + escapeHTML(item.type) + '</div>';
-                }
-                if (item.value) {
-                    html += '<div class="search-item-value">' + escapeHTML(item.value) + '</div>';
-                }
-                if (item.details) {
-                    html += '<div class="search-item-details">' + escapeHTML(item.details) + '</div>';
-                }
-
-                div.innerHTML = html;
-                block.appendChild(div);
-            });
-
-            DOM.searchContent.appendChild(block);
-        });
-
-        DOM.searchResultsSection.style.display = 'block';
-        DOM.searchResultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-
-    // ===================== EVENT LISTENERS =====================
-
-    // Auth
-    DOM.btnAuth.addEventListener('click', authenticate);
-    DOM.authTokenInput.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') authenticate();
-    });
-    DOM.authToggleVisibility.addEventListener('click', togglePasswordVisibility);
-    DOM.btnLogout.addEventListener('click', logout);
-
-    // URL / Site
-    DOM.btnOpen.addEventListener('click', openSite);
-    DOM.urlInput.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') openSite();
-    });
-    DOM.btnScreenshot.addEventListener('click', takeScreenshot);
-    DOM.btnClose.addEventListener('click', closeSession);
-
-    // Interaction / Login
-    DOM.btnInteract.addEventListener('click', openInteraction);
-
-    var btnOpenSiteTab = document.getElementById('btnOpenSiteTab');
-    if (btnOpenSiteTab) {
-        btnOpenSiteTab.addEventListener('click', openSiteInNewTab);
-    }
-
-    var btnCopyCommand = document.getElementById('btnCopyCommand');
-    if (btnCopyCommand) {
-        btnCopyCommand.addEventListener('click', copyCommandToClipboard);
-    }
-
-    var btnSyncCookies = document.getElementById('btnSyncCookies');
-    if (btnSyncCookies) {
-        btnSyncCookies.addEventListener('click', syncCookies);
-    }
-
-    var btnLoginRefresh = document.getElementById('btnLoginRefresh');
-    if (btnLoginRefresh) {
-        btnLoginRefresh.addEventListener('click', checkLoginState);
-    }
-
-    var btnLoginCancel = document.getElementById('btnLoginCancel');
-    if (btnLoginCancel) {
-        btnLoginCancel.addEventListener('click', closeInteraction);
-    }
-
-    var btnLoginDone = document.getElementById('btnLoginDone');
-    if (btnLoginDone) {
-        btnLoginDone.addEventListener('click', finishLogin);
-    }
-
-    // Modules
-    DOM.btnBackup.addEventListener('click', backupSite);
-    DOM.btnErrors.addEventListener('click', checkErrors);
-    DOM.btnSearch.addEventListener('click', searchSite);
-
-    // Downloads
-    DOM.btnDownloadErrors.addEventListener('click', downloadErrorReport);
-    DOM.btnDownloadSearch.addEventListener('click', downloadSearchReport);
-
-    // Clear
-    DOM.btnClearErrors.addEventListener('click', function () {
-        DOM.errorResultsSection.style.display = 'none';
-        DOM.errorsContent.innerHTML = '';
-        state.lastErrorReport = null;
-        showToast('Resultados de erros limpos.', 'info');
-    });
-
-    DOM.btnClearSearch.addEventListener('click', function () {
-        DOM.searchResultsSection.style.display = 'none';
-        DOM.searchContent.innerHTML = '';
-        state.lastSearchReport = null;
-        showToast('Resultados de busca limpos.', 'info');
-    });
-
-    // ===================== INITIALIZATION =====================
-
-    async function init() {
-        if (typeof BACKEND_CONFIG !== 'undefined' && BACKEND_CONFIG.BACKEND_URL) {
-            state.backendUrl = BACKEND_CONFIG.BACKEND_URL.replace(/\/+$/, '');
-        }
-
-        if (!state.backendUrl) {
-            showAuthModal();
-            return;
-        }
-
-        var savedToken = sessionStorage.getItem('api_token');
-
-        try {
-            var statusResp = await fetch(state.backendUrl + '/', {
-                method: 'GET',
-                signal: AbortSignal.timeout(10000)
-            });
-            var data = await statusResp.json();
-
-            if (data.auth_required) {
-                updateServerStatus('online', 'Aguardando login');
-
-                if (savedToken) {
-                    state.token = savedToken;
-                    try {
-                        var authResp = await apiJSON('/auth/verify', 'POST');
-                        if (authResp.valid) {
-                            state.isAuthenticated = true;
-                            state.isConnected = true;
-                            hideAuthModal();
-                            updateServerStatus('online', 'Conectado');
-                            DOM.btnLogout.style.display = 'flex';
-                            showToast('Reconectado automaticamente!', 'success');
-                            return;
+            // Try saved token first
+            const savedToken = sessionStorage.getItem('auth_token');
+            if (savedToken) {
+                console.log('Token salvo encontrado, verificando...');
+                state.token = savedToken;
+                try {
+                    const verifyResp = await fetch(state.backendUrl + '/auth/verify', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + savedToken
                         }
-                    } catch (err) {
-                        // Token salvo inválido
+                    });
+
+                    if (verifyResp.ok) {
+                        console.log('Token válido! Reconectado.');
+                        state.isAuthenticated = true;
+                        hideAuthModal();
+                        updateServerStatus('online', 'Autenticado');
+                        updateSessionBadge(false);
+                        updateModuleButtons(false);
+                        showToast('Reconectado com sucesso!', 'success');
+                    } else {
+                        console.log('Token salvo inválido, pedindo login...');
+                        state.token = null;
+                        sessionStorage.removeItem('auth_token');
+                        showAuthModal();
+                        updateServerStatus('online', 'Login necessário');
                     }
-                    state.token = '';
-                    sessionStorage.removeItem('api_token');
+                } catch (verifyErr) {
+                    console.error('Erro ao verificar token:', verifyErr);
+                    state.token = null;
+                    sessionStorage.removeItem('auth_token');
+                    showAuthModal();
+                    updateServerStatus('online', 'Login necessário');
                 }
-
-                showAuthModal();
-
             } else {
-                state.isAuthenticated = true;
-                state.isConnected = true;
-                hideAuthModal();
-                updateServerStatus('online', 'Conectado');
-                showToast('Conectado (sem autenticação).', 'info');
+                // No saved token, show login
+                console.log('Nenhum token salvo, exibindo login...');
+                showAuthModal();
+                updateServerStatus('online', 'Login necessário');
             }
-
-        } catch (err) {
-            updateServerStatus('offline', 'Servidor offline');
-            showAuthModal();
+        } else {
+            // No auth required
+            console.log('Servidor sem autenticação. Acesso direto.');
+            state.isAuthenticated = true;
+            hideAuthModal();
+            updateServerStatus('online', 'Conectado');
+            updateSessionBadge(false);
+            updateModuleButtons(false);
+            showToast('Conectado ao servidor!', 'success');
         }
 
-        console.log(
-            '%c Site Backup & Error Checker v1.3.0 ',
-            'background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 8px 16px; border-radius: 4px; font-size: 14px; font-weight: bold;'
-        );
+    } catch (err) {
+        console.error('Erro ao conectar ao servidor:', err);
+        state.isConnected = false;
+        updateServerStatus('offline', 'Desconectado');
+        showToast('Não foi possível conectar ao servidor. Verifique se o backend está ativo.', 'error', 8000);
+
+        // Show auth modal anyway so user can try
+        showAuthModal();
     }
 
-    init();
+    // Check extension (non-blocking)
+    checkExtension().then(ok => {
+        state.extensionInstalled = ok;
+        if (ok) {
+            console.log('Extensão Chrome detectada!');
+        } else {
+            console.log('Extensão Chrome não detectada (opcional).');
+        }
+    });
 
+    console.log('%c Site Backup & Error Checker v1.3.0 ', 'background: #667eea; color: white; font-size: 14px; padding: 4px 8px; border-radius: 4px;');
+}
+
+// Start
+init();
 })();
