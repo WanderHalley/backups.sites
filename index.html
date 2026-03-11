@@ -13,17 +13,16 @@
 
     <!-- Background Effects -->
     <div class="bg-effects">
-        <div class="bg-grid"></div>
-        <div class="bg-glow-1"></div>
-        <div class="bg-glow-2"></div>
+        <div class="bg-gradient-1"></div>
+        <div class="bg-gradient-2"></div>
+        <div class="bg-gradient-3"></div>
     </div>
 
     <!-- Auth Overlay -->
-    <div class="auth-overlay" id="authOverlay" style="display: none;">
-        <div class="auth-card">
-            <div class="auth-icon">🔐</div>
+    <div class="auth-overlay" id="authOverlay">
+        <div class="auth-card glass-strong">
             <h2>Autenticação</h2>
-            <p>Insira o token de acesso para continuar</p>
+            <p>Digite o token de acesso para continuar</p>
             <div class="auth-input-group">
                 <input type="password" id="authTokenInput" placeholder="Token de acesso...">
                 <button class="auth-toggle-visibility" id="authToggleVisibility">👁️</button>
@@ -32,12 +31,12 @@
         </div>
     </div>
 
-        <!-- Login / Interaction Overlay -->
+    <!-- Interaction / Login Overlay -->
     <div class="interact-overlay" id="interactOverlay">
         <div class="login-panel">
             <div class="login-panel-header">
-                <h3>🔑 Login no Site</h3>
-                <p>Faça login no site de forma automática ou manual</p>
+                <h3>Login no Site</h3>
+                <p>Faça login para acessar áreas protegidas</p>
             </div>
 
             <div class="login-steps">
@@ -46,80 +45,98 @@
                 <div class="login-step">
                     <div class="step-header">
                         <div class="step-number">1</div>
-                        <div class="step-title">Login Automático (Recomendado)</div>
+                        <div class="step-title">Login Automático</div>
                     </div>
-                    <p class="step-description">Digite seu email e senha. O sistema vai clicar no botão de login, preencher os campos e entrar automaticamente.</p>
-                    <div style="display:flex; flex-direction:column; gap:10px;">
-                        <input type="email" id="autoLoginEmail" placeholder="Seu email..." style="width:100%; padding:10px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:10px; color:#fff; font-size:14px; outline:none;">
-                        <div style="position:relative;">
-                            <input type="password" id="autoLoginPassword" placeholder="Sua senha..." style="width:100%; padding:10px 14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:10px; color:#fff; font-size:14px; outline:none; padding-right:45px;">
-                            <button id="btnToggleAutoPass" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; color:#666; cursor:pointer; font-size:16px; padding:4px;">👁️</button>
+                    <div class="step-description">
+                        Digite seu email e senha. O sistema preencherá o formulário automaticamente.
+                    </div>
+                    <div class="auto-login-fields">
+                        <div class="auto-login-input-group">
+                            <input type="email" id="autoLoginEmail" placeholder="Email">
                         </div>
-                        <button class="btn-step success" id="btnAutoLogin">🤖 Fazer Login Automático</button>
+                        <div class="auto-login-input-group">
+                            <input type="password" id="autoLoginPassword" placeholder="Senha">
+                            <button class="btn-toggle-pass" id="btnToggleAutoPass">👁️</button>
+                        </div>
                     </div>
-                    <!-- Auto login preview -->
+                    <button class="btn-step primary" id="btnAutoLogin">🔐 Fazer Login Automático</button>
                     <div class="login-preview" id="autoLoginPreview">
-                        <div class="login-preview-title">Resultado do Login</div>
+                        <div class="login-preview-title">Preview após login:</div>
                         <img id="autoLoginPreviewImg" src="" alt="Preview">
                         <div class="login-preview-status" id="autoLoginStatus"></div>
-                        <div id="autoLoginSteps" style="margin-top:8px; font-size:11px; color:#888; max-height:100px; overflow-y:auto;"></div>
                     </div>
                 </div>
 
-                <!-- Step 2: Manual Login (alternative) -->
+                <!-- Step 2: Manual Login via Cookies -->
                 <div class="login-step">
                     <div class="step-header">
                         <div class="step-number">2</div>
-                        <div class="step-title">Login Manual (Alternativa)</div>
+                        <div class="step-title">Login Manual (Cookies)</div>
                     </div>
-                    <p class="step-description">Se o login automático não funcionar, abra o site em uma nova aba, faça login, depois copie os cookies.</p>
-                    
+                    <div class="step-description">
+                        Se o login automático não funcionar, abra o site numa nova aba, faça login manualmente, copie os cookies e cole aqui.
+                    </div>
+
                     <button class="btn-step primary" id="btnOpenSiteTab" style="margin-bottom:12px;">🌐 Abrir Site na Nova Aba</button>
 
                     <div class="cookie-methods">
                         <div class="cookie-method">
-                         <div class="cookie-method-title">📋 Comando para o Console (Cole no F12 do site logado)</div>
-                          <textarea class="cookie-command" rows="5" readonly>cookieStore.getAll().then(c=>copy(c.map(k=>({name:k.name,value:k.value,domain:k.domain||location.hostname,path:k.path||'/',secure:location.protocol==='https:',expiry:k.expires?Math.floor(k.expires/1000):undefined,sameSite:k.sameSite||'Lax'})))).then(()=>console.log('✅ Cookies copiados! Volte ao painel e cole com Ctrl+V')).catch(()=>{copy(document.cookie.split(';').filter(c=>c.trim()).map(c=>{let[n,...v]=c.trim().split('=');return{name:n,value:v.join('='),domain:location.hostname,path:'/',secure:location.protocol==='https:'}}));console.log('✅ Cookies copiados (método alternativo)! Volte ao painel e cole com Ctrl+V')})</textarea>
-                          <button class="btn-step primary" id="btnCopyCommand" style="font-size:12px; padding:6px 14px;">📋 Copiar Comando</button>
-                           <p style="margin-top:6px; font-size:11px; color:#4ade80;">Após colar e executar no console, você verá "✅ Cookies copiados!" — volte aqui e Ctrl+V</p>
+                            <div class="cookie-method-title">📋 Comando para o Console (Cole no F12 do site logado)</div>
+                            <textarea class="cookie-command" rows="5" readonly>cookieStore.getAll().then(c=>copy(c.map(k=>({name:k.name,value:k.value,domain:k.domain||location.hostname,path:k.path||'/',secure:location.protocol==='https:',expiry:k.expires?Math.floor(k.expires/1000):undefined,sameSite:k.sameSite||'Lax'})))).then(()=>console.log('Cookies copiados! Volte ao painel e cole com Ctrl+V')).catch(()=>{copy(document.cookie.split(';').filter(c=>c.trim()).map(c=>{let[n,...v]=c.trim().split('=');return{name:n,value:v.join('='),domain:location.hostname,path:'/',secure:location.protocol==='https:'}}));console.log('Cookies copiados (método alternativo)! Volte ao painel e cole com Ctrl+V')})</textarea>
+                            <button class="btn-step primary" id="btnCopyCommand" style="font-size:12px; padding:6px 14px;">📋 Copiar Comando</button>
+                            <p style="margin-top:6px; font-size:11px; color:#4ade80;">Após colar e executar no console, você verá "Cookies copiados!" — volte aqui e Ctrl+V</p>
                         </div>
 
                         <div class="cookie-method">
                             <div class="cookie-method-title">📥 Colar Cookies Aqui</div>
-                            <textarea class="cookie-paste-area" id="cookiePasteArea" rows="4" placeholder="Após executar o comando, volte aqui e pressione Ctrl+V para colar os cookies..."></textarea>
+                            <textarea class="cookie-paste-area" id="cookiePasteArea" placeholder="Cole os cookies aqui (formato JSON)..." rows="4"></textarea>
+                            <button class="btn-step success" id="btnSyncCookies" style="margin-top:8px;">🔄 Sincronizar Cookies</button>
                         </div>
+
                         <div class="cookie-method">
-                            <div class="cookie-method-title">🤖 Capturar do Selenium</div>
-                            <p class="step-description" style="margin-bottom:8px; font-size:12px;">Se o comando do console não funcionou, use este botão após fazer login na nova aba.</p>
+                            <div class="cookie-method-title">🤖 Capturar Cookies do Selenium</div>
+                            <div class="step-description" style="margin-bottom:8px;">
+                                Captura os cookies diretamente do navegador Selenium (útil se já fez login por lá).
+                            </div>
                             <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                                <button class="btn-step primary" id="btnGetSeleniumCookies" style="font-size:12px; padding:8px 14px;">🤖 Capturar Cookies</button>
-                                <button class="btn-step primary" id="btnRefreshSelenium" style="font-size:12px; padding:8px 14px;">🔄 Atualizar Página</button>
+                                <button class="btn-step primary" id="btnGetSeleniumCookies" style="font-size:12px; padding:6px 14px;">🤖 Capturar Cookies</button>
+                                <button class="btn-step primary" id="btnRefreshSelenium" style="font-size:12px; padding:6px 14px;">🔄 Atualizar Página</button>
                             </div>
                         </div>
                     </div>
 
-                    <button class="btn-step success" id="btnSyncCookies" style="margin-top:12px;">🔄 Sincronizar Cookies</button>
-
-                    <!-- Manual login preview -->
                     <div class="login-preview" id="loginPreview">
-                        <div class="login-preview-title">Preview do Site</div>
+                        <div class="login-preview-title">Preview do site:</div>
                         <img id="loginPreviewImg" src="" alt="Preview">
                         <div class="login-preview-status" id="loginPreviewStatus"></div>
                     </div>
                 </div>
 
+                <!-- Step 3: Scroll Controls -->
+                <div class="login-step">
+                    <div class="step-header">
+                        <div class="step-number">3</div>
+                        <div class="step-title">Navegar na Página</div>
+                    </div>
+                    <div class="step-description">
+                        Use os botões para rolar a página no Selenium e verificar o conteúdo.
+                    </div>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <button class="btn-step primary" id="btnScrollUp">⬆️ Subir</button>
+                        <button class="btn-step primary" id="btnScrollDown">⬇️ Descer</button>
+                        <button class="btn-step primary" id="btnRefreshPreview">📸 Atualizar Preview</button>
+                    </div>
+                </div>
+
             </div>
 
+            <!-- Login Panel Footer -->
             <div class="login-panel-footer">
                 <button class="btn-login-cancel" id="btnLoginCancel">Cancelar</button>
-                <div style="display:flex; gap:8px;">
-                    <button class="btn-step primary" id="btnLoginRefresh" style="font-size:12px; padding:8px 14px;">🔄 Verificar Estado</button>
-                    <button class="btn-login-done" id="btnLoginDone">✅ Pronto, Continuar</button>
-                </div>
+                <button class="btn-login-done" id="btnLoginDone">✅ Pronto, Continuar</button>
             </div>
         </div>
     </div>
-
 
     <!-- MAIN CONTAINER -->
     <div class="main-container">
@@ -127,41 +144,38 @@
         <!-- Header -->
         <div class="header glass-strong">
             <div class="header-top">
-                <svg class="logo" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg class="logo" viewBox="0 0 48 48" fill="none">
                     <rect width="48" height="48" rx="12" fill="url(#logoGrad)"/>
-                    <path d="M14 20h20M14 26h20M14 32h12" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
-                    <circle cx="36" cy="14" r="6" fill="#4ade80"/>
-                    <path d="M33.5 14l1.5 1.5 3-3" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    <defs><linearGradient id="logoGrad" x1="0" y1="0" x2="48" y2="48"><stop stop-color="#667eea"/><stop offset="1" stop-color="#764be2"/></linearGradient></defs>
+                    <path d="M14 20h20M14 28h14M18 24h12" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+                    <defs><linearGradient id="logoGrad" x1="0" y1="0" x2="48" y2="48">
+                        <stop stop-color="#667eea"/><stop offset="1" stop-color="#764be2"/>
+                    </linearGradient></defs>
                 </svg>
                 <h1>Site Backup & Error Checker</h1>
             </div>
-            <span class="version-badge">v1.3.0</span>
+            <div class="version-badge">v1.3.0</div>
             <div class="header-status">
-                <div class="server-status">
+                <div class="status-item">
                     <div class="status-dot" id="serverStatusDot"></div>
                     <span id="serverStatusText">Verificando...</span>
                 </div>
-                <div class="session-badge" id="sessionBadge">
-                    <span>●</span>
+                <div class="session-badge" id="sessionBadge" style="display:none;">
                     <span id="sessionBadgeText">Sessão ativa</span>
                 </div>
-                <button class="btn-logout" id="btnLogout" style="display:none;">
-                    <span>🚪</span> Sair
-                </button>
+                <button class="btn-logout" id="btnLogout" style="display:none;">Sair</button>
             </div>
         </div>
 
         <!-- URL Section -->
         <div class="url-section glass">
-            <h2 style="font-size:16px; margin-bottom:16px; color:#fff;">🌐 Abrir Site</h2>
+            <h2>🌐 Abrir Site</h2>
             <div class="url-input-group">
                 <div class="url-prefix">https://</div>
                 <input type="text" id="urlInput" placeholder="exemplo.com.br">
-                <button class="btn-open" id="btnOpen">
-                    <span>🔗</span> Abrir
-                </button>
+                <button class="btn-open" id="btnOpen">🚀 Abrir</button>
             </div>
+
+            <!-- Site Status -->
             <div class="site-status" id="siteStatus">
                 <div class="site-info">
                     <div class="site-info-row">
@@ -177,25 +191,16 @@
                         <span class="site-status-badge open" id="siteStatusBadge">● Aberto</span>
                     </div>
                 </div>
-               <div class="site-actions">
-    <button class="btn-action primary" id="btnScreenshot">
-        <span>📸</span> Screenshot
-    </button>
-    <button class="btn-action primary" id="btnInteract">
-        <span>🔑</span> Login no Site
-    </button>
-    <button class="btn-action" id="btnScrollUp">
-        <span>⬆️</span> Subir
-    </button>
-    <button class="btn-action" id="btnScrollDown">
-        <span>⬇️</span> Descer
-    </button>
-    <button class="btn-action danger" id="btnClose">
-        <span>✖</span> Fechar
-    </button>
-</div>
-
+                <div class="site-actions">
+                    <button class="btn-action" id="btnScreenshot">📸 Screenshot</button>
+                    <button class="btn-action primary" id="btnInteract">🔐 Login no Site</button>
+                    <button class="btn-action" id="btnScrollUp2">⬆️ Subir</button>
+                    <button class="btn-action" id="btnScrollDown2">⬇️ Descer</button>
+                    <button class="btn-action danger" id="btnClose">✖ Fechar</button>
+                </div>
             </div>
+
+            <!-- Screenshot Preview -->
             <div class="screenshot-preview" id="screenshotPreview">
                 <img id="screenshotImg" src="" alt="Screenshot do site">
             </div>
@@ -352,6 +357,3 @@
 
 </body>
 </html>
-
-
-
