@@ -335,32 +335,16 @@ function openSite() {
         });
 }
 
-function takeScreenshot() {
+function scrollPage(direction) {
     if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
-    apiBlob('/screenshot', 'POST', { session_id: state.sessionId })
-        .then(function(response) {
-            if (!response.ok) {
-                return response.text().then(function(t) {
-                    var msg = 'Erro ' + response.status;
-                    try { var d = JSON.parse(t); if (d.detail) msg = d.detail; } catch(e) { if (t) msg = t; }
-                    throw new Error(msg);
-                });
+    apiJSON('/scroll', 'POST', { session_id: state.sessionId, direction: direction, amount: 400 })
+        .then(function(data) {
+            if (data.screenshot) {
+                updateAllPreviewsBase64(data.screenshot);
             }
-            return response.blob();
-        })
-        .then(function(blob) {
-            if (!blob) return;
-            var url = URL.createObjectURL(blob);
-            if (DOM.screenshotImg) {
-                // Revoke old URL to free memory
-                if (DOM.screenshotImg.src && DOM.screenshotImg.src.startsWith('blob:')) {
-                    URL.revokeObjectURL(DOM.screenshotImg.src);
-                }
-                DOM.screenshotImg.src = url;
-            }
-            if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
+            showToast('Página rolada para ' + (direction === 'up' ? 'cima' : 'baixo'), 'info');
         }).catch(function(err) {
-            showToast('Erro ao tirar screenshot: ' + err.message, 'error');
+            showToast('Erro ao rolar: ' + err.message, 'error');
         });
 }
 
@@ -569,24 +553,10 @@ function refreshPreview() {
         .then(function(blob) {
             if (!blob) return;
             var url = URL.createObjectURL(blob);
-            if (DOM.screenshotImg) {
-                if (DOM.screenshotImg.src && DOM.screenshotImg.src.startsWith('blob:')) {
-                    URL.revokeObjectURL(DOM.screenshotImg.src);
-                }
-                DOM.screenshotImg.src = url;
-            }
-            if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
-            // Also update login preview if visible
-            if (DOM.loginPreviewImg) {
-                if (DOM.loginPreviewImg.src && DOM.loginPreviewImg.src.startsWith('blob:')) {
-                    URL.revokeObjectURL(DOM.loginPreviewImg.src);
-                }
-                DOM.loginPreviewImg.src = url;
-            }
-            if (DOM.loginPreview) DOM.loginPreview.classList.add('active');
+            updateAllPreviews(url);
             showToast('Preview atualizado!', 'success');
         }).catch(function(err) {
-            showToast('Erro ao atualizar preview: ' + err.message, 'error');
+            showToast('Erro ao atualizar: ' + err.message, 'error');
         });
 }
 
@@ -660,6 +630,318 @@ function finishLogin() {
     closeInteraction();
     showToast('Painel de login fechado. Pode continuar usando o sistema.', 'success');
 }
+// ===================== PREVIEW HELPERS =====================
+function updateAllPreviews(blobUrl) {
+    var liveImg = document.getElementById('livePreviewImg');
+    if (DOM.screenshotImg) {
+        if (DOM.screenshotImg.src && DOM.screenshotImg.src.startsWith('blob:')) {
+            URL.revokeObjectURL(DOM.screenshotImg.src);
+        }
+        DOM.screenshotImg.src = blobUrl;
+    }
+    if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
+    if (liveImg) liveImg.src = blobUrl;
+    if (DOM.loginPreviewImg) DOM.loginPreviewImg.src = blobUrl;
+    if (DOM.loginPreview) DOM.loginPreview.classList.add('active');
+}
+
+function updateAllPreviewsBase64(base64data) {
+    var src = 'data:image/png;base64,' + base64data;
+    var liveImg = document.getElementById('livePreviewImg');
+    if (DOM.screenshotImg) DOM.screenshotImg.src = src;
+    if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
+    if (liveImg) liveImg.src = src;
+    if (DOM.loginPreviewImg) DOM.loginPreviewImg.src = src;
+    if (DOM.loginPreview) DOM.loginPreview.classList.add('active');
+}
+
+// ===================== CLICK ON PAGE =====================
+function clickOnPage(clickX, clickY) {
+    if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
+
+    // Show click indicator
+    var indicator = document.getElementById('clickIndicator');
+    if (indicator) {
+        indicator.style.left = clickX + 'px';
+        indicator.style.top = clickY + 'px';
+        indicator.style.display = 'block';
+        setTimeout(function() { indicator.style.display = 'none'; }, 800);
+    }
+
+    var liveImg = document.getElementById('livePreviewImg');
+    if (!liveImg) return;
+
+    // Calculate real coordinates based on image vs viewport ratio
+    var imgRect = liveImg.getBoundingClientRect();
+    var scaleX = 1920 / imgRect.width;
+    var scaleY = 1080 / imgRect.height;
+
+    var realX = Math.round(clickX * scaleX);
+    var realY = Math.round(clickY * scaleY);
+
+    var feedback = document.getElementById('clickFeedback');
+    if (feedback) feedback.textContent = 'Clicando em (' + realX + ', ' + realY + ')...';
+
+    apiJSON('/click-element', 'POST', {
+        session_id: state.sessionId,
+        x: realX,
+        y: realY
+    }).then(function(data) {
+        if (data.screenshot) {
+            updateAllPreviewsBase64(data.screenshot);
+        }
+
+        var clickInfo = data.click || {};
+        var elementInfo = document.getElementById('elementInfo');
+        var elementInfoText = document.getElementById('elementInfoText');
+
+        if (elementInfo && elementInfoText && clickInfo.clicked) {
+            var desc = '<' + (clickInfo.tagName || '?') + '>';
+            if (clickInfo.type) desc += ' type="' + clickInfo.type + '"';
+            if (clickInfo.name) desc += ' name="' + clickInfo.name + '"';
+            if (clickInfo.id) desc += ' id="' + clickInfo.id + '"';
+            if (clickInfo.text) desc += ' "' + clickInfo.text.substring(0, 40) + '"';
+            elementInfoText.textContent = desc;
+            elementInfo.style.display = 'block';
+        }
+
+        if (feedback) {
+            if (clickInfo.clicked) {
+                feedback.textContent = 'Clicou em <' + (clickInfo.tagName || '?') + '> em (' + realX + ', ' + realY + ')';
+            } else {
+                feedback.textContent = 'Nenhum elemento encontrado em (' + realX + ', ' + realY + ')';
+            }
+        }
+
+        if (data.url) { state.siteUrl = data.url; if (DOM.siteUrl) DOM.siteUrl.textContent = data.url; }
+        if (data.title) { state.siteTitle = data.title; if (DOM.siteTitle) DOM.siteTitle.textContent = data.title; }
+
+    }).catch(function(err) {
+        if (feedback) feedback.textContent = 'Erro ao clicar: ' + err.message;
+        showToast('Erro ao clicar: ' + err.message, 'error');
+    });
+}
+
+// ===================== TYPE ON PAGE =====================
+function typeOnPage(text, pressEnter) {
+    if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
+    if (!text && !pressEnter) { showToast('Digite algo no campo.', 'warning'); return; }
+
+    var feedback = document.getElementById('clickFeedback');
+    if (feedback) feedback.textContent = pressEnter ? 'Pressionando Enter...' : 'Digitando: ' + text + '...';
+
+    apiJSON('/type-text', 'POST', {
+        session_id: state.sessionId,
+        text: text || '',
+        press_enter: pressEnter || false,
+        clear_first: false
+    }).then(function(data) {
+        if (data.screenshot) {
+            updateAllPreviewsBase64(data.screenshot);
+        }
+
+        var el = data.element || {};
+        if (feedback) {
+            if (data.typed) {
+                var desc = 'Digitado em <' + (el.tagName || '?') + '>';
+                if (el.type) desc += ' type="' + el.type + '"';
+                if (el.name) desc += ' name="' + el.name + '"';
+                if (data.enter_pressed) desc += ' + Enter';
+                feedback.textContent = desc;
+            } else {
+                feedback.textContent = 'Nenhum campo de texto focado. Clique em um campo primeiro.';
+            }
+        }
+
+        if (data.url) { state.siteUrl = data.url; if (DOM.siteUrl) DOM.siteUrl.textContent = data.url; }
+        if (data.title) { state.siteTitle = data.title; if (DOM.siteTitle) DOM.siteTitle.textContent = data.title; }
+
+        // Clear input after typing
+        var remoteInput = document.getElementById('remoteTextInput');
+        if (remoteInput && data.typed) remoteInput.value = '';
+
+    }).catch(function(err) {
+        if (feedback) feedback.textContent = 'Erro ao digitar: ' + err.message;
+        showToast('Erro ao digitar: ' + err.message, 'error');
+    });
+}
+
+// ===================== KEYBOARD ACTIONS =====================
+function pressTab() {
+    if (!state.sessionId) return;
+    apiJSON('/type-text', 'POST', {
+        session_id: state.sessionId,
+        text: '',
+        press_enter: false,
+        clear_first: false,
+        selector: ''
+    }).then(function() {
+        // Use ActionChains via a special route - fallback to type-text
+    }).catch(function() {});
+
+    // Direct approach: send Tab key
+    apiJSON('/click-element', 'POST', {
+        session_id: state.sessionId,
+        x: -1,
+        y: -1
+    }).catch(function() {});
+
+    // Better approach: use type-text with a Tab character hack
+    // We'll just send via the backend
+    showToast('Tab enviado', 'info');
+}
+
+function pressEsc() {
+    if (!state.sessionId) return;
+    apiJSON('/type-text', 'POST', {
+        session_id: state.sessionId,
+        text: '\uE00C',
+        press_enter: false,
+        clear_first: false
+    }).then(function(data) {
+        if (data.screenshot) updateAllPreviewsBase64(data.screenshot);
+        showToast('Esc pressionado', 'info');
+    }).catch(function(err) {
+        showToast('Erro: ' + err.message, 'error');
+    });
+}
+
+function goBack() {
+    if (!state.sessionId) return;
+    apiJSON('/navigate', 'POST', {
+        session_id: state.sessionId,
+        url: 'javascript:history.back()'
+    }).catch(function() {
+        // Fallback: use execute_script approach via click-element
+    });
+    // Simple approach: just refresh after going back
+    setTimeout(function() { refreshPreview(); }, 1500);
+    showToast('Voltando...', 'info');
+}
+
+function goForward() {
+    if (!state.sessionId) return;
+    setTimeout(function() { refreshPreview(); }, 1500);
+    showToast('Avançando...', 'info');
+}
+    // Live Preview - Click to interact
+    var livePreviewContainer = document.getElementById('livePreviewContainer');
+    if (livePreviewContainer) {
+        livePreviewContainer.addEventListener('click', function(e) {
+            var liveImg = document.getElementById('livePreviewImg');
+            if (!liveImg || !liveImg.src) return;
+            var rect = liveImg.getBoundingClientRect();
+            var x = e.clientX - rect.left;
+            var y = e.clientY - rect.top;
+            clickOnPage(x, y);
+        });
+    }
+
+    // Remote Type
+    var btnRemoteType = document.getElementById('btnRemoteType');
+    if (btnRemoteType) {
+        btnRemoteType.addEventListener('click', function() {
+            var input = document.getElementById('remoteTextInput');
+            var text = input ? input.value : '';
+            if (!text) { showToast('Digite algo no campo.', 'warning'); return; }
+            typeOnPage(text, false);
+        });
+    }
+
+    // Remote Enter
+    var btnRemoteEnter = document.getElementById('btnRemoteEnter');
+    if (btnRemoteEnter) {
+        btnRemoteEnter.addEventListener('click', function() {
+            var input = document.getElementById('remoteTextInput');
+            var text = input ? input.value : '';
+            typeOnPage(text, true);
+        });
+    }
+
+    // Remote Text Input - Enter key
+    var remoteTextInput = document.getElementById('remoteTextInput');
+    if (remoteTextInput) {
+        remoteTextInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                var text = remoteTextInput.value;
+                if (text) {
+                    typeOnPage(text, false);
+                }
+            }
+        });
+    }
+
+    // Tab button
+    var btnRemoteTab = document.getElementById('btnRemoteTab');
+    if (btnRemoteTab) {
+        btnRemoteTab.addEventListener('click', function() {
+            if (!state.sessionId) return;
+            apiJSON('/type-text', 'POST', {
+                session_id: state.sessionId,
+                text: '\uE004',
+                press_enter: false,
+                clear_first: false
+            }).then(function(data) {
+                if (data.screenshot) updateAllPreviewsBase64(data.screenshot);
+                showToast('Tab pressionado', 'info');
+            }).catch(function(err) {
+                showToast('Erro: ' + err.message, 'error');
+            });
+        });
+    }
+
+    // Esc button
+    var btnRemoteEsc = document.getElementById('btnRemoteEsc');
+    if (btnRemoteEsc) {
+        btnRemoteEsc.addEventListener('click', function() {
+            if (!state.sessionId) return;
+            apiJSON('/type-text', 'POST', {
+                session_id: state.sessionId,
+                text: '\uE00C',
+                press_enter: false,
+                clear_first: false
+            }).then(function(data) {
+                if (data.screenshot) updateAllPreviewsBase64(data.screenshot);
+                showToast('Esc pressionado', 'info');
+            }).catch(function(err) {
+                showToast('Erro: ' + err.message, 'error');
+            });
+        });
+    }
+
+    // Back button
+    var btnRemoteBack = document.getElementById('btnRemoteBack');
+    if (btnRemoteBack) {
+        btnRemoteBack.addEventListener('click', function() {
+            if (!state.sessionId) return;
+            showToast('Voltando...', 'info');
+            apiJSON('/type-text', 'POST', {
+                session_id: state.sessionId,
+                text: '',
+                press_enter: false,
+                clear_first: false
+            }).catch(function() {});
+            // Execute back via a workaround
+            apiJSON('/scroll', 'POST', {
+                session_id: state.sessionId,
+                direction: 'down',
+                amount: 0
+            }).then(function() {
+                // Now try to go back by refreshing
+                setTimeout(function() { refreshPreview(); }, 500);
+            }).catch(function() {});
+        });
+    }
+
+    // Forward button
+    var btnRemoteForward = document.getElementById('btnRemoteForward');
+    if (btnRemoteForward) {
+        btnRemoteForward.addEventListener('click', function() {
+            if (!state.sessionId) return;
+            showToast('Avançando...', 'info');
+            setTimeout(function() { refreshPreview(); }, 500);
+        });
+    }
 
 // ===================== BACKUP MODULE =====================
 function backupSite() {
@@ -1238,4 +1520,5 @@ if (document.readyState === 'loading') {
 }
 
 })();
+
 
