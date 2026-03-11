@@ -4,474 +4,322 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Site Backup & Error Checker</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
     <!-- Background Effects -->
     <div class="bg-effects">
-        <div class="orb orb-1"></div>
-        <div class="orb orb-2"></div>
-        <div class="orb orb-3"></div>
-        <div class="grid-overlay"></div>
+        <div class="bg-grid"></div>
+        <div class="bg-glow-1"></div>
+        <div class="bg-glow-2"></div>
     </div>
 
-    <!-- Auth Modal -->
-    <div class="auth-overlay" id="authOverlay">
-        <div class="auth-modal">
-            <div class="auth-modal-header">
-                <div class="auth-logo">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                    </svg>
-                </div>
-                <h2>Autenticação</h2>
-                <p>Digite o token de acesso para continuar</p>
+    <!-- Auth Overlay -->
+    <div class="auth-overlay" id="authOverlay" style="display: none;">
+        <div class="auth-card">
+            <div class="auth-icon">🔐</div>
+            <h2>Autenticação</h2>
+            <p>Insira o token de acesso para continuar</p>
+            <div class="auth-input-group">
+                <input type="password" id="authTokenInput" placeholder="Token de acesso...">
+                <button class="auth-toggle-visibility" id="authToggleVisibility">👁️</button>
             </div>
-            <div class="auth-modal-body">
-                <div class="auth-input-group">
-                    <label for="authTokenInput">Token de Acesso</label>
-                    <div class="auth-input-wrapper">
-                        <input type="password" id="authTokenInput" placeholder="Digite seu token..." autocomplete="off">
-                        <button class="auth-toggle-btn" id="authToggleVisibility" title="Mostrar/Ocultar">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                                <circle cx="12" cy="12" r="3"/>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-                <div class="auth-error" id="authError"></div>
-                <button class="btn btn-primary btn-full" id="btnAuth">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-                        <polyline points="10 17 15 12 10 7"/>
-                        <line x1="15" y1="12" x2="3" y2="12"/>
-                    </svg>
-                    Entrar
-                </button>
-            </div>
+            <button class="btn-auth" id="btnAuth">Entrar</button>
         </div>
     </div>
 
-    <!-- Login Modal -->
-    <div class="interact-overlay" id="interactOverlay" style="display:none;">
-        <div class="interact-modal">
-            <div class="interact-header">
-                <h3>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                    </svg>
-                    Login no Site
-                </h3>
+    <!-- Login / Interaction Overlay -->
+    <div class="interact-overlay" id="interactOverlay">
+        <div class="login-panel">
+            <div class="login-panel-header">
+                <h3>🔑 Login no Site</h3>
+                <p>Faça login no site e sincronize os cookies com o sistema</p>
             </div>
-            <div class="interact-body">
-                <!-- Extension Status -->
-                <div class="extension-status" id="extensionStatus">
-                    <div class="extension-checking">
-                        <div class="loading-spinner" style="width:20px;height:20px;border-width:2px;margin:0;"></div>
-                        <span>Verificando extensão...</span>
-                    </div>
-                </div>
 
-                <!-- Login Steps -->
-                <div class="login-steps">
-                    <!-- Step 1: Abrir site -->
-                    <div class="login-step active" id="loginStep1">
+            <div class="login-steps">
+                <!-- Step 1: Open site -->
+                <div class="login-step">
+                    <div class="step-header">
                         <div class="step-number">1</div>
-                        <div class="step-content">
-                            <h4>Abrir site e fazer login</h4>
-                            <p>Clique no botão abaixo para abrir o site em uma nova aba. Faça login normalmente, navegue até a tela desejada. Depois volte aqui.</p>
-                            <button class="btn btn-primary" id="btnOpenSiteTab">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                                    <polyline points="15 3 21 3 21 9"/>
-                                    <line x1="10" y1="14" x2="21" y2="3"/>
-                                </svg>
-                                Abrir Site na Nova Aba
-                            </button>
-                            <div class="step-site-url" id="stepSiteUrl"></div>
-                        </div>
+                        <div class="step-title">Abrir Site na Nova Aba</div>
                     </div>
+                    <p class="step-description">Clique no botão abaixo para abrir o site em uma nova aba. Faça login normalmente.</p>
+                    <button class="btn-step primary" id="btnOpenSiteTab">🌐 Abrir Site na Nova Aba</button>
+                </div>
 
-                    <!-- Step 2: Sincronizar -->
-                    <div class="login-step" id="loginStep2">
+                <!-- Step 2: Get cookies -->
+                <div class="login-step">
+                    <div class="step-header">
                         <div class="step-number">2</div>
-                        <div class="step-content">
-                            <h4>Sincronizar login</h4>
-                            <p>Após fazer login e chegar na tela desejada, clique no botão abaixo. A extensão vai capturar seus cookies automaticamente.</p>
-                            <button class="btn btn-primary" id="btnSyncCookies">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polyline points="16 16 12 12 8 16"/>
-                                    <line x1="12" y1="12" x2="12" y2="21"/>
-                                    <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
-                                </svg>
-                                Sincronizar Cookies
-                            </button>
+                        <div class="step-title">Copiar Cookies</div>
+                    </div>
+                    <p class="step-description">Após fazer login, abra o console (F12 → Console) na aba do site e cole o comando abaixo:</p>
+                    <div class="cookie-methods">
+                        <div class="cookie-method">
+                            <div class="cookie-method-title">📋 Comando para o Console</div>
+                            <textarea class="cookie-command" rows="3" readonly>copy(document.cookie.split(';').map(c=>{let [n,...v]=c.trim().split('=');return{name:n,value:v.join('='),domain:location.hostname,path:'/'}}))</textarea>
+                            <button class="btn-step primary" id="btnCopyCommand" style="font-size:12px; padding:6px 14px;">📋 Copiar Comando</button>
+                        </div>
+                        <div class="cookie-method">
+                            <div class="cookie-method-title">📥 Colar Cookies Aqui</div>
+                            <textarea class="cookie-paste-area" id="cookiePasteArea" rows="4" placeholder="Após executar o comando, volte aqui e pressione Ctrl+V para colar os cookies..."></textarea>
                         </div>
                     </div>
                 </div>
 
-                <!-- Login Preview -->
-                <div class="login-preview" id="loginPreview" style="display:none;">
-                    <img id="loginPreviewImg" alt="Preview do site após login">
-                    <div class="login-status" id="loginStatusText"></div>
-                </div>
+                <!-- Step 3: Sync -->
+                <div class="login-step">
+                    <div class="step-header">
+                        <div class="step-number">3</div>
+                        <div class="step-title">Sincronizar Cookies</div>
+                    </div>
+                    <p class="step-description">Clique para enviar os cookies ao sistema. O Selenium usará esses cookies para manter o login.</p>
+                    <button class="btn-step success" id="btnSyncCookies">🔄 Sincronizar Cookies</button>
 
-                <!-- Actions -->
-                <div class="interact-actions">
-                    <button class="btn btn-ghost" id="btnLoginCancel">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="18" y1="6" x2="6" y2="18"/>
-                            <line x1="6" y1="6" x2="18" y2="18"/>
-                        </svg>
-                        Cancelar
-                    </button>
-                    <button class="btn btn-ghost" id="btnLoginRefresh" title="Ver estado atual do site no Selenium">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="23 4 23 10 17 10"/>
-                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-                        </svg>
-                        Ver Estado
-                    </button>
-                    <button class="btn btn-primary" id="btnLoginDone" style="display:none;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="20 6 9 17 4 12"/>
-                        </svg>
-                        Pronto, Continuar
-                    </button>
+                    <!-- Preview -->
+                    <div class="login-preview" id="loginPreview">
+                        <div class="login-preview-title">Preview do Site</div>
+                        <img id="loginPreviewImg" src="" alt="Preview">
+                        <div class="login-preview-status" id="loginPreviewStatus"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="login-panel-footer">
+                <button class="btn-login-cancel" id="btnLoginCancel">Cancelar</button>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn-step primary" id="btnLoginRefresh" style="font-size:12px; padding:8px 14px;">🔄 Verificar Estado</button>
+                    <button class="btn-login-done" id="btnLoginDone">✅ Pronto, Continuar</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Main Container -->
-    <div class="container">
+    <!-- MAIN CONTAINER -->
+    <div class="main-container">
+
         <!-- Header -->
-        <header class="header">
-            <div class="header-left">
-                <div class="logo">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="url(#logoGrad)" stroke-width="2">
-                        <defs>
-                            <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" style="stop-color:#6366f1"/>
-                                <stop offset="100%" style="stop-color:#8b5cf6"/>
-                            </linearGradient>
-                        </defs>
-                        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                        <path d="M2 17l10 5 10-5"/>
-                        <path d="M2 12l10 5 10-5"/>
-                    </svg>
-                    <div>
-                        <h1>Site Backup & Error Checker</h1>
-                        <span class="version">v1.3.0</span>
-                    </div>
-                </div>
+        <div class="header glass-strong">
+            <div class="header-top">
+                <svg class="logo" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="48" height="48" rx="12" fill="url(#logoGrad)"/>
+                    <path d="M14 20h20M14 26h20M14 32h12" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+                    <circle cx="36" cy="14" r="6" fill="#4ade80"/>
+                    <path d="M33.5 14l1.5 1.5 3-3" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <defs><linearGradient id="logoGrad" x1="0" y1="0" x2="48" y2="48"><stop stop-color="#667eea"/><stop offset="1" stop-color="#764be2"/></linearGradient></defs>
+                </svg>
+                <h1>Site Backup & Error Checker</h1>
             </div>
-            <div class="header-right">
-                <div class="server-status" id="serverStatus">
-                    <div class="status-dot"></div>
-                    <span>Verificando...</span>
+            <span class="version-badge">v1.3.0</span>
+            <div class="header-status">
+                <div class="server-status">
+                    <div class="status-dot" id="serverStatusDot"></div>
+                    <span id="serverStatusText">Verificando...</span>
                 </div>
-                <div class="session-badge" id="sessionBadge" style="display:none;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <polyline points="12 6 12 12 16 14"/>
-                    </svg>
+                <div class="session-badge" id="sessionBadge">
+                    <span>●</span>
                     <span id="sessionBadgeText">Sessão ativa</span>
                 </div>
-                <button class="btn btn-ghost btn-logout" id="btnLogout" style="display:none;" title="Sair">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                        <polyline points="16 17 21 12 16 7"/>
-                        <line x1="21" y1="12" x2="9" y2="12"/>
-                    </svg>
+                <button class="btn-logout" id="btnLogout" style="display:none;">
+                    <span>🚪</span> Sair
                 </button>
             </div>
-        </header>
+        </div>
 
         <!-- URL Section -->
-        <section class="panel url-section">
-            <div class="panel-header">
-                <h2>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <line x1="2" y1="12" x2="22" y2="12"/>
-                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-                    </svg>
-                    Abrir Site
-                </h2>
+        <div class="url-section glass">
+            <h2 style="font-size:16px; margin-bottom:16px; color:#fff;">🌐 Abrir Site</h2>
+            <div class="url-input-group">
+                <div class="url-prefix">https://</div>
+                <input type="text" id="urlInput" placeholder="exemplo.com.br">
+                <button class="btn-open" id="btnOpen">
+                    <span>🔗</span> Abrir
+                </button>
             </div>
-            <div class="panel-body">
-                <div class="url-input-group">
-                    <div class="url-prefix">https://</div>
-                    <input type="text" id="urlInput" placeholder="exemplo.com.br" autocomplete="off">
-                    <button class="btn btn-primary" id="btnOpen">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                            <polyline points="15 3 21 3 21 9"/>
-                            <line x1="10" y1="14" x2="21" y2="3"/>
-                        </svg>
-                        Abrir
+            <div class="site-status" id="siteStatus">
+                <div class="site-info">
+                    <div class="site-info-row">
+                        <span class="label">Título:</span>
+                        <span class="value title" id="siteTitle">-</span>
+                    </div>
+                    <div class="site-info-row">
+                        <span class="label">URL:</span>
+                        <span class="value" id="siteUrl">-</span>
+                    </div>
+                    <div class="site-info-row">
+                        <span class="label">Status:</span>
+                        <span class="site-status-badge open" id="siteStatusBadge">● Aberto</span>
+                    </div>
+                </div>
+                <div class="site-actions">
+                    <button class="btn-action primary" id="btnScreenshot">
+                        <span>📸</span> Screenshot
+                    </button>
+                    <button class="btn-action primary" id="btnInteract">
+                        <span>🔑</span> Login no Site
+                    </button>
+                    <button class="btn-action danger" id="btnClose">
+                        <span>✖</span> Fechar
                     </button>
                 </div>
-
-                <!-- Site Status -->
-                <div class="site-status" id="siteStatus" style="display:none;">
-                    <div class="site-info">
-                        <div class="site-info-item">
-                            <span class="label">Título:</span>
-                            <span class="value" id="siteTitle">-</span>
-                        </div>
-                        <div class="site-info-item">
-                            <span class="label">URL:</span>
-                            <span class="value" id="siteUrl">-</span>
-                        </div>
-                        <div class="site-info-item">
-                            <span class="label">Status:</span>
-                            <span class="value status-loaded" id="siteStatusText">Carregado</span>
-                        </div>
-                    </div>
-                    <div class="site-actions">
-                        <button class="btn btn-ghost btn-sm" id="btnScreenshot" title="Capturar Screenshot">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                                <circle cx="8.5" cy="8.5" r="1.5"/>
-                                <polyline points="21 15 16 10 5 21"/>
-                            </svg>
-                        </button>
-                        <button class="btn btn-ghost btn-sm" id="btnInteract" title="Login no Site">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                            </svg>
-                        </button>
-                        <button class="btn btn-ghost btn-sm btn-danger" id="btnClose" title="Fechar Sessão">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="18" y1="6" x2="6" y2="18"/>
-                                <line x1="6" y1="6" x2="18" y2="18"/>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Screenshot Preview -->
-                <div class="screenshot-preview" id="screenshotPreview" style="display:none;">
-                    <img id="screenshotImg" alt="Screenshot do site">
-                </div>
             </div>
-        </section>
+            <div class="screenshot-preview" id="screenshotPreview">
+                <img id="screenshotImg" src="" alt="Screenshot do site">
+            </div>
+        </div>
 
-        <!-- Modules -->
-        <section class="modules-grid">
+        <!-- Modules Grid -->
+        <div class="modules-grid">
+
             <!-- Backup Module -->
-            <div class="panel module-card module-backup">
-                <div class="module-icon">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                </div>
-                <h3>Backup do Site</h3>
-                <p>Copia o site inteiro com HTML, CSS, JS, imagens e fontes em um arquivo ZIP.</p>
-                <div class="module-input">
-                    <label for="backupFolder">Nome da pasta:</label>
-                    <input type="text" id="backupFolder" placeholder="meu-backup" autocomplete="off">
-                </div>
-                <button class="btn btn-backup" id="btnBackup" disabled>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                    Fazer Backup
-                </button>
-                <div class="progress-container" id="backupProgress" style="display:none;">
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="backupProgressFill"></div>
+            <div class="module-card glass">
+                <div class="module-header">
+                    <div class="module-icon backup">⬇️</div>
+                    <div>
+                        <h3>Backup do Site</h3>
+                        <p>Copia o site inteiro com HTML, CSS, JS, imagens e fontes em um arquivo ZIP.</p>
                     </div>
-                    <span class="progress-text" id="backupProgressText">0%</span>
+                </div>
+                <div class="module-body">
+                    <div class="input-group">
+                        <input type="text" id="backupFolder" placeholder="Nome da pasta" value="meu-backup">
+                        <button class="btn-module backup" id="btnBackup" disabled>
+                            <span>💾</span> Fazer Backup
+                        </button>
+                    </div>
+                    <div class="progress-container" id="backupProgress">
+                        <div class="progress-bar">
+                            <div class="progress-fill backup" id="backupProgressFill"></div>
+                        </div>
+                        <div class="progress-text" id="backupProgressText">Preparando...</div>
+                    </div>
                 </div>
             </div>
 
             <!-- Error Check Module -->
-            <div class="panel module-card module-errors">
-                <div class="module-icon">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                        <line x1="12" y1="9" x2="12" y2="13"/>
-                        <line x1="12" y1="17" x2="12.01" y2="17"/>
-                    </svg>
-                </div>
-                <h3>Verificar Erros</h3>
-                <p>Analisa o console, rede, CSS, HTML, segurança, SEO e acessibilidade.</p>
-                <div class="module-input">
-                    <label for="errorsFolder">Nome da pasta:</label>
-                    <input type="text" id="errorsFolder" placeholder="relatorio-erros" autocomplete="off">
-                </div>
-                <button class="btn btn-errors" id="btnErrors" disabled>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                        <line x1="12" y1="9" x2="12" y2="13"/>
-                        <line x1="12" y1="17" x2="12.01" y2="17"/>
-                    </svg>
-                    Verificar Erros
-                </button>
-                <div class="progress-container" id="errorsProgress" style="display:none;">
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="errorsProgressFill"></div>
+            <div class="module-card glass">
+                <div class="module-header">
+                    <div class="module-icon errors">⚠️</div>
+                    <div>
+                        <h3>Verificar Erros</h3>
+                        <p>Analisa o console, rede, CSS, HTML, segurança, SEO e acessibilidade.</p>
                     </div>
-                    <span class="progress-text" id="errorsProgressText">0%</span>
+                </div>
+                <div class="module-body">
+                    <div class="input-group">
+                        <input type="text" id="errorsFolder" placeholder="Nome da pasta" value="meus-erros">
+                        <button class="btn-module errors" id="btnErrors" disabled>
+                            <span>🔍</span> Verificar
+                        </button>
+                    </div>
+                    <div class="progress-container" id="errorsProgress">
+                        <div class="progress-bar">
+                            <div class="progress-fill errors" id="errorsProgressFill"></div>
+                        </div>
+                        <div class="progress-text" id="errorsProgressText">Analisando...</div>
+                    </div>
                 </div>
             </div>
 
             <!-- Search Module -->
-            <div class="panel module-card module-search">
-                <div class="module-icon">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="8"/>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                    </svg>
-                </div>
-                <h3>Buscar no Site</h3>
-                <p>Busca elementos específicos no site e gera um relatório explicativo em TXT.</p>
-                <div class="module-input">
-                    <label for="searchTerm">O que buscar:</label>
-                    <input type="text" id="searchTerm" placeholder="Ex: api, links, imagens, formulários..." autocomplete="off">
-                </div>
-                <div class="module-input">
-                    <label for="searchFolder">Nome da pasta:</label>
-                    <input type="text" id="searchFolder" placeholder="busca-resultado" autocomplete="off">
-                </div>
-                <button class="btn btn-search" id="btnSearch" disabled>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="8"/>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                    </svg>
-                    Buscar no Site
-                </button>
-                <div class="progress-container" id="searchProgress" style="display:none;">
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="searchProgressFill"></div>
+            <div class="module-card glass">
+                <div class="module-header">
+                    <div class="module-icon search">🔎</div>
+                    <div>
+                        <h3>Buscar no Site</h3>
+                        <p>Busca elementos específicos no site e gera um relatório explicativo em TXT.</p>
                     </div>
-                    <span class="progress-text" id="searchProgressText">0%</span>
+                </div>
+                <div class="module-body">
+                    <div class="input-group">
+                        <input type="text" id="searchTerm" placeholder="O que buscar...">
+                    </div>
+                    <div class="input-group">
+                        <input type="text" id="searchFolder" placeholder="Nome da pasta" value="minha-busca">
+                        <button class="btn-module search" id="btnSearch" disabled>
+                            <span>🔎</span> Buscar
+                        </button>
+                    </div>
+                    <div class="progress-container" id="searchProgress">
+                        <div class="progress-bar">
+                            <div class="progress-fill search" id="searchProgressFill"></div>
+                        </div>
+                        <div class="progress-text" id="searchProgressText">Buscando...</div>
+                    </div>
                 </div>
             </div>
-        </section>
+
+        </div>
 
         <!-- Error Results Section -->
-        <section class="panel results-section" id="errorResultsSection" style="display:none;">
-            <div class="panel-header">
-                <h2>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <line x1="16" y1="13" x2="8" y2="13"/>
-                        <line x1="16" y1="17" x2="8" y2="17"/>
-                    </svg>
-                    Relatório de Erros
-                </h2>
+        <div class="results-section glass" id="errorResultsSection">
+            <div class="results-header">
+                <h3>📋 Resultados da Verificação</h3>
+                <div class="results-summary">
+                    <div class="summary-item">
+                        <span class="count errors" id="totalErrors">0</span>
+                        <span class="label">Erros</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="count warnings" id="totalWarnings">0</span>
+                        <span class="label">Avisos</span>
+                    </div>
+                </div>
                 <div class="results-actions">
-                    <button class="btn btn-ghost btn-sm" id="btnDownloadErrors" title="Baixar TXT">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="7 10 12 15 17 10"/>
-                            <line x1="12" y1="15" x2="12" y2="3"/>
-                        </svg>
-                        Baixar TXT
-                    </button>
-                    <button class="btn btn-ghost btn-sm" id="btnClearErrors" title="Limpar">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="3 6 5 6 21 6"/>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                        </svg>
-                        Limpar
-                    </button>
+                    <button class="btn-small" id="btnDownloadErrors">⬇️ Baixar TXT</button>
+                    <button class="btn-small" id="btnClearErrors">🗑️ Limpar</button>
                 </div>
             </div>
-            <div class="panel-body">
-                <div class="results-summary" id="errorsSummary">
-                    <div class="summary-item summary-errors">
-                        <span class="summary-number" id="totalErrors">0</span>
-                        <span class="summary-label">Erros</span>
-                    </div>
-                    <div class="summary-item summary-warnings">
-                        <span class="summary-number" id="totalWarnings">0</span>
-                        <span class="summary-label">Avisos</span>
-                    </div>
-                </div>
-                <div class="results-tabs" id="errorsTabs">
-                    <button class="tab-btn active" data-tab="all">Todos</button>
-                </div>
-                <div class="results-content" id="errorsContent"></div>
-            </div>
-        </section>
+            <div id="errorsContent"></div>
+        </div>
 
         <!-- Search Results Section -->
-        <section class="panel results-section search-results-section" id="searchResultsSection" style="display:none;">
-            <div class="panel-header">
-                <h2>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="8"/>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                    </svg>
-                    Resultados da Busca
-                </h2>
+        <div class="results-section glass" id="searchResultsSection">
+            <div class="results-header">
+                <h3>🔎 Resultados da Busca</h3>
+                <div class="results-summary">
+                    <div class="summary-item">
+                        <span class="count found" id="totalFound">0</span>
+                        <span class="label">Encontrados</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="count categories" id="totalCategories">0</span>
+                        <span class="label">Categorias</span>
+                    </div>
+                </div>
                 <div class="results-actions">
-                    <button class="btn btn-ghost btn-sm" id="btnDownloadSearch" title="Baixar TXT">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="7 10 12 15 17 10"/>
-                            <line x1="12" y1="15" x2="12" y2="3"/>
-                        </svg>
-                        Baixar TXT
-                    </button>
-                    <button class="btn btn-ghost btn-sm" id="btnClearSearch" title="Limpar">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="3 6 5 6 21 6"/>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                        </svg>
-                        Limpar
-                    </button>
+                    <button class="btn-small" id="btnDownloadSearch">⬇️ Baixar TXT</button>
+                    <button class="btn-small" id="btnClearSearch">🗑️ Limpar</button>
                 </div>
             </div>
-            <div class="panel-body">
-                <div class="search-results-summary" id="searchSummary">
-                    <div class="summary-item summary-found">
-                        <span class="summary-number" id="totalFound">0</span>
-                        <span class="summary-label">Encontrados</span>
-                    </div>
-                    <div class="summary-item summary-categories">
-                        <span class="summary-number" id="totalCategories">0</span>
-                        <span class="summary-label">Categorias</span>
-                    </div>
-                </div>
-                <div class="search-results-content" id="searchContent"></div>
-            </div>
-        </section>
+            <div id="searchContent"></div>
+        </div>
 
         <!-- Footer -->
-        <footer class="footer">
-            <p>Site Backup & Error Checker v1.3.0 &mdash; Selenium + FastAPI</p>
-        </footer>
+        <div class="footer">
+            Site Backup & Error Checker v1.3.0 — Selenium + FastAPI
+        </div>
+
     </div>
+    <!-- END MAIN CONTAINER -->
 
     <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay" style="display:none;">
-        <div class="loading-content">
-            <div class="loading-spinner"></div>
-            <p class="loading-text" id="loadingText">Processando...</p>
-            <p class="loading-subtext" id="loadingSubtext"></p>
-        </div>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text" id="loadingText">Processando...</div>
+        <div class="loading-subtext" id="loadingSubtext"></div>
     </div>
 
+    <!-- Scripts -->
     <script src="config.js"></script>
     <script src="script.js"></script>
+
 </body>
 </html>
