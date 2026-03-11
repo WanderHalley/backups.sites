@@ -1379,115 +1379,94 @@ function setupEventListeners() {
 
 // ===================== INIT =====================
 async function init() {
-    console.log('Iniciando Site Backup & Error Checker...');
+    console.log('Initializing Site Backup & Error Checker...');
 
-    // Load backend URL from config
-    if (typeof BACKEND_CONFIG !== 'undefined' && BACKEND_CONFIG.BACKEND_URL) {
-        state.backendUrl = BACKEND_CONFIG.BACKEND_URL.replace(/\/+$/, '');
-        console.log('Backend URL:', state.backendUrl);
-    } else {
-        console.error('BACKEND_CONFIG não encontrado! Verifique config.js');
-        showToast('Erro: config.js não encontrado ou inválido.', 'error');
-        updateServerStatus('offline', 'Config ausente');
+    // ---- 1. Load backend URL from config.js via fetch ----
+    try {
+        var configResponse = await fetch('config.js');
+        var configText = await configResponse.text();
+        console.log('config.js loaded, length:', configText.length);
+
+        // Extract BACKEND_URL from the config file content
+        var urlMatch = configText.match(/BACKEND_URL\s*[:=]\s*['"]([^'"]+)['"]/);
+        if (urlMatch && urlMatch[1]) {
+            state.backendUrl = urlMatch[1].replace(/\/+$/, '');
+            console.log('Backend URL found:', state.backendUrl);
+        } else {
+            // Try to find any https URL containing .hf.space
+            var hfMatch = configText.match(/(https:\/\/[a-zA-Z0-9\-]+\.hf\.space)/);
+            if (hfMatch && hfMatch[1]) {
+                state.backendUrl = hfMatch[1].replace(/\/+$/, '');
+                console.log('Backend URL found (hf.space):', state.backendUrl);
+            } else {
+                console.error('Could not extract backend URL from config.js');
+                showToast('Erro: URL do backend não encontrada no config.js', 'error');
+                return;
+            }
+        }
+    } catch (e) {
+        console.error('Failed to load config.js:', e);
+        showToast('Erro ao carregar config.js: ' + e.message, 'error');
         return;
     }
 
-    // Load extension ID from config
-    if (typeof BACKEND_CONFIG !== 'undefined' && BACKEND_CONFIG.EXTENSION_ID) {
-        EXTENSION_ID = BACKEND_CONFIG.EXTENSION_ID;
-    }
-
-    // Check server status
+    // ---- 2. Check server status ----
     try {
-        var response = await fetch(state.backendUrl + '/', {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
-        });
+        var statusResponse = await fetch(state.backendUrl + '/');
+        var statusData = await statusResponse.json();
+        console.log('Server status:', statusData);
+        updateServerStatus(true);
+        showToast('Servidor conectado!', 'success');
 
-        if (!response.ok) {
-            throw new Error('Servidor respondeu com status ' + response.status);
-        }
-
-        var data = await response.json();
-        console.log('Servidor respondeu:', data);
-
-        state.isConnected = true;
-        updateServerStatus('online', 'Conectado');
-
-        // Check auth_required
-        if (data.auth_required === true) {
-            console.log('Autenticação requerida pelo servidor.');
-
-            // Try saved token first
-            var savedToken = sessionStorage.getItem('auth_token');
+        // ---- 3. Check if auth is required ----
+        if (statusData.auth_required === true) {
+            var savedToken = localStorage.getItem('backup_auth_token');
             if (savedToken) {
-                console.log('Token salvo encontrado, verificando...');
-                state.token = savedToken;
                 try {
-                    var verifyResp = await fetch(state.backendUrl + '/auth/verify', {
+                    var verifyResponse = await fetch(state.backendUrl + '/auth/verify', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer ' + savedToken
-                        }
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token: savedToken })
                     });
-
-                    if (verifyResp.ok) {
-                        console.log('Token válido! Reconectado.');
-                        state.isAuthenticated = true;
+                    if (verifyResponse.ok) {
+                        state.token = savedToken;
                         hideAuthModal();
-                        updateServerStatus('online', 'Autenticado');
-                        if (DOM.btnLogout) DOM.btnLogout.style.display = 'flex';
-                        updateSessionBadge(false);
-                        updateModuleButtons(false);
-                        showToast('Reconectado com sucesso!', 'success');
+                        updateSessionBadge(true);
+                        console.log('Token verified successfully.');
                     } else {
-                        console.log('Token salvo inválido, pedindo login...');
-                        state.token = null;
-                        sessionStorage.removeItem('auth_token');
+                        localStorage.removeItem('backup_auth_token');
                         showAuthModal();
-                        updateServerStatus('online', 'Login necessário');
                     }
                 } catch (verifyErr) {
-                    console.error('Erro ao verificar token:', verifyErr);
-                    state.token = null;
-                    sessionStorage.removeItem('auth_token');
+                    console.error('Token verify failed:', verifyErr);
+                    localStorage.removeItem('backup_auth_token');
                     showAuthModal();
-                    updateServerStatus('online', 'Login necessário');
                 }
             } else {
-                // No saved token, show login
-                console.log('Nenhum token salvo, exibindo login...');
                 showAuthModal();
-                updateServerStatus('online', 'Login necessário');
             }
         } else {
-            // No auth required
-            console.log('Servidor sem autenticação. Acesso direto.');
-            state.isAuthenticated = true;
             hideAuthModal();
-            updateServerStatus('online', 'Conectado');
-            updateSessionBadge(false);
-            updateModuleButtons(false);
-            showToast('Conectado ao servidor!', 'success');
+            updateSessionBadge(true);
         }
 
-    } catch (err) {
-        console.error('Erro ao conectar ao servidor:', err);
-        state.isConnected = false;
-        updateServerStatus('offline', 'Desconectado');
-        showToast('Não foi possível conectar ao servidor. Verifique se o backend está ativo.', 'error', 8000);
-        showAuthModal();
+    } catch (e) {
+        console.error('Server connection failed:', e);
+        updateServerStatus(false);
+        showToast('Servidor offline ou inacessível.', 'error');
     }
 
-    // Check extension (non-blocking)
-    checkExtension().then(function(ok) {
-        state.extensionInstalled = ok;
-        if (ok) {
-            console.log('Extensão Chrome detectada!');
-        } else {
-            console.log('Extensão Chrome não detectada (opcional).');
-        }
+    // ---- 4. Check extension ----
+    try {
+        var extOk = await checkExtension();
+        console.log('Extension detected:', extOk);
+    } catch (e) {
+        console.log('Extension not detected (optional).');
+    }
+
+    console.log('Initialization complete.');
+}
+}
     });
 
     console.log('%c Site Backup & Error Checker v1.3.0 ', 'background: #667eea; color: white; font-size: 14px; padding: 4px 8px; border-radius: 4px;');
@@ -1507,6 +1486,7 @@ if (document.readyState === 'loading') {
 }
 
 })();
+
 
 
 
