@@ -55,7 +55,7 @@
         </div>
     </div>
 
-    <!-- Login / Interaction Panel -->
+    <!-- Login Modal -->
     <div class="interact-overlay" id="interactOverlay" style="display:none;">
         <div class="interact-modal">
             <div class="interact-header">
@@ -68,14 +68,22 @@
                 </h3>
             </div>
             <div class="interact-body">
-                <!-- Steps -->
+                <!-- Extension Status -->
+                <div class="extension-status" id="extensionStatus">
+                    <div class="extension-checking">
+                        <div class="loading-spinner" style="width:20px;height:20px;border-width:2px;margin:0;"></div>
+                        <span>Verificando extensão...</span>
+                    </div>
+                </div>
+
+                <!-- Login Steps -->
                 <div class="login-steps">
-                    <!-- Step 1 -->
+                    <!-- Step 1: Abrir site -->
                     <div class="login-step active" id="loginStep1">
                         <div class="step-number">1</div>
                         <div class="step-content">
-                            <h4>Abrir site no seu navegador</h4>
-                            <p>Clique no botão abaixo para abrir o site em uma nova aba. Faça login normalmente com seu usuário e senha.</p>
+                            <h4>Abrir site e fazer login</h4>
+                            <p>Clique no botão abaixo para abrir o site em uma nova aba. Faça login normalmente, navegue até a tela desejada. Depois volte aqui.</p>
                             <button class="btn btn-primary" id="btnOpenSiteTab">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
@@ -88,58 +96,28 @@
                         </div>
                     </div>
 
-                    <!-- Step 2 -->
+                    <!-- Step 2: Sincronizar -->
                     <div class="login-step" id="loginStep2">
                         <div class="step-number">2</div>
                         <div class="step-content">
-                            <h4>Copiar cookies do navegador</h4>
-                            <p>Após fazer login, copie os cookies do site. Siga as instruções:</p>
-                            
-                            <div class="cookie-methods">
-                                <div class="cookie-method">
-                                    <h5>Método Rápido (DevTools)</h5>
-                                    <div class="cookie-instructions">
-                                        <span class="instruction-step">1</span> Na aba do site logado, pressione <kbd>F12</kbd>
-                                        <br>
-                                        <span class="instruction-step">2</span> Vá na aba <kbd>Console</kbd>
-                                        <br>
-                                        <span class="instruction-step">3</span> Cole o comando abaixo e pressione <kbd>Enter</kbd>
-                                    </div>
-                                    <div class="cookie-command-box">
-                                        <code id="cookieCommand">copy(document.cookie.split(';').map(c=>{let [n,...v]=c.trim().split('=');return{name:n,value:v.join('='),domain:location.hostname,path:'/'}}))</code>
-                                        <button class="btn btn-sm btn-ghost" id="btnCopyCommand" title="Copiar comando">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                                            </svg>
-                                        </button>
-                                    </div>
-                                    <span class="cookie-note">Os cookies serão copiados para sua área de transferência.</span>
-                                </div>
-                            </div>
-
-                            <!-- Área para colar cookies -->
-                            <div class="cookie-paste-area">
-                                <label for="cookieInput">Cole os cookies aqui:</label>
-                                <textarea id="cookieInput" rows="5" placeholder='Cole aqui o resultado do comando (será um JSON com os cookies)...'></textarea>
-                            </div>
+                            <h4>Sincronizar login</h4>
+                            <p>Após fazer login e chegar na tela desejada, clique no botão abaixo. A extensão vai capturar seus cookies automaticamente.</p>
+                            <button class="btn btn-primary" id="btnSyncCookies">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="16 16 12 12 8 16"/>
+                                    <line x1="12" y1="12" x2="12" y2="21"/>
+                                    <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+                                </svg>
+                                Sincronizar Cookies
+                            </button>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Step 3 -->
-                    <div class="login-step" id="loginStep3">
-                        <div class="step-number">3</div>
-                        <div class="step-content">
-                            <h4>Sincronizar e verificar</h4>
-                            <p>Clique para injetar os cookies no sistema e verificar se o login foi bem sucedido.</p>
-                            
-                            <!-- Preview do estado atual -->
-                            <div class="login-preview" id="loginPreview" style="display:none;">
-                                <img id="loginPreviewImg" alt="Preview do site">
-                                <div class="login-status" id="loginStatusText"></div>
-                            </div>
-                        </div>
-                    </div>
+                <!-- Login Preview -->
+                <div class="login-preview" id="loginPreview" style="display:none;">
+                    <img id="loginPreviewImg" alt="Preview do site após login">
+                    <div class="login-status" id="loginStatusText"></div>
                 </div>
 
                 <!-- Actions -->
@@ -151,20 +129,12 @@
                         </svg>
                         Cancelar
                     </button>
-                    <button class="btn btn-ghost" id="btnLoginRefresh" title="Ver estado atual do site">
+                    <button class="btn btn-ghost" id="btnLoginRefresh" title="Ver estado atual do site no Selenium">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="23 4 23 10 17 10"/>
                             <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
                         </svg>
                         Ver Estado
-                    </button>
-                    <button class="btn btn-primary" id="btnSyncCookies">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="16 16 12 12 8 16"/>
-                            <line x1="12" y1="12" x2="12" y2="21"/>
-                            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
-                        </svg>
-                        Sincronizar Cookies
                     </button>
                     <button class="btn btn-primary" id="btnLoginDone" style="display:none;">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
