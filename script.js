@@ -540,31 +540,63 @@ function syncCookies() {
         return;
     }
 
-    showLoading('Sincronizando cookies...', 'Injetando ' + cookies.length + ' cookies no Selenium');
+    if (cookies.length === 0) {
+        showToast('Nenhum cookie encontrado. Execute o comando no console do site logado.', 'warning');
+        return;
+    }
+
+    showLoading('Sincronizando ' + cookies.length + ' cookies...', 'Injetando cookies e navegando para o site');
 
     apiJSON('/inject-cookies', 'POST', {
         session_id: state.sessionId,
-        cookies: cookies
+        cookies: cookies,
+        target_url: state.siteUrl
     }).then(function(data) {
         hideLoading();
 
+        // Show preview
         if (data.screenshot && DOM.loginPreviewImg && DOM.loginPreview) {
             DOM.loginPreviewImg.src = 'data:image/png;base64,' + data.screenshot;
             DOM.loginPreview.classList.add('active');
         }
 
-        if (data.url) {
-            state.siteUrl = data.url;
-            state.siteTitle = data.title || state.siteTitle;
+        // Show login status
+        if (DOM.loginPreviewStatus) {
+            if (data.login_success) {
+                DOM.loginPreviewStatus.className = 'login-preview-status logged-in';
+                DOM.loginPreviewStatus.textContent = '✅ Login detectado! Você está logado. Clique em "Pronto, Continuar".';
+            } else {
+                DOM.loginPreviewStatus.className = 'login-preview-status not-logged';
+                DOM.loginPreviewStatus.textContent = '⚠️ Login não confirmado. Verifique o preview. Se estiver logado, clique "Pronto, Continuar". Se não, tente novamente.';
+            }
+        }
+
+        // Update session info
+        if (data.final_url || data.url) {
+            state.siteUrl = data.final_url || data.url;
+            state.siteTitle = data.final_title || data.title || state.siteTitle;
             if (DOM.siteTitle) DOM.siteTitle.textContent = state.siteTitle;
             if (DOM.siteUrl) DOM.siteUrl.textContent = state.siteUrl;
         }
 
-        var msg = 'Cookies sincronizados! (' + (data.injected_count || cookies.length) + ' cookies)';
-        if (data.errors && data.errors.length > 0) {
-            msg += ' - ' + data.errors.length + ' erros.';
+        // Update main screenshot
+        if (data.screenshot) {
+            if (DOM.screenshotImg) DOM.screenshotImg.src = 'data:image/png;base64,' + data.screenshot;
+            if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
         }
-        showToast(msg, 'success', 5000);
+
+        // Toast
+        var msg = cookies.length + ' cookies enviados, ' + (data.injected_count || 0) + ' injetados.';
+        if (data.errors && data.errors.length > 0) {
+            msg += ' (' + data.errors.length + ' erros)';
+        }
+        if (data.login_success) {
+            msg += ' ✅ Login detectado!';
+            showToast(msg, 'success', 6000);
+        } else {
+            msg += ' Verifique o preview abaixo.';
+            showToast(msg, 'warning', 6000);
+        }
 
     }).catch(function(err) {
         hideLoading();
@@ -572,44 +604,6 @@ function syncCookies() {
     });
 }
 
-function checkLoginState() {
-    if (!state.sessionId) {
-        showToast('Nenhuma sessão ativa.', 'warning');
-        return;
-    }
-
-    showLoading('Verificando estado do login...');
-
-    apiJSON('/get-current-state', 'POST', { session_id: state.sessionId }).then(function(data) {
-        hideLoading();
-
-        if (data.screenshot && DOM.loginPreviewImg && DOM.loginPreview) {
-            DOM.loginPreviewImg.src = 'data:image/png;base64,' + data.screenshot;
-            DOM.loginPreview.classList.add('active');
-        }
-
-        if (DOM.loginPreviewStatus) {
-            if (data.probably_logged_in) {
-                DOM.loginPreviewStatus.className = 'login-preview-status logged-in';
-                DOM.loginPreviewStatus.textContent = '✅ Parece que você está logado!';
-            } else {
-                DOM.loginPreviewStatus.className = 'login-preview-status not-logged';
-                DOM.loginPreviewStatus.textContent = '⚠️ Login não detectado. Tente sincronizar os cookies novamente.';
-            }
-        }
-
-        if (data.url) {
-            state.siteUrl = data.url;
-            state.siteTitle = data.title || state.siteTitle;
-            if (DOM.siteTitle) DOM.siteTitle.textContent = state.siteTitle;
-            if (DOM.siteUrl) DOM.siteUrl.textContent = state.siteUrl;
-        }
-
-    }).catch(function(err) {
-        hideLoading();
-        showToast('Erro ao verificar estado: ' + err.message, 'error');
-    });
-}
 
 function finishLogin() {
     closeInteraction();
@@ -1513,5 +1507,6 @@ if (document.readyState === 'loading') {
 }
 
 })();
+
 
 
