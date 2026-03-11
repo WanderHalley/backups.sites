@@ -109,7 +109,6 @@ function setupDOM() {
         loadingSubtext:      document.getElementById('loadingSubtext')
     };
 
-    // Verify all elements
     var missing = [];
     var keys = Object.keys(DOM);
     for (var i = 0; i < keys.length; i++) {
@@ -303,6 +302,31 @@ function togglePasswordVisibility() {
     }
 }
 
+// ===================== PREVIEW HELPERS =====================
+function updateAllPreviews(blobUrl) {
+    var liveImg = document.getElementById('livePreviewImg');
+    if (DOM.screenshotImg) {
+        if (DOM.screenshotImg.src && DOM.screenshotImg.src.startsWith('blob:')) {
+            URL.revokeObjectURL(DOM.screenshotImg.src);
+        }
+        DOM.screenshotImg.src = blobUrl;
+    }
+    if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
+    if (liveImg) liveImg.src = blobUrl;
+    if (DOM.loginPreviewImg) DOM.loginPreviewImg.src = blobUrl;
+    if (DOM.loginPreview) DOM.loginPreview.classList.add('active');
+}
+
+function updateAllPreviewsBase64(base64data) {
+    var src = 'data:image/png;base64,' + base64data;
+    var liveImg = document.getElementById('livePreviewImg');
+    if (DOM.screenshotImg) DOM.screenshotImg.src = src;
+    if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
+    if (liveImg) liveImg.src = src;
+    if (DOM.loginPreviewImg) DOM.loginPreviewImg.src = src;
+    if (DOM.loginPreview) DOM.loginPreview.classList.add('active');
+}
+
 // ===================== SITE ACTIONS =====================
 function openSite() {
     if (!DOM.urlInput) return;
@@ -317,7 +341,6 @@ function openSite() {
             state.siteUrl = data.url || url;
             state.siteTitle = data.title || url;
             state.siteOpen = true;
-            // Update UI
             if (DOM.siteTitle) DOM.siteTitle.textContent = state.siteTitle;
             if (DOM.siteUrl) DOM.siteUrl.textContent = state.siteUrl;
             if (DOM.siteStatus) DOM.siteStatus.classList.add('active');
@@ -327,7 +350,6 @@ function openSite() {
             }
             updateModuleButtons(true);
             showToast('Site aberto: ' + state.siteTitle, 'success');
-            // Auto screenshot
             takeScreenshot();
         }).catch(function(err) {
             hideLoading();
@@ -335,16 +357,25 @@ function openSite() {
         });
 }
 
-function scrollPage(direction) {
+function takeScreenshot() {
     if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
-    apiJSON('/scroll', 'POST', { session_id: state.sessionId, direction: direction, amount: 400 })
-        .then(function(data) {
-            if (data.screenshot) {
-                updateAllPreviewsBase64(data.screenshot);
+    apiBlob('/screenshot', 'POST', { session_id: state.sessionId })
+        .then(function(response) {
+            if (!response.ok) {
+                return response.text().then(function(t) {
+                    var msg = 'Erro ' + response.status;
+                    try { var d = JSON.parse(t); if (d.detail) msg = d.detail; } catch(e) { if (t) msg = t; }
+                    throw new Error(msg);
+                });
             }
-            showToast('Página rolada para ' + (direction === 'up' ? 'cima' : 'baixo'), 'info');
+            return response.blob();
+        })
+        .then(function(blob) {
+            if (!blob) return;
+            var url = URL.createObjectURL(blob);
+            updateAllPreviews(url);
         }).catch(function(err) {
-            showToast('Erro ao rolar: ' + err.message, 'error');
+            showToast('Erro ao tirar screenshot: ' + err.message, 'error');
         });
 }
 
@@ -358,7 +389,6 @@ function closeSession() {
             state.siteUrl = null;
             state.siteTitle = null;
             state.siteOpen = false;
-            // Reset UI
             if (DOM.siteStatus) DOM.siteStatus.classList.remove('active');
             if (DOM.siteTitle) DOM.siteTitle.textContent = '-';
             if (DOM.siteUrl) DOM.siteUrl.textContent = '-';
@@ -378,12 +408,7 @@ function scrollPage(direction) {
     apiJSON('/scroll', 'POST', { session_id: state.sessionId, direction: direction, amount: 400 })
         .then(function(data) {
             if (data.screenshot) {
-                var src = 'data:image/png;base64,' + data.screenshot;
-                if (DOM.screenshotImg) DOM.screenshotImg.src = src;
-                if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
-                // Also update login preview if visible
-                if (DOM.loginPreviewImg) DOM.loginPreviewImg.src = src;
-                if (DOM.loginPreview) DOM.loginPreview.classList.add('active');
+                updateAllPreviewsBase64(data.screenshot);
             }
             showToast('Página rolada para ' + (direction === 'up' ? 'cima' : 'baixo'), 'info');
         }).catch(function(err) {
@@ -395,6 +420,27 @@ function scrollPage(direction) {
 function openInteraction() {
     if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
     if (DOM.interactOverlay) DOM.interactOverlay.classList.add('active');
+
+    // Load live preview automatically
+    var liveImg = document.getElementById('livePreviewImg');
+    if (liveImg) {
+        if (DOM.screenshotImg && DOM.screenshotImg.src && DOM.screenshotImg.src !== '' && DOM.screenshotImg.src !== window.location.href) {
+            liveImg.src = DOM.screenshotImg.src;
+        } else {
+            apiBlob('/screenshot', 'POST', { session_id: state.sessionId })
+                .then(function(response) {
+                    if (!response.ok) throw new Error('Erro ' + response.status);
+                    return response.blob();
+                })
+                .then(function(blob) {
+                    if (!blob) return;
+                    var url = URL.createObjectURL(blob);
+                    updateAllPreviews(url);
+                }).catch(function(err) {
+                    showToast('Erro ao carregar preview: ' + err.message, 'error');
+                });
+        }
+    }
 }
 
 function closeInteraction() {
@@ -459,16 +505,10 @@ function syncCookies() {
         var injected = data.injected_count || 0;
         var errors = data.errors || [];
 
-        // Update screenshot preview
         if (data.screenshot) {
-            var src = 'data:image/png;base64,' + data.screenshot;
-            if (DOM.loginPreviewImg) DOM.loginPreviewImg.src = src;
-            if (DOM.loginPreview) DOM.loginPreview.classList.add('active');
-            if (DOM.screenshotImg) DOM.screenshotImg.src = src;
-            if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
+            updateAllPreviewsBase64(data.screenshot);
         }
 
-        // Update login status
         if (DOM.loginPreviewStatus) {
             if (data.login_success) {
                 DOM.loginPreviewStatus.textContent = 'Login detectado com sucesso!';
@@ -479,7 +519,6 @@ function syncCookies() {
             }
         }
 
-        // Update site info
         if (data.final_url || data.url) {
             state.siteUrl = data.final_url || data.url;
             if (DOM.siteUrl) DOM.siteUrl.textContent = state.siteUrl;
@@ -526,9 +565,7 @@ function refreshSeleniumPage() {
             if (data.url) { state.siteUrl = data.url; if (DOM.siteUrl) DOM.siteUrl.textContent = data.url; }
             if (data.title) { state.siteTitle = data.title; if (DOM.siteTitle) DOM.siteTitle.textContent = data.title; }
             if (data.screenshot) {
-                var src = 'data:image/png;base64,' + data.screenshot;
-                if (DOM.screenshotImg) DOM.screenshotImg.src = src;
-                if (DOM.loginPreviewImg) DOM.loginPreviewImg.src = src;
+                updateAllPreviewsBase64(data.screenshot);
             }
             showToast('Página atualizada!', 'success');
         }).catch(function(err) {
@@ -560,7 +597,6 @@ function refreshPreview() {
         });
 }
 
-
 // ===================== AUTO LOGIN =====================
 function autoLogin() {
     if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
@@ -578,16 +614,10 @@ function autoLogin() {
     }).then(function(data) {
         hideLoading();
 
-        // Show preview
         if (data.screenshot) {
-            var src = 'data:image/png;base64,' + data.screenshot;
-            if (DOM.autoLoginPreviewImg) DOM.autoLoginPreviewImg.src = src;
-            if (DOM.autoLoginPreview) DOM.autoLoginPreview.classList.add('active');
-            if (DOM.screenshotImg) DOM.screenshotImg.src = src;
-            if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
+            updateAllPreviewsBase64(data.screenshot);
         }
 
-        // Update status
         if (DOM.autoLoginStatus) {
             if (data.login_success) {
                 DOM.autoLoginStatus.textContent = 'Login realizado com sucesso!';
@@ -601,11 +631,11 @@ function autoLogin() {
             }
         }
 
-        // Update site info
+        if (DOM.autoLoginPreview) DOM.autoLoginPreview.classList.add('active');
+
         if (data.final_url) { state.siteUrl = data.final_url; if (DOM.siteUrl) DOM.siteUrl.textContent = data.final_url; }
         if (data.final_title) { state.siteTitle = data.final_title; if (DOM.siteTitle) DOM.siteTitle.textContent = data.final_title; }
 
-        // Steps info
         var steps = data.steps_completed || [];
         var msg = 'Login automático: ' + steps.length + ' passos executados.';
         if (data.login_success) msg = 'Login automático bem-sucedido!';
@@ -630,36 +660,11 @@ function finishLogin() {
     closeInteraction();
     showToast('Painel de login fechado. Pode continuar usando o sistema.', 'success');
 }
-// ===================== PREVIEW HELPERS =====================
-function updateAllPreviews(blobUrl) {
-    var liveImg = document.getElementById('livePreviewImg');
-    if (DOM.screenshotImg) {
-        if (DOM.screenshotImg.src && DOM.screenshotImg.src.startsWith('blob:')) {
-            URL.revokeObjectURL(DOM.screenshotImg.src);
-        }
-        DOM.screenshotImg.src = blobUrl;
-    }
-    if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
-    if (liveImg) liveImg.src = blobUrl;
-    if (DOM.loginPreviewImg) DOM.loginPreviewImg.src = blobUrl;
-    if (DOM.loginPreview) DOM.loginPreview.classList.add('active');
-}
-
-function updateAllPreviewsBase64(base64data) {
-    var src = 'data:image/png;base64,' + base64data;
-    var liveImg = document.getElementById('livePreviewImg');
-    if (DOM.screenshotImg) DOM.screenshotImg.src = src;
-    if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
-    if (liveImg) liveImg.src = src;
-    if (DOM.loginPreviewImg) DOM.loginPreviewImg.src = src;
-    if (DOM.loginPreview) DOM.loginPreview.classList.add('active');
-}
 
 // ===================== CLICK ON PAGE =====================
 function clickOnPage(clickX, clickY) {
     if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
 
-    // Show click indicator
     var indicator = document.getElementById('clickIndicator');
     if (indicator) {
         indicator.style.left = clickX + 'px';
@@ -671,7 +676,6 @@ function clickOnPage(clickX, clickY) {
     var liveImg = document.getElementById('livePreviewImg');
     if (!liveImg) return;
 
-    // Calculate real coordinates based on image vs viewport ratio
     var imgRect = liveImg.getBoundingClientRect();
     var scaleX = 1920 / imgRect.width;
     var scaleY = 1080 / imgRect.height;
@@ -756,7 +760,6 @@ function typeOnPage(text, pressEnter) {
         if (data.url) { state.siteUrl = data.url; if (DOM.siteUrl) DOM.siteUrl.textContent = data.url; }
         if (data.title) { state.siteTitle = data.title; if (DOM.siteTitle) DOM.siteTitle.textContent = data.title; }
 
-        // Clear input after typing
         var remoteInput = document.getElementById('remoteTextInput');
         if (remoteInput && data.typed) remoteInput.value = '';
 
@@ -766,116 +769,676 @@ function typeOnPage(text, pressEnter) {
     });
 }
 
-// ===================== KEYBOARD ACTIONS =====================
-function pressTab() {
-    if (!state.sessionId) return;
-    apiJSON('/type-text', 'POST', {
-        session_id: state.sessionId,
-        text: '',
-        press_enter: false,
-        clear_first: false,
-        selector: ''
-    }).then(function() {
-        // Use ActionChains via a special route - fallback to type-text
-    }).catch(function() {});
+// ===================== BACKUP MODULE =====================
 
-    // Direct approach: send Tab key
-    apiJSON('/click-element', 'POST', {
-        session_id: state.sessionId,
-        x: -1,
-        y: -1
-    }).catch(function() {});
+function backupSite() {
+    if (!state.sessionId) {
+        showToast('Abra um site primeiro.', 'warning');
+        return;
+    }
 
-    // Better approach: use type-text with a Tab character hack
-    // We'll just send via the backend
-    showToast('Tab enviado', 'info');
+    var folderName = 'backup';
+    if (DOM.backupFolder) {
+        var val = DOM.backupFolder.value.trim();
+        if (val) folderName = val;
+    }
+
+    showLoading();
+    if (DOM.backupProgress) DOM.backupProgress.style.display = 'block';
+
+    var steps = [
+        'Preparando backup...',
+        'Capturando HTML...',
+        'Baixando recursos...',
+        'Capturando imagens...',
+        'Gerando arquivo ZIP...',
+        'Finalizando...'
+    ];
+
+    simulateProgress(DOM.backupProgressFill, DOM.backupProgressText, steps, 18000);
+
+    apiBlob('/backup', 'POST', { session_id: state.sessionId, folder_name: folderName })
+        .then(function(response) {
+            if (!response.ok) {
+                return response.text().then(function(t) {
+                    var msg = 'Erro ' + response.status;
+                    try { var d = JSON.parse(t); if (d.detail) msg = d.detail; } catch (e) { if (t) msg = t; }
+                    throw new Error(msg);
+                });
+            }
+            return response.blob().then(function(blob) {
+                return { blob: blob, response: response };
+            });
+        })
+        .then(function(result) {
+            if (!result || !result.blob) return;
+
+            var timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+            var filename = folderName + '_' + timestamp + '.zip';
+            downloadBlob(result.blob, filename);
+
+            if (DOM.backupProgressFill) {
+                DOM.backupProgressFill.style.width = '100%';
+            }
+            if (DOM.backupProgressText) {
+                DOM.backupProgressText.textContent = 'Backup concluído!';
+            }
+
+            var errorCount = result.response.headers.get('X-Backup-Errors') || '0';
+            showToast('Backup baixado! (' + errorCount + ' erros durante o processo)', 'success');
+            hideLoading();
+        })
+        .catch(function(err) {
+            showToast('Erro no backup: ' + err.message, 'error');
+            hideLoading();
+            if (DOM.backupProgress) DOM.backupProgress.style.display = 'none';
+        });
 }
 
-function pressEsc() {
-    if (!state.sessionId) return;
-    apiJSON('/type-text', 'POST', {
-        session_id: state.sessionId,
-        text: '\uE00C',
-        press_enter: false,
-        clear_first: false
-    }).then(function(data) {
-        if (data.screenshot) updateAllPreviewsBase64(data.screenshot);
-        showToast('Esc pressionado', 'info');
-    }).catch(function(err) {
-        showToast('Erro: ' + err.message, 'error');
-    });
+// ===================== ERROR CHECK MODULE =====================
+
+function checkErrors() {
+    if (!state.sessionId) {
+        showToast('Abra um site primeiro.', 'warning');
+        return;
+    }
+
+    var folderName = 'erros';
+    if (DOM.errorFolder) {
+        var val = DOM.errorFolder.value.trim();
+        if (val) folderName = val;
+    }
+
+    showLoading();
+    if (DOM.errorProgress) DOM.errorProgress.style.display = 'block';
+
+    var steps = [
+        'Iniciando verificação...',
+        'Verificando HTML...',
+        'Verificando CSS...',
+        'Verificando JavaScript...',
+        'Verificando acessibilidade...',
+        'Verificando SEO...',
+        'Gerando relatório...'
+    ];
+
+    simulateProgress(DOM.errorProgressFill, DOM.errorProgressText, steps, 15000);
+
+    apiJSON('/check-errors-json', 'POST', { session_id: state.sessionId, folder_name: folderName })
+        .then(function(data) {
+            if (DOM.errorProgressFill) DOM.errorProgressFill.style.width = '100%';
+            if (DOM.errorProgressText) DOM.errorProgressText.textContent = 'Verificação concluída!';
+
+            state.lastErrorReport = data;
+            displayErrorResults(data);
+
+            var totalErrors = 0;
+            var totalWarnings = 0;
+            if (data.summary) {
+                totalErrors = data.summary.total_errors || 0;
+                totalWarnings = data.summary.total_warnings || 0;
+            }
+
+            showToast('Verificação concluída: ' + totalErrors + ' erros, ' + totalWarnings + ' avisos', 'success');
+            hideLoading();
+        })
+        .catch(function(err) {
+            showToast('Erro na verificação: ' + err.message, 'error');
+            hideLoading();
+            if (DOM.errorProgress) DOM.errorProgress.style.display = 'none';
+        });
 }
 
-function goBack() {
-    if (!state.sessionId) return;
-    apiJSON('/navigate', 'POST', {
-        session_id: state.sessionId,
-        url: 'javascript:history.back()'
-    }).catch(function() {
-        // Fallback: use execute_script approach via click-element
-    });
-    // Simple approach: just refresh after going back
-    setTimeout(function() { refreshPreview(); }, 1500);
-    showToast('Voltando...', 'info');
+function downloadErrorReport() {
+    if (!state.sessionId) {
+        showToast('Abra um site primeiro.', 'warning');
+        return;
+    }
+
+    var folderName = 'erros';
+    if (DOM.errorFolder) {
+        var val = DOM.errorFolder.value.trim();
+        if (val) folderName = val;
+    }
+
+    showLoading();
+
+    apiBlob('/check-errors', 'POST', { session_id: state.sessionId, folder_name: folderName })
+        .then(function(response) {
+            if (!response.ok) {
+                return response.text().then(function(t) {
+                    var msg = 'Erro ' + response.status;
+                    try { var d = JSON.parse(t); if (d.detail) msg = d.detail; } catch (e) { if (t) msg = t; }
+                    throw new Error(msg);
+                });
+            }
+            return response.blob();
+        })
+        .then(function(blob) {
+            if (!blob) return;
+            var timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+            var filename = folderName + '_' + timestamp + '.txt';
+            downloadBlob(blob, filename);
+            showToast('Relatório de erros baixado!', 'success');
+            hideLoading();
+        })
+        .catch(function(err) {
+            showToast('Erro ao baixar relatório: ' + err.message, 'error');
+            hideLoading();
+        });
 }
 
-function goForward() {
-    if (!state.sessionId) return;
-    setTimeout(function() { refreshPreview(); }, 1500);
-    showToast('Avançando...', 'info');
+// ===================== SEARCH MODULE =====================
+
+function searchSite() {
+    if (!state.sessionId) {
+        showToast('Abra um site primeiro.', 'warning');
+        return;
+    }
+
+    var term = '';
+    if (DOM.searchTerm) term = DOM.searchTerm.value.trim();
+    if (!term) {
+        showToast('Digite um termo para buscar.', 'warning');
+        return;
+    }
+
+    var folderName = 'busca';
+    if (DOM.searchFolder) {
+        var val = DOM.searchFolder.value.trim();
+        if (val) folderName = val;
+    }
+
+    showLoading();
+    if (DOM.searchProgress) DOM.searchProgress.style.display = 'block';
+
+    var steps = [
+        'Iniciando busca...',
+        'Buscando no HTML...',
+        'Buscando em scripts...',
+        'Buscando em estilos...',
+        'Buscando em links...',
+        'Compilando resultados...'
+    ];
+
+    simulateProgress(DOM.searchProgressFill, DOM.searchProgressText, steps, 12000);
+
+    apiJSON('/search-site', 'POST', {
+        session_id: state.sessionId,
+        term: term,
+        folder_name: folderName
+    })
+        .then(function(data) {
+            if (DOM.searchProgressFill) DOM.searchProgressFill.style.width = '100%';
+            if (DOM.searchProgressText) DOM.searchProgressText.textContent = 'Busca concluída!';
+
+            state.lastSearchReport = data;
+            displaySearchResults(data);
+
+            var totalFound = data.total_found || 0;
+            showToast('Busca concluída: ' + totalFound + ' resultados encontrados', 'success');
+            hideLoading();
+        })
+        .catch(function(err) {
+            showToast('Erro na busca: ' + err.message, 'error');
+            hideLoading();
+            if (DOM.searchProgress) DOM.searchProgress.style.display = 'none';
+        });
 }
-    // Live Preview - Click to interact
-    var livePreviewContainer = document.getElementById('livePreviewContainer');
-    if (livePreviewContainer) {
-        livePreviewContainer.addEventListener('click', function(e) {
-            var liveImg = document.getElementById('livePreviewImg');
-            if (!liveImg || !liveImg.src) return;
-            var rect = liveImg.getBoundingClientRect();
-            var x = e.clientX - rect.left;
-            var y = e.clientY - rect.top;
-            clickOnPage(x, y);
+
+function downloadSearchReport() {
+    if (!state.sessionId) {
+        showToast('Abra um site primeiro.', 'warning');
+        return;
+    }
+
+    var term = '';
+    if (DOM.searchTerm) term = DOM.searchTerm.value.trim();
+    if (!term) {
+        showToast('Digite um termo para buscar.', 'warning');
+        return;
+    }
+
+    var folderName = 'busca';
+    if (DOM.searchFolder) {
+        var val = DOM.searchFolder.value.trim();
+        if (val) folderName = val;
+    }
+
+    showLoading();
+
+    apiBlob('/search-site-txt', 'POST', {
+        session_id: state.sessionId,
+        term: term,
+        folder_name: folderName
+    })
+        .then(function(response) {
+            if (!response.ok) {
+                return response.text().then(function(t) {
+                    var msg = 'Erro ' + response.status;
+                    try { var d = JSON.parse(t); if (d.detail) msg = d.detail; } catch (e) { if (t) msg = t; }
+                    throw new Error(msg);
+                });
+            }
+            return response.blob();
+        })
+        .then(function(blob) {
+            if (!blob) return;
+            var timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+            var filename = folderName + '_' + timestamp + '.txt';
+            downloadBlob(blob, filename);
+            showToast('Relatório de busca baixado!', 'success');
+            hideLoading();
+        })
+        .catch(function(err) {
+            showToast('Erro ao baixar relatório: ' + err.message, 'error');
+            hideLoading();
+        });
+}
+
+// ===================== ERROR RESULTS DISPLAY =====================
+
+var categoryLabels = {
+    'html_errors': 'Erros HTML',
+    'css_errors': 'Erros CSS',
+    'js_errors': 'Erros JavaScript',
+    'accessibility': 'Acessibilidade',
+    'seo': 'SEO',
+    'performance': 'Performance',
+    'security': 'Segurança',
+    'images': 'Imagens',
+    'links': 'Links',
+    'forms': 'Formulários',
+    'meta': 'Meta Tags',
+    'general': 'Geral'
+};
+
+function extractErrorMessage(item) {
+    if (typeof item === 'string') return item;
+    if (item.message) return item.message;
+    if (item.description) return item.description;
+    if (item.error) return item.error;
+    if (item.detail) return item.detail;
+    return JSON.stringify(item);
+}
+
+function getErrorLevel(item) {
+    if (typeof item === 'string') {
+        if (item.toLowerCase().indexOf('error') >= 0) return 'error';
+        if (item.toLowerCase().indexOf('warning') >= 0) return 'warning';
+        return 'info';
+    }
+    if (item.level) return item.level.toLowerCase();
+    if (item.severity) return item.severity.toLowerCase();
+    if (item.type) {
+        var t = item.type.toLowerCase();
+        if (t === 'error') return 'error';
+        if (t === 'warning') return 'warning';
+    }
+    return 'info';
+}
+
+function displayErrorResults(data) {
+    if (!DOM.errorResults) return;
+
+    DOM.errorResults.style.display = 'block';
+    DOM.errorResults.innerHTML = '';
+
+    // Header
+    var header = document.createElement('div');
+    header.className = 'results-header';
+
+    var totalErrors = 0;
+    var totalWarnings = 0;
+    var totalInfo = 0;
+
+    if (data.summary) {
+        totalErrors = data.summary.total_errors || 0;
+        totalWarnings = data.summary.total_warnings || 0;
+        totalInfo = data.summary.total_info || 0;
+    }
+
+    header.innerHTML = '<h3>Resultado da Verificação</h3>' +
+        '<div class="results-summary">' +
+        '<span class="summary-item error">Erros: ' + totalErrors + '</span>' +
+        '<span class="summary-item warning">Avisos: ' + totalWarnings + '</span>' +
+        '<span class="summary-item info">Info: ' + totalInfo + '</span>' +
+        '</div>';
+    DOM.errorResults.appendChild(header);
+
+    // Categories
+    var categories = data.categories || data.results || data;
+    if (typeof categories === 'object' && !Array.isArray(categories)) {
+        var keys = Object.keys(categories);
+        for (var i = 0; i < keys.length; i++) {
+            var key = keys[i];
+            if (key === 'summary' || key === 'url' || key === 'title' || key === 'timestamp' || key === 'total_found') continue;
+            var items = categories[key];
+            if (Array.isArray(items) && items.length > 0) {
+                var block = createErrorCategoryBlock(key, items);
+                DOM.errorResults.appendChild(block);
+            }
+        }
+    }
+}
+
+function createErrorCategoryBlock(categoryKey, items) {
+    var block = document.createElement('div');
+    block.className = 'error-category';
+
+    var label = categoryLabels[categoryKey] || categoryKey;
+    var headerDiv = document.createElement('div');
+    headerDiv.className = 'error-category-header';
+    headerDiv.innerHTML = '<strong>' + escapeHTML(label) + '</strong> <span>(' + items.length + ' itens)</span>';
+    block.appendChild(headerDiv);
+
+    var list = document.createElement('div');
+    list.className = 'error-list';
+
+    for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        var level = getErrorLevel(item);
+        var message = extractErrorMessage(item);
+
+        var errorItem = document.createElement('div');
+        errorItem.className = 'error-item ' + level;
+        errorItem.innerHTML = '<span class="error-level">' + level.toUpperCase() + '</span> ' + escapeHTML(message);
+        list.appendChild(errorItem);
+    }
+
+    block.appendChild(list);
+    return block;
+}
+
+// ===================== SEARCH RESULTS DISPLAY =====================
+
+function displaySearchResults(data) {
+    if (!DOM.searchResults) return;
+
+    DOM.searchResults.style.display = 'block';
+    DOM.searchResults.innerHTML = '';
+
+    var header = document.createElement('div');
+    header.className = 'results-header';
+
+    var totalFound = data.total_found || 0;
+    header.innerHTML = '<h3>Resultados da Busca</h3>' +
+        '<div class="results-summary">' +
+        '<span class="summary-item info">Total encontrado: ' + totalFound + '</span>' +
+        '</div>';
+    DOM.searchResults.appendChild(header);
+
+    var findings = data.findings || [];
+    if (findings.length === 0) {
+        var empty = document.createElement('p');
+        empty.style.cssText = 'text-align:center;color:#888;padding:20px;';
+        empty.textContent = 'Nenhum resultado encontrado.';
+        DOM.searchResults.appendChild(empty);
+        return;
+    }
+
+    // Group by category
+    var grouped = {};
+    for (var i = 0; i < findings.length; i++) {
+        var cat = findings[i].category || 'general';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(findings[i]);
+    }
+
+    var groupKeys = Object.keys(grouped);
+    for (var g = 0; g < groupKeys.length; g++) {
+        var gKey = groupKeys[g];
+        var gItems = grouped[gKey];
+
+        var catBlock = document.createElement('div');
+        catBlock.className = 'search-category';
+
+        var catHeader = document.createElement('div');
+        catHeader.className = 'error-category-header';
+        var catLabel = categoryLabels[gKey] || gKey;
+        catHeader.innerHTML = '<strong>' + escapeHTML(catLabel) + '</strong> <span>(' + gItems.length + ' itens)</span>';
+        catBlock.appendChild(catHeader);
+
+        var catList = document.createElement('div');
+        catList.className = 'search-list';
+
+        for (var j = 0; j < gItems.length; j++) {
+            var findItem = gItems[j];
+            var searchItem = document.createElement('div');
+            searchItem.className = 'search-item';
+
+            var html = '';
+            if (findItem.type) html += '<strong>' + escapeHTML(findItem.type) + ':</strong> ';
+            if (findItem.value) html += escapeHTML(findItem.value);
+            if (findItem.details) html += ' <small>(' + escapeHTML(findItem.details) + ')</small>';
+            if (!findItem.value && !findItem.type) html = escapeHTML(JSON.stringify(findItem));
+
+            searchItem.innerHTML = html;
+            catList.appendChild(searchItem);
+        }
+
+        catBlock.appendChild(catList);
+        DOM.searchResults.appendChild(catBlock);
+    }
+}
+
+// ===================== CLEAR RESULTS =====================
+
+function clearErrorResults() {
+    if (DOM.errorResults) {
+        DOM.errorResults.style.display = 'none';
+        DOM.errorResults.innerHTML = '';
+    }
+    if (DOM.errorProgress) DOM.errorProgress.style.display = 'none';
+    if (DOM.errorProgressFill) DOM.errorProgressFill.style.width = '0%';
+    if (DOM.errorProgressText) DOM.errorProgressText.textContent = '';
+    state.lastErrorReport = null;
+}
+
+function clearSearchResults() {
+    if (DOM.searchResults) {
+        DOM.searchResults.style.display = 'none';
+        DOM.searchResults.innerHTML = '';
+    }
+    if (DOM.searchProgress) DOM.searchProgress.style.display = 'none';
+    if (DOM.searchProgressFill) DOM.searchProgressFill.style.width = '0%';
+    if (DOM.searchProgressText) DOM.searchProgressText.textContent = '';
+    state.lastSearchReport = null;
+}
+
+// ===================== EVENT LISTENERS =====================
+
+function setupEventListeners() {
+    console.log('Setting up event listeners...');
+
+    // --- AUTH ---
+    if (DOM.btnAuth) {
+        DOM.btnAuth.addEventListener('click', function() {
+            authenticate();
+        });
+    }
+    if (DOM.authTokenInput) {
+        DOM.authTokenInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') authenticate();
+        });
+    }
+    if (DOM.btnTogglePassword) {
+        DOM.btnTogglePassword.addEventListener('click', function() {
+            togglePasswordVisibility();
+        });
+    }
+    if (DOM.btnLogout) {
+        DOM.btnLogout.addEventListener('click', function() {
+            logout();
         });
     }
 
-    // Remote Type
+    // --- OPEN SITE ---
+    if (DOM.btnOpen) {
+        DOM.btnOpen.addEventListener('click', function() {
+            openSite();
+        });
+    }
+    if (DOM.urlInput) {
+        DOM.urlInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') openSite();
+        });
+    }
+
+    // --- SITE ACTIONS ---
+    if (DOM.btnScreenshot) {
+        DOM.btnScreenshot.addEventListener('click', function() {
+            takeScreenshot();
+        });
+    }
+    if (DOM.btnLogin) {
+        DOM.btnLogin.addEventListener('click', function() {
+            openInteraction();
+        });
+    }
+    if (DOM.btnScroll) {
+        DOM.btnScroll.addEventListener('click', function() {
+            scrollPage('down');
+        });
+    }
+    if (DOM.btnClose) {
+        DOM.btnClose.addEventListener('click', function() {
+            closeSession();
+        });
+    }
+
+    // --- SCROLL BUTTONS ---
+    if (DOM.btnScrollUp) {
+        DOM.btnScrollUp.addEventListener('click', function() {
+            scrollPage('up');
+        });
+    }
+    if (DOM.btnScrollDown) {
+        DOM.btnScrollDown.addEventListener('click', function() {
+            scrollPage('down');
+        });
+    }
+
+    // --- INTERACTION OVERLAY ---
+    if (DOM.btnCloseInteract) {
+        DOM.btnCloseInteract.addEventListener('click', function() {
+            closeInteraction();
+        });
+    }
+
+    // --- STEP 1: AUTO-LOGIN ---
+    if (DOM.btnAutoLogin) {
+        DOM.btnAutoLogin.addEventListener('click', function() {
+            autoLogin();
+        });
+    }
+    if (DOM.btnToggleAutoLoginPassword) {
+        DOM.btnToggleAutoLoginPassword.addEventListener('click', function() {
+            toggleAutoLoginPassword();
+        });
+    }
+
+    // --- STEP 2: MANUAL COOKIES ---
+    if (DOM.btnOpenSiteTab) {
+        DOM.btnOpenSiteTab.addEventListener('click', function() {
+            openSiteInNewTab();
+        });
+    }
+    if (DOM.btnCopyCommand) {
+        DOM.btnCopyCommand.addEventListener('click', function() {
+            copyCommandToClipboard();
+        });
+    }
+    if (DOM.btnSyncCookies) {
+        DOM.btnSyncCookies.addEventListener('click', function() {
+            syncCookies();
+        });
+    }
+    if (DOM.btnGetSeleniumCookies) {
+        DOM.btnGetSeleniumCookies.addEventListener('click', function() {
+            getSeleniumCookies();
+        });
+    }
+
+    // --- STEP 3: LIVE PREVIEW / REMOTE CONTROL ---
+    if (DOM.btnRefreshPreview) {
+        DOM.btnRefreshPreview.addEventListener('click', function() {
+            refreshPreview();
+        });
+    }
+
+    // Live preview click
+    var livePreviewContainer = document.getElementById('livePreviewContainer');
+    var livePreviewImg = document.getElementById('livePreviewImg');
+    if (livePreviewContainer && livePreviewImg) {
+        livePreviewContainer.addEventListener('click', function(e) {
+            if (!state.sessionId) {
+                showToast('Abra um site primeiro.', 'warning');
+                return;
+            }
+            var rect = livePreviewImg.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) {
+                showToast('Preview não carregado.', 'warning');
+                return;
+            }
+            var clickXRel = e.clientX - rect.left;
+            var clickYRel = e.clientY - rect.top;
+
+            // Scale to real page size (1920x1080)
+            var scaleX = 1920 / rect.width;
+            var scaleY = 1080 / rect.height;
+            var realX = Math.round(clickXRel * scaleX);
+            var realY = Math.round(clickYRel * scaleY);
+
+            console.log('Click on preview:', realX, realY, '(scaled from', clickXRel, clickYRel, ')');
+            clickOnPage(realX, realY);
+        });
+    }
+
+    // Remote type
     var btnRemoteType = document.getElementById('btnRemoteType');
+    var btnRemoteEnter = document.getElementById('btnRemoteEnter');
+    var remoteTextInput = document.getElementById('remoteTextInput');
+
     if (btnRemoteType) {
         btnRemoteType.addEventListener('click', function() {
-            var input = document.getElementById('remoteTextInput');
-            var text = input ? input.value : '';
-            if (!text) { showToast('Digite algo no campo.', 'warning'); return; }
+            if (!remoteTextInput) return;
+            var text = remoteTextInput.value;
+            if (!text) {
+                showToast('Digite algo para enviar.', 'warning');
+                return;
+            }
             typeOnPage(text, false);
         });
     }
 
-    // Remote Enter
-    var btnRemoteEnter = document.getElementById('btnRemoteEnter');
     if (btnRemoteEnter) {
         btnRemoteEnter.addEventListener('click', function() {
-            var input = document.getElementById('remoteTextInput');
-            var text = input ? input.value : '';
+            if (!remoteTextInput) return;
+            var text = remoteTextInput.value;
             typeOnPage(text, true);
         });
     }
 
-    // Remote Text Input - Enter key
-    var remoteTextInput = document.getElementById('remoteTextInput');
     if (remoteTextInput) {
         remoteTextInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
+                e.preventDefault();
                 var text = remoteTextInput.value;
-                if (text) {
-                    typeOnPage(text, false);
-                }
+                typeOnPage(text, true);
             }
         });
     }
 
-    // Tab button
+    // Remote keyboard actions
     var btnRemoteTab = document.getElementById('btnRemoteTab');
+    var btnRemoteEsc = document.getElementById('btnRemoteEsc');
+    var btnRemoteBack = document.getElementById('btnRemoteBack');
+    var btnRemoteForward = document.getElementById('btnRemoteForward');
+
     if (btnRemoteTab) {
         btnRemoteTab.addEventListener('click', function() {
-            if (!state.sessionId) return;
+            if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
             apiJSON('/type-text', 'POST', {
                 session_id: state.sessionId,
                 text: '\uE004',
@@ -883,18 +1446,16 @@ function goForward() {
                 clear_first: false
             }).then(function(data) {
                 if (data.screenshot) updateAllPreviewsBase64(data.screenshot);
-                showToast('Tab pressionado', 'info');
+                showToast('Tab enviado!', 'info');
             }).catch(function(err) {
-                showToast('Erro: ' + err.message, 'error');
+                showToast('Erro ao enviar Tab: ' + err.message, 'error');
             });
         });
     }
 
-    // Esc button
-    var btnRemoteEsc = document.getElementById('btnRemoteEsc');
     if (btnRemoteEsc) {
         btnRemoteEsc.addEventListener('click', function() {
-            if (!state.sessionId) return;
+            if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
             apiJSON('/type-text', 'POST', {
                 session_id: state.sessionId,
                 text: '\uE00C',
@@ -902,534 +1463,120 @@ function goForward() {
                 clear_first: false
             }).then(function(data) {
                 if (data.screenshot) updateAllPreviewsBase64(data.screenshot);
-                showToast('Esc pressionado', 'info');
+                showToast('Esc enviado!', 'info');
             }).catch(function(err) {
-                showToast('Erro: ' + err.message, 'error');
+                showToast('Erro ao enviar Esc: ' + err.message, 'error');
             });
         });
     }
 
-    // Back button
-    var btnRemoteBack = document.getElementById('btnRemoteBack');
     if (btnRemoteBack) {
         btnRemoteBack.addEventListener('click', function() {
-            if (!state.sessionId) return;
+            if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
             showToast('Voltando...', 'info');
-            apiJSON('/type-text', 'POST', {
+            apiJSON('/navigate', 'POST', {
                 session_id: state.sessionId,
-                text: '',
-                press_enter: false,
-                clear_first: false
-            }).catch(function() {});
-            // Execute back via a workaround
-            apiJSON('/scroll', 'POST', {
-                session_id: state.sessionId,
-                direction: 'down',
-                amount: 0
+                url: 'javascript:history.back()'
             }).then(function() {
-                // Now try to go back by refreshing
                 setTimeout(function() { refreshPreview(); }, 500);
-            }).catch(function() {});
+            }).catch(function() {
+                setTimeout(function() { refreshPreview(); }, 500);
+            });
         });
     }
 
-    // Forward button
-    var btnRemoteForward = document.getElementById('btnRemoteForward');
     if (btnRemoteForward) {
         btnRemoteForward.addEventListener('click', function() {
-            if (!state.sessionId) return;
+            if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
             showToast('Avançando...', 'info');
-            setTimeout(function() { refreshPreview(); }, 500);
-        });
-    }
-
-// ===================== BACKUP MODULE =====================
-function backupSite() {
-    if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
-    var folder = DOM.backupFolder ? DOM.backupFolder.value.trim() : 'meu-backup';
-    if (!folder) folder = 'meu-backup';
-
-    showToast('Iniciando backup...', 'info');
-    var progressSteps = [
-        { pct: 10, text: 'Preparando backup...' },
-        { pct: 25, text: 'Baixando HTML...' },
-        { pct: 40, text: 'Baixando CSS e JS...' },
-        { pct: 55, text: 'Baixando imagens...' },
-        { pct: 70, text: 'Baixando fontes...' },
-        { pct: 85, text: 'Compactando ZIP...' }
-    ];
-    simulateProgress(DOM.backupProgressFill, DOM.backupProgressText, DOM.backupProgress, progressSteps);
-
-    apiBlob('/backup', 'POST', { session_id: state.sessionId, folder_name: folder })
-        .then(function(response) {
-            if (!response.ok) {
-                return response.text().then(function(t) {
-                    var msg = 'Erro ' + response.status;
-                    try { var d = JSON.parse(t); if (d.detail) msg = d.detail; } catch(e) { if (t) msg = t; }
-                    throw new Error(msg);
-                });
-            }
-            var disposition = response.headers.get('Content-Disposition');
-            var filename = folder + '.zip';
-            if (disposition) {
-                var match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-                if (match && match[1]) filename = match[1].replace(/['"]/g, '');
-            }
-            return response.blob().then(function(blob) {
-                if (DOM.backupProgressFill) DOM.backupProgressFill.style.width = '100%';
-                if (DOM.backupProgressText) DOM.backupProgressText.textContent = 'Concluído!';
-                downloadBlob(blob, filename);
-                showToast('Backup baixado: ' + filename, 'success');
-                setTimeout(function() { if (DOM.backupProgress) DOM.backupProgress.classList.remove('active'); }, 3000);
+            apiJSON('/navigate', 'POST', {
+                session_id: state.sessionId,
+                url: 'javascript:history.forward()'
+            }).then(function() {
+                setTimeout(function() { refreshPreview(); }, 500);
+            }).catch(function() {
+                setTimeout(function() { refreshPreview(); }, 500);
             });
-        }).catch(function(err) {
-            if (DOM.backupProgress) DOM.backupProgress.classList.remove('active');
-            showToast('Erro no backup: ' + err.message, 'error');
         });
-}
-
-// ===================== ERROR CHECK MODULE =====================
-function checkErrors() {
-    if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
-    var folder = DOM.errorsFolder ? DOM.errorsFolder.value.trim() : 'meus-erros';
-    if (!folder) folder = 'meus-erros';
-
-    showToast('Iniciando verificação de erros...', 'info');
-    var progressSteps = [
-        { pct: 10, text: 'Preparando análise...' },
-        { pct: 20, text: 'Verificando console...' },
-        { pct: 35, text: 'Verificando rede...' },
-        { pct: 50, text: 'Verificando CSS/HTML...' },
-        { pct: 65, text: 'Verificando segurança...' },
-        { pct: 80, text: 'Verificando SEO...' },
-        { pct: 90, text: 'Gerando relatório...' }
-    ];
-    simulateProgress(DOM.errorsProgressFill, DOM.errorsProgressText, DOM.errorsProgress, progressSteps);
-
-    apiJSON('/check-errors-json', 'POST', { session_id: state.sessionId, folder_name: folder })
-        .then(function(data) {
-            if (DOM.errorsProgressFill) DOM.errorsProgressFill.style.width = '100%';
-            if (DOM.errorsProgressText) DOM.errorsProgressText.textContent = 'Concluído!';
-            state.lastErrorReport = data;
-            displayErrorResults(data);
-            var totalE = data.total_errors || 0;
-            var totalW = data.total_warnings || 0;
-            showToast('Verificação concluída: ' + totalE + ' erros, ' + totalW + ' avisos.', totalE > 0 ? 'warning' : 'success');
-            setTimeout(function() { if (DOM.errorsProgress) DOM.errorsProgress.classList.remove('active'); }, 3000);
-        }).catch(function(err) {
-            if (DOM.errorsProgress) DOM.errorsProgress.classList.remove('active');
-            showToast('Erro na verificação: ' + err.message, 'error');
-        });
-}
-
-function downloadErrorReport() {
-    if (!state.sessionId) { showToast('Nenhuma sessão ativa.', 'warning'); return; }
-    var folder = DOM.errorsFolder ? DOM.errorsFolder.value.trim() : 'meus-erros';
-    if (!folder) folder = 'meus-erros';
-
-    showLoading('Gerando relatório de erros...');
-    apiBlob('/check-errors', 'POST', { session_id: state.sessionId, folder_name: folder })
-        .then(function(response) {
-            if (!response.ok) {
-                return response.text().then(function(t) {
-                    var msg = 'Erro ' + response.status;
-                    try { var d = JSON.parse(t); if (d.detail) msg = d.detail; } catch(e) { if (t) msg = t; }
-                    throw new Error(msg);
-                });
-            }
-            var disposition = response.headers.get('Content-Disposition');
-            var filename = 'relatorio-erros.txt';
-            if (disposition) {
-                var match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-                if (match && match[1]) filename = match[1].replace(/['"]/g, '');
-            }
-            return response.blob().then(function(blob) {
-                hideLoading();
-                downloadBlob(blob, filename);
-                showToast('Relatório de erros baixado!', 'success');
-            });
-        }).catch(function(err) {
-            hideLoading();
-            showToast('Erro ao baixar relatório: ' + err.message, 'error');
-        });
-}
-
-// ===================== SEARCH MODULE =====================
-function searchSite() {
-    if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
-    var term = DOM.searchTerm ? DOM.searchTerm.value.trim() : '';
-    if (!term) { showToast('Digite o que deseja buscar.', 'warning'); if (DOM.searchTerm) DOM.searchTerm.focus(); return; }
-    var folder = DOM.searchFolder ? DOM.searchFolder.value.trim() : 'minha-busca';
-    if (!folder) folder = 'minha-busca';
-
-    showToast('Iniciando busca...', 'info');
-    var progressSteps = [
-        { pct: 10, text: 'Preparando busca...' },
-        { pct: 25, text: 'Buscando APIs e links...' },
-        { pct: 40, text: 'Buscando imagens e forms...' },
-        { pct: 55, text: 'Buscando scripts e meta...' },
-        { pct: 70, text: 'Buscando CSS e fontes...' },
-        { pct: 85, text: 'Buscando cookies e storage...' }
-    ];
-    simulateProgress(DOM.searchProgressFill, DOM.searchProgressText, DOM.searchProgress, progressSteps);
-
-    apiJSON('/search-site', 'POST', { session_id: state.sessionId, term: term, folder_name: folder })
-        .then(function(data) {
-            if (DOM.searchProgressFill) DOM.searchProgressFill.style.width = '100%';
-            if (DOM.searchProgressText) DOM.searchProgressText.textContent = 'Concluído!';
-            state.lastSearchReport = data;
-            displaySearchResults(data);
-            var total = data.total_found || 0;
-            showToast('Busca concluída: ' + total + ' resultados encontrados.', total > 0 ? 'success' : 'warning');
-            setTimeout(function() { if (DOM.searchProgress) DOM.searchProgress.classList.remove('active'); }, 3000);
-        }).catch(function(err) {
-            if (DOM.searchProgress) DOM.searchProgress.classList.remove('active');
-            showToast('Erro na busca: ' + err.message, 'error');
-        });
-}
-
-function downloadSearchReport() {
-    if (!state.sessionId) { showToast('Nenhuma sessão ativa.', 'warning'); return; }
-    var term = DOM.searchTerm ? DOM.searchTerm.value.trim() : '';
-    if (!term) { showToast('Digite o termo de busca.', 'warning'); return; }
-    var folder = DOM.searchFolder ? DOM.searchFolder.value.trim() : 'minha-busca';
-    if (!folder) folder = 'minha-busca';
-
-    showLoading('Gerando relatório de busca...');
-    apiBlob('/search-site-txt', 'POST', { session_id: state.sessionId, term: term, folder_name: folder })
-        .then(function(response) {
-            if (!response.ok) {
-                return response.text().then(function(t) {
-                    var msg = 'Erro ' + response.status;
-                    try { var d = JSON.parse(t); if (d.detail) msg = d.detail; } catch(e) { if (t) msg = t; }
-                    throw new Error(msg);
-                });
-            }
-            var disposition = response.headers.get('Content-Disposition');
-            var filename = 'relatorio-busca.txt';
-            if (disposition) {
-                var match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-                if (match && match[1]) filename = match[1].replace(/['"]/g, '');
-            }
-            return response.blob().then(function(blob) {
-                hideLoading();
-                downloadBlob(blob, filename);
-                showToast('Relatório de busca baixado!', 'success');
-            });
-        }).catch(function(err) {
-            hideLoading();
-            showToast('Erro ao baixar relatório: ' + err.message, 'error');
-        });
-}
-
-// ===================== DISPLAY ERROR RESULTS =====================
-var categoryLabels = {
-    'console': 'Console',
-    'javascript': 'Erros JavaScript',
-    'network': 'Rede / Network',
-    'css': 'CSS',
-    'html': 'HTML',
-    'accessibility': 'Acessibilidade',
-    'security': 'Segurança',
-    'performance': 'Performance',
-    'broken_links': 'Links Quebrados',
-    'seo': 'SEO'
-};
-
-function extractErrorMessage(item) {
-    if (typeof item === 'string') return escapeHTML(item);
-    if (item.message) return escapeHTML(item.message);
-    if (item.text) return escapeHTML(item.text);
-    if (item.description) return escapeHTML(item.description);
-    if (item.url) return escapeHTML(item.url);
-    return escapeHTML(JSON.stringify(item));
-}
-
-function getErrorLevel(item) {
-    if (typeof item === 'string') {
-        if (item.toLowerCase().indexOf('error') !== -1) return 'error';
-        if (item.toLowerCase().indexOf('warning') !== -1 || item.toLowerCase().indexOf('aviso') !== -1) return 'warning';
-        return 'info';
-    }
-    if (item.level) return item.level.toLowerCase();
-    if (item.severity) return item.severity.toLowerCase();
-    if (item.type) {
-        var t = item.type.toLowerCase();
-        if (t.indexOf('error') !== -1) return 'error';
-        if (t.indexOf('warning') !== -1) return 'warning';
-    }
-    return 'info';
-}
-
-function displayErrorResults(data) {
-    if (!data || !data.details) { showToast('Nenhum dado de erro para exibir.', 'warning'); return; }
-    if (DOM.errorResultsSection) DOM.errorResultsSection.style.display = 'block';
-
-    var totalErrors = data.total_errors || 0;
-    var totalWarnings = data.total_warnings || 0;
-    if (DOM.totalErrors) DOM.totalErrors.textContent = totalErrors;
-    if (DOM.totalWarnings) DOM.totalWarnings.textContent = totalWarnings;
-
-    var details = data.details;
-    var categories = Object.keys(details).filter(function(k) {
-        return Array.isArray(details[k]) && details[k].length > 0;
-    });
-
-    // Create tabs
-    var existingTabs = DOM.errorResultsSection ? DOM.errorResultsSection.querySelector('.result-tabs') : null;
-    var tabsContainer = document.createElement('div');
-    tabsContainer.className = 'result-tabs';
-
-    var allTab = document.createElement('button');
-    allTab.className = 'result-tab active';
-    allTab.dataset.tab = 'all';
-    var totalItems = 0;
-    categories.forEach(function(c) { totalItems += details[c].length; });
-    allTab.textContent = 'Todos (' + totalItems + ')';
-    tabsContainer.appendChild(allTab);
-
-    categories.forEach(function(cat) {
-        var tab = document.createElement('button');
-        tab.className = 'result-tab';
-        tab.dataset.tab = cat;
-        var label = categoryLabels[cat] || cat;
-        tab.textContent = label + ' (' + details[cat].length + ')';
-        tabsContainer.appendChild(tab);
-    });
-
-    if (existingTabs) {
-        existingTabs.replaceWith(tabsContainer);
-    } else if (DOM.errorsContent && DOM.errorsContent.parentNode) {
-        DOM.errorsContent.parentNode.insertBefore(tabsContainer, DOM.errorsContent);
     }
 
-    // Render all tab
-    renderErrorsTab('all', details, categories);
-
-    // Tab click listeners
-    tabsContainer.querySelectorAll('.result-tab').forEach(function(tab) {
-        tab.addEventListener('click', function() {
-            tabsContainer.querySelectorAll('.result-tab').forEach(function(t) { t.classList.remove('active'); });
-            tab.classList.add('active');
-            var selectedTab = tab.dataset.tab;
-            if (selectedTab === 'all') {
-                renderErrorsTab('all', details, categories);
-            } else {
-                renderErrorsTab(selectedTab, details, [selectedTab]);
-            }
+    // --- FINISH LOGIN ---
+    if (DOM.btnFinishLogin) {
+        DOM.btnFinishLogin.addEventListener('click', function() {
+            finishLogin();
         });
-    });
-}
-
-function renderErrorsTab(tab, details, categories) {
-    if (!DOM.errorsContent) return;
-    DOM.errorsContent.innerHTML = '';
-    var hasItems = false;
-    categories.forEach(function(cat) { if (details[cat] && details[cat].length > 0) hasItems = true; });
-    if (!hasItems) {
-        DOM.errorsContent.innerHTML = '<div class="no-results">Nenhum erro encontrado! O site parece estar limpo.</div>';
-        return;
-    }
-    categories.forEach(function(cat) {
-        if (details[cat] && details[cat].length > 0) {
-            var block = createErrorCategoryBlock(cat, details[cat]);
-            DOM.errorsContent.appendChild(block);
-        }
-    });
-}
-
-function createErrorCategoryBlock(category, items) {
-    var block = document.createElement('div');
-    block.className = 'error-category-block';
-
-    var title = document.createElement('div');
-    title.className = 'error-category-title';
-    var label = categoryLabels[category] || category;
-    title.innerHTML = '<strong>' + escapeHTML(label) + '</strong> <span class="error-count">(' + items.length + ')</span>';
-    block.appendChild(title);
-
-    var list = document.createElement('div');
-    list.className = 'error-list';
-
-    items.forEach(function(item) {
-        var entry = document.createElement('div');
-        var level = getErrorLevel(item);
-        entry.className = 'error-item level-' + level;
-        var message = extractErrorMessage(item);
-        var html = '<span class="error-level">' + level.toUpperCase() + '</span> ' + message;
-        if (typeof item === 'object') {
-            if (item.source) html += '<div class="error-source">Fonte: ' + escapeHTML(item.source) + '</div>';
-            if (item.url) html += '<div class="error-source">URL: ' + escapeHTML(item.url) + '</div>';
-            if (item.line) html += '<div class="error-source">Linha: ' + item.line + '</div>';
-        }
-        entry.innerHTML = html;
-        list.appendChild(entry);
-    });
-
-    block.appendChild(list);
-    return block;
-}
-
-// ===================== DISPLAY SEARCH RESULTS =====================
-function displaySearchResults(data) {
-    if (!data || !data.findings) { showToast('Nenhum dado de busca para exibir.', 'warning'); return; }
-    if (DOM.searchResultsSection) DOM.searchResultsSection.style.display = 'block';
-
-    var findings = data.findings;
-    var totalFound = data.total_found || 0;
-    var categoriesSet = {};
-    findings.forEach(function(f) { categoriesSet[f.category || 'Outros'] = true; });
-
-    if (DOM.totalFound) DOM.totalFound.textContent = totalFound;
-    if (DOM.totalCategories) DOM.totalCategories.textContent = Object.keys(categoriesSet).length;
-
-    if (!DOM.searchContent) return;
-    DOM.searchContent.innerHTML = '';
-
-    if (findings.length === 0) {
-        DOM.searchContent.innerHTML = '<div class="no-results">Nenhum resultado encontrado para o termo buscado.</div>';
-        return;
     }
 
-    // Group by category
-    var grouped = {};
-    findings.forEach(function(f) {
-        var cat = f.category || 'Outros';
-        if (!grouped[cat]) grouped[cat] = [];
-        grouped[cat].push(f);
-    });
-
-    Object.keys(grouped).forEach(function(cat) {
-        var block = document.createElement('div');
-        block.className = 'search-category-block';
-
-        var title = document.createElement('div');
-        title.className = 'search-category-title';
-        title.innerHTML = '<strong>' + escapeHTML(cat) + '</strong> <span class="search-count">(' + grouped[cat].length + ')</span>';
-        block.appendChild(title);
-
-        var list = document.createElement('div');
-        list.className = 'search-list';
-
-        grouped[cat].forEach(function(item) {
-            var entry = document.createElement('div');
-            entry.className = 'search-item';
-            var html = '';
-            if (item.type) html += '<span class="search-type">' + escapeHTML(item.type) + '</span> ';
-            if (item.value) html += '<span class="search-value">' + escapeHTML(item.value) + '</span>';
-            if (item.details) html += '<div class="search-details">' + escapeHTML(item.details) + '</div>';
-            entry.innerHTML = html;
-            list.appendChild(entry);
+    // --- MODULES ---
+    if (DOM.btnBackup) {
+        DOM.btnBackup.addEventListener('click', function() {
+            backupSite();
         });
-
-        block.appendChild(list);
-        DOM.searchContent.appendChild(block);
-    });
-}
-
-// ===================== CLEAR RESULTS =====================
-function clearErrorResults() {
-    if (DOM.errorResultsSection) DOM.errorResultsSection.style.display = 'none';
-    if (DOM.errorsContent) DOM.errorsContent.innerHTML = '';
-    if (DOM.totalErrors) DOM.totalErrors.textContent = '0';
-    if (DOM.totalWarnings) DOM.totalWarnings.textContent = '0';
-    // Remove tabs if exist
-    if (DOM.errorResultsSection) {
-        var tabs = DOM.errorResultsSection.querySelector('.result-tabs');
-        if (tabs) tabs.remove();
     }
-    state.lastErrorReport = null;
-    showToast('Resultados de erros limpos.', 'info');
-}
+    if (DOM.btnCheckErrors) {
+        DOM.btnCheckErrors.addEventListener('click', function() {
+            checkErrors();
+        });
+    }
+    if (DOM.btnSearch) {
+        DOM.btnSearch.addEventListener('click', function() {
+            searchSite();
+        });
+    }
 
-function clearSearchResults() {
-    if (DOM.searchResultsSection) DOM.searchResultsSection.style.display = 'none';
-    if (DOM.searchContent) DOM.searchContent.innerHTML = '';
-    if (DOM.totalFound) DOM.totalFound.textContent = '0';
-    if (DOM.totalCategories) DOM.totalCategories.textContent = '0';
-    state.lastSearchReport = null;
-    showToast('Resultados de busca limpos.', 'info');
-}
-// ===================== EVENT LISTENERS =====================
-function setupEventListeners() {
-    // Auth
-    if (DOM.btnAuth) DOM.btnAuth.addEventListener('click', authenticate);
-    if (DOM.authTokenInput) DOM.authTokenInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') authenticate(); });
-    if (DOM.authToggleVisibility) DOM.authToggleVisibility.addEventListener('click', togglePasswordVisibility);
-    if (DOM.btnLogout) DOM.btnLogout.addEventListener('click', logout);
+    // --- DOWNLOADS ---
+    if (DOM.btnDownloadErrors) {
+        DOM.btnDownloadErrors.addEventListener('click', function() {
+            downloadErrorReport();
+        });
+    }
+    if (DOM.btnDownloadSearch) {
+        DOM.btnDownloadSearch.addEventListener('click', function() {
+            downloadSearchReport();
+        });
+    }
 
-    // URL / Site
-    if (DOM.btnOpen) DOM.btnOpen.addEventListener('click', openSite);
-    if (DOM.urlInput) DOM.urlInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') openSite(); });
-    if (DOM.btnScreenshot) DOM.btnScreenshot.addEventListener('click', takeScreenshot);
-    if (DOM.btnClose) DOM.btnClose.addEventListener('click', closeSession);
-
-    // Scroll buttons in site-actions
-    if (DOM.btnScrollUp2) DOM.btnScrollUp2.addEventListener('click', function() { scrollPage('up'); });
-    if (DOM.btnScrollDown2) DOM.btnScrollDown2.addEventListener('click', function() { scrollPage('down'); });
-
-    // Interaction / Login overlay
-    if (DOM.btnInteract) DOM.btnInteract.addEventListener('click', openInteraction);
-    if (DOM.btnLoginCancel) DOM.btnLoginCancel.addEventListener('click', closeInteraction);
-    if (DOM.btnLoginDone) DOM.btnLoginDone.addEventListener('click', finishLogin);
-
-    // Login Step 1: Auto Login
-    if (DOM.btnAutoLogin) DOM.btnAutoLogin.addEventListener('click', autoLogin);
-    if (DOM.btnToggleAutoPass) DOM.btnToggleAutoPass.addEventListener('click', toggleAutoLoginPassword);
-    if (DOM.autoLoginPassword) DOM.autoLoginPassword.addEventListener('keydown', function(e) { if (e.key === 'Enter') autoLogin(); });
-    if (DOM.autoLoginEmail) DOM.autoLoginEmail.addEventListener('keydown', function(e) { if (e.key === 'Enter') { if (DOM.autoLoginPassword) DOM.autoLoginPassword.focus(); } });
-
-    // Login Step 2: Manual Cookies
-    if (DOM.btnOpenSiteTab) DOM.btnOpenSiteTab.addEventListener('click', openSiteInNewTab);
-    if (DOM.btnCopyCommand) DOM.btnCopyCommand.addEventListener('click', copyCommandToClipboard);
-    if (DOM.btnSyncCookies) DOM.btnSyncCookies.addEventListener('click', syncCookies);
-    if (DOM.btnGetSeleniumCookies) DOM.btnGetSeleniumCookies.addEventListener('click', getSeleniumCookies);
-    if (DOM.btnRefreshSelenium) DOM.btnRefreshSelenium.addEventListener('click', refreshSeleniumPage);
-
-    // Login Step 3: Scroll & Preview
-    if (DOM.btnScrollUp) DOM.btnScrollUp.addEventListener('click', function() { scrollPage('up'); });
-    if (DOM.btnScrollDown) DOM.btnScrollDown.addEventListener('click', function() { scrollPage('down'); });
-    if (DOM.btnRefreshPreview) DOM.btnRefreshPreview.addEventListener('click', refreshPreview);
-
-    // Modules
-    if (DOM.btnBackup) DOM.btnBackup.addEventListener('click', backupSite);
-    if (DOM.btnErrors) DOM.btnErrors.addEventListener('click', checkErrors);
-    if (DOM.btnSearch) DOM.btnSearch.addEventListener('click', searchSite);
-
-    // Downloads
-    if (DOM.btnDownloadErrors) DOM.btnDownloadErrors.addEventListener('click', downloadErrorReport);
-    if (DOM.btnDownloadSearch) DOM.btnDownloadSearch.addEventListener('click', downloadSearchReport);
-
-    // Clear
-    if (DOM.btnClearErrors) DOM.btnClearErrors.addEventListener('click', clearErrorResults);
-    if (DOM.btnClearSearch) DOM.btnClearSearch.addEventListener('click', clearSearchResults);
+    // --- CLEAR ---
+    if (DOM.btnClearErrors) {
+        DOM.btnClearErrors.addEventListener('click', function() {
+            clearErrorResults();
+        });
+    }
+    if (DOM.btnClearSearch) {
+        DOM.btnClearSearch.addEventListener('click', function() {
+            clearSearchResults();
+        });
+    }
 
     console.log('All event listeners registered.');
 }
 
-// ===================== INIT =====================
+// ===================== INITIALIZATION =====================
+
 async function init() {
-    console.log('Initializing Site Backup & Error Checker v1.3.0...');
+    console.log('Initializing Site Backup & Error Checker...');
 
-    // ---- 1. Load backend URL from config.js via fetch ----
+    // 1. Load backend URL from config.js
     try {
-        var configResponse = await fetch('config.js');
-        var configText = await configResponse.text();
-        console.log('config.js loaded, length:', configText.length);
-
-        // Try to read BACKEND_CONFIG if it was loaded globally
+        // Try global first (if config.js loaded before script.js)
         if (typeof BACKEND_CONFIG !== 'undefined' && BACKEND_CONFIG && BACKEND_CONFIG.BACKEND_URL) {
             state.backendUrl = BACKEND_CONFIG.BACKEND_URL.replace(/\/+$/, '');
             console.log('Backend URL from global:', state.backendUrl);
+        } else if (typeof window.BACKEND_CONFIG !== 'undefined' && window.BACKEND_CONFIG && window.BACKEND_CONFIG.BACKEND_URL) {
+            state.backendUrl = window.BACKEND_CONFIG.BACKEND_URL.replace(/\/+$/, '');
+            console.log('Backend URL from window:', state.backendUrl);
         } else {
-            // Extract URL via regex from config file content
+            // Fetch and parse config.js
+            var configResponse = await fetch('config.js');
+            var configText = await configResponse.text();
+            console.log('config.js loaded, length:', configText.length);
+
             var urlMatch = configText.match(/BACKEND_URL\s*[:=]\s*['"]([^'"]+)['"]/);
             if (urlMatch && urlMatch[1]) {
                 state.backendUrl = urlMatch[1].replace(/\/+$/, '');
                 console.log('Backend URL from regex:', state.backendUrl);
             } else {
-                // Fallback: find any hf.space URL
-                var hfMatch = configText.match(/(https:\/\/[a-zA-Z0-9\-]+\.hf\.space)/);
+                var hfMatch = configText.match(/(https:\/\/[^\s'"]+\.hf\.space)/);
                 if (hfMatch && hfMatch[1]) {
                     state.backendUrl = hfMatch[1].replace(/\/+$/, '');
                     console.log('Backend URL from hf.space match:', state.backendUrl);
@@ -1446,9 +1593,7 @@ async function init() {
         return;
     }
 
-    console.log('Using backend URL:', state.backendUrl);
-
-    // ---- 2. Check server status ----
+    // 2. Check server status
     try {
         var statusResponse = await fetch(state.backendUrl + '/');
         var statusData = await statusResponse.json();
@@ -1456,21 +1601,24 @@ async function init() {
         updateServerStatus(true);
         showToast('Servidor conectado!', 'success');
 
-        // ---- 3. Check if auth is required ----
+        // 3. Auth handling
         if (statusData.auth_required === true) {
             var savedToken = localStorage.getItem('backup_auth_token');
             if (savedToken) {
                 try {
                     var verifyResponse = await fetch(state.backendUrl + '/auth/verify', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ token: savedToken })
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + savedToken
+                        },
+                        body: JSON.stringify({})
                     });
                     if (verifyResponse.ok) {
                         state.token = savedToken;
                         hideAuthModal();
                         updateSessionBadge(true);
-                        console.log('Saved token verified successfully.');
+                        console.log('Token verified successfully.');
                     } else {
                         localStorage.removeItem('backup_auth_token');
                         showAuthModal();
@@ -1488,14 +1636,13 @@ async function init() {
             updateSessionBadge(true);
             console.log('No authentication required.');
         }
-
     } catch (e) {
         console.error('Server connection failed:', e);
         updateServerStatus(false);
         showToast('Servidor offline ou inacessível.', 'error');
     }
 
-    // ---- 4. Check extension (optional) ----
+    // 4. Check optional extension
     try {
         var extOk = await checkExtension();
         console.log('Extension detected:', extOk);
@@ -1506,18 +1653,18 @@ async function init() {
     console.log('Initialization complete.');
 }
 
-// ===================== START =====================
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() {
+// ===================== STARTUP =====================
+
+(function() {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            setupDOM();
+            setupEventListeners();
+            init();
+        });
+    } else {
         setupDOM();
         setupEventListeners();
         init();
-    });
-} else {
-    setupDOM();
-    setupEventListeners();
-    init();
-}
-
+    }
 })();
-
