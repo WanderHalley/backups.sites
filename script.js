@@ -1512,6 +1512,65 @@ if (DOM.livePreviewContainer && DOM.livePreviewImg) {
 
     console.log('All event listeners registered.');
 }
+// Enter geral (submeter formulario)
+var btnEnterKey = document.getElementById('btnRemoteEnterKey');
+if (btnEnterKey) btnEnterKey.addEventListener('click', function() {
+    if (!state.sessionId) return;
+    apiJSON('/type-text', 'POST', {
+        session_id: state.sessionId,
+        text: '\uE007',
+        press_enter: false,
+        clear_first: false
+    }).then(function(d) {
+        if (d.screenshot) updateAllPreviewsBase64(d.screenshot);
+        showToast('Enter!', 'info');
+    }).catch(function(e) { showToast('Erro: ' + e.message, 'error'); });
+});
+
+// Ctrl+A (selecionar tudo)
+var btnSelectAll = document.getElementById('btnRemoteSelectAll');
+if (btnSelectAll) btnSelectAll.addEventListener('click', function() {
+    if (!state.sessionId) return;
+    apiJSON('/type-text', 'POST', {
+        session_id: state.sessionId,
+        text: 'SELECT_ALL',
+        press_enter: false,
+        clear_first: false
+    }).then(function(d) {
+        if (d.screenshot) updateAllPreviewsBase64(d.screenshot);
+        showToast('Texto selecionado!', 'info');
+    }).catch(function(e) { showToast('Erro: ' + e.message, 'error'); });
+});
+
+// Backspace (apagar)
+var btnBackspace = document.getElementById('btnRemoteBackspace');
+if (btnBackspace) btnBackspace.addEventListener('click', function() {
+    if (!state.sessionId) return;
+    apiJSON('/type-text', 'POST', {
+        session_id: state.sessionId,
+        text: '\uE003',
+        press_enter: false,
+        clear_first: false
+    }).then(function(d) {
+        if (d.screenshot) updateAllPreviewsBase64(d.screenshot);
+        showToast('Apagado!', 'info');
+    }).catch(function(e) { showToast('Erro: ' + e.message, 'error'); });
+});
+
+// Delete
+var btnDelete = document.getElementById('btnRemoteDelete');
+if (btnDelete) btnDelete.addEventListener('click', function() {
+    if (!state.sessionId) return;
+    apiJSON('/type-text', 'POST', {
+        session_id: state.sessionId,
+        text: '\uE017',
+        press_enter: false,
+        clear_first: false
+    }).then(function(d) {
+        if (d.screenshot) updateAllPreviewsBase64(d.screenshot);
+        showToast('Delete!', 'info');
+    }).catch(function(e) { showToast('Erro: ' + e.message, 'error'); });
+});
 
 // ===================== INITIALIZATION =====================
 
@@ -1606,5 +1665,6 @@ function init() {
         startApp();
     }
 })();
+
 
 
