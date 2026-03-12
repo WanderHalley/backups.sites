@@ -151,15 +151,19 @@
                     </div>
 
                     <!-- Quick Actions -->
-                    <div style="margin-bottom:8px;">
-                        <div style="font-size:12px; color:#667eea; font-weight:600; margin-bottom:6px;">⚡ Ações rápidas:</div>
-                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                            <button class="btn-step primary" id="btnRemoteTab" style="font-size:11px; padding:5px 12px;">Tab ⇥</button>
-                            <button class="btn-step primary" id="btnRemoteEsc" style="font-size:11px; padding:5px 12px;">Esc ✕</button>
-                            <button class="btn-step primary" id="btnRemoteBack" style="font-size:11px; padding:5px 12px;">← Voltar</button>
-                            <button class="btn-step primary" id="btnRemoteForward" style="font-size:11px; padding:5px 12px;">→ Avançar</button>
-                        </div>
-                    </div>
+                    <div class="quick-actions">
+    <span class="section-label">⚡ Ações rápidas:</span>
+    <div class="action-buttons">
+        <button id="btnRemoteTab" class="btn btn-small btn-secondary">Tab ➡</button>
+        <button id="btnRemoteEsc" class="btn btn-small btn-secondary">Esc ✕</button>
+        <button id="btnRemoteBack" class="btn btn-small btn-secondary">← Voltar</button>
+        <button id="btnRemoteForward" class="btn btn-small btn-secondary">→ Avançar</button>
+        <button id="btnRemoteEnterKey" class="btn btn-small btn-accent">↵ Enter</button>
+        <button id="btnRemoteSelectAll" class="btn btn-small btn-secondary">Ctrl+A</button>
+        <button id="btnRemoteBackspace" class="btn btn-small btn-secondary">⌫ Apagar</button>
+        <button id="btnRemoteDelete" class="btn btn-small btn-secondary">Delete</button>
+    </div>
+</div>
 
                     <!-- Element Info -->
                     <div id="elementInfo" style="display:none; margin-top:8px; padding:8px 12px; background:rgba(102,126,234,0.05); border:1px solid rgba(102,126,234,0.15); border-radius:8px; font-size:11px; color:#999;">
@@ -396,3 +400,4 @@
 
 </body>
 </html>
+
