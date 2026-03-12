@@ -752,20 +752,20 @@ function finishLogin() {
 
 // ===================== CLICK ON PAGE =====================
 
-function clickOnPage(clickX, clickY) {
+function clickOnPage(clickX, clickY, imgWidth, imgHeight) {
     if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
 
-    console.log('Clicking at:', clickX, clickY);
+    console.log('Clicking at:', clickX, clickY, 'img size:', imgWidth, imgHeight);
 
     // Show click indicator
     if (DOM.livePreviewContainer && DOM.livePreviewImg) {
         var indicator = document.createElement('div');
         indicator.style.cssText = 'position:absolute;width:20px;height:20px;border-radius:50%;background:rgba(255,100,100,0.7);pointer-events:none;transform:translate(-50%,-50%);z-index:100;transition:opacity 0.5s;';
 
-        var rect = DOM.livePreviewImg.getBoundingClientRect();
         var contRect = DOM.livePreviewContainer.getBoundingClientRect();
-        var relX = (clickX / 1920) * rect.width + (rect.left - contRect.left);
-        var relY = (clickY / 1080) * rect.height + (rect.top - contRect.top);
+        var imgRect = DOM.livePreviewImg.getBoundingClientRect();
+        var relX = clickX + (imgRect.left - contRect.left);
+        var relY = clickY + (imgRect.top - contRect.top);
         indicator.style.left = relX + 'px';
         indicator.style.top = relY + 'px';
 
@@ -781,21 +781,26 @@ function clickOnPage(clickX, clickY) {
     apiJSON('/click-element', 'POST', {
         session_id: state.sessionId,
         x: clickX,
-        y: clickY
+        y: clickY,
+        img_width: imgWidth || 1920,
+        img_height: imgHeight || 1080
     })
     .then(function(data) {
         if (data.screenshot) {
             updateAllPreviewsBase64(data.screenshot);
         }
 
-        // Show element info
-        if (DOM.elementInfo && DOM.elementInfoText && data.clicked) {
+        if (DOM.elementInfo && DOM.elementInfoText) {
             var info = '';
-            if (data.clicked.tagName) info += '<' + escapeHTML(data.clicked.tagName) + '> ';
-            if (data.clicked.id) info += '#' + escapeHTML(data.clicked.id) + ' ';
-            if (data.clicked.text) info += '"' + escapeHTML(data.clicked.text.substring(0, 50)) + '" ';
-            if (data.clicked.type) info += '[type=' + escapeHTML(data.clicked.type) + '] ';
-            if (data.clicked.href) info += ' ' + escapeHTML(data.clicked.href.substring(0, 60));
+            if (data.element) {
+                info = 'Elemento: ' + escapeHTML(String(data.element));
+            } else if (data.clicked) {
+                if (data.clicked.tagName) info += '<' + escapeHTML(data.clicked.tagName) + '> ';
+                if (data.clicked.id) info += '#' + escapeHTML(data.clicked.id) + ' ';
+                if (data.clicked.text) info += '"' + escapeHTML(data.clicked.text.substring(0, 50)) + '" ';
+                if (data.clicked.type) info += '[type=' + escapeHTML(data.clicked.type) + '] ';
+                if (data.clicked.href) info += ' ' + escapeHTML(data.clicked.href.substring(0, 60));
+            }
             DOM.elementInfoText.innerHTML = info || 'Clicado em (' + clickX + ', ' + clickY + ')';
             DOM.elementInfo.style.display = 'block';
         }
@@ -804,9 +809,9 @@ function clickOnPage(clickX, clickY) {
             DOM.clickFeedback.textContent = 'Clique realizado em (' + clickX + ', ' + clickY + ')';
         }
 
-        if (data.url) {
-            state.siteUrl = data.url;
-            if (DOM.siteUrl) DOM.siteUrl.textContent = data.url;
+        if (data.url || data.current_url) {
+            state.siteUrl = data.url || data.current_url;
+            if (DOM.siteUrl) DOM.siteUrl.textContent = state.siteUrl;
         }
         if (data.title) {
             state.siteTitle = data.title;
@@ -1434,25 +1439,27 @@ function setupEventListeners() {
     if (DOM.btnFullscreen) DOM.btnFullscreen.addEventListener('click', toggleFullscreen);
 
     // Live preview click
-    if (DOM.livePreviewContainer && DOM.livePreviewImg) {
-        DOM.livePreviewContainer.addEventListener('click', function(e) {
-            if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
-            var r = DOM.livePreviewImg.getBoundingClientRect();
-            if (r.width === 0 || r.height === 0) return;
-            var rx = Math.round((e.clientX - r.left) * (1920 / r.width));
-            var ry = Math.round((e.clientY - r.top) * (1080 / r.height));
-            clickOnPage(rx, ry);
-        });
+if (DOM.livePreviewContainer && DOM.livePreviewImg) {
+    DOM.livePreviewContainer.addEventListener('click', function(e) {
+        if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
+        var r = DOM.livePreviewImg.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) return;
+        var rx = Math.round(e.clientX - r.left);
+        var ry = Math.round(e.clientY - r.top);
+        var iw = Math.round(r.width);
+        var ih = Math.round(r.height);
+        clickOnPage(rx, ry, iw, ih);
+    });
 
-        // Show coordinates on hover
-        DOM.livePreviewContainer.addEventListener('mousemove', function(e) {
-            var r = DOM.livePreviewImg.getBoundingClientRect();
-            if (r.width === 0 || r.height === 0) return;
-            var rx = Math.round((e.clientX - r.left) * (1920 / r.width));
-            var ry = Math.round((e.clientY - r.top) * (1080 / r.height));
-            if (DOM.coordsDisplay) DOM.coordsDisplay.textContent = 'X: ' + rx + ' Y: ' + ry;
-        });
-    }
+    // Show coordinates on hover
+    DOM.livePreviewContainer.addEventListener('mousemove', function(e) {
+        var r = DOM.livePreviewImg.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) return;
+        var rx = Math.round(e.clientX - r.left);
+        var ry = Math.round(e.clientY - r.top);
+        if (DOM.coordsDisplay) DOM.coordsDisplay.textContent = 'X: ' + rx + ' Y: ' + ry;
+    });
+}
 
     // Remote type / enter
     var brt = document.getElementById('btnRemoteType');
@@ -1593,3 +1600,4 @@ function init() {
         startApp();
     }
 })();
+
