@@ -1458,12 +1458,191 @@ async function init() {
     console.log('Init complete.');
 }
 
-// ===================== STARTUP =====================
+// ===================== FULLSCREEN TOGGLE =====================
+
+function toggleFullscreen() {
+    var panel = document.querySelector('.login-panel');
+    if (!panel) return;
+    panel.classList.toggle('fullscreen-mode');
+    var btn = document.getElementById('btnFullscreen');
+    if (btn) {
+        if (panel.classList.contains('fullscreen-mode')) {
+            btn.textContent = '🔳 Sair Tela Cheia';
+        } else {
+            btn.textContent = '🔲 Tela Cheia';
+        }
+    }
+}
+
+// ===================== IMPROVED CLICK WITH COORDS DISPLAY =====================
+
+// Override clickOnPage with better coordinate handling
+var _origClickOnPage = clickOnPage;
+clickOnPage = function(clickX, clickY) {
+    if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
+
+    var container = document.getElementById('livePreviewContainer');
+    var liveImg = document.getElementById('livePreviewImg');
+    var feedback = document.getElementById('clickFeedback');
+
+    // Show click dot animation
+    if (container && liveImg) {
+        var rect = liveImg.getBoundingClientRect();
+        var contRect = container.getBoundingClientRect();
+        var dotX = (clickX / 1920) * rect.width + (rect.left - contRect.left);
+        var dotY = (clickY / 1080) * rect.height + (rect.top - contRect.top);
+
+        var dot = document.createElement('div');
+        dot.className = 'click-dot';
+        dot.style.left = dotX + 'px';
+        dot.style.top = dotY + 'px';
+        container.appendChild(dot);
+        setTimeout(function() { dot.remove(); }, 700);
+    }
+
+    if (feedback) {
+        feedback.textContent = 'Clicando em (' + clickX + ', ' + clickY + ')...';
+        feedback.style.color = '#667eea';
+    }
+
+    console.log('Click at:', clickX, clickY);
+
+    apiJSON('/click-element', 'POST', {
+        session_id: state.sessionId,
+        x: clickX,
+        y: clickY
+    })
+        .then(function(data) {
+            if (data.screenshot) {
+                updateAllPreviewsBase64(data.screenshot);
+            }
+
+            var infoEl = document.getElementById('elementInfo');
+            var infoText = document.getElementById('elementInfoText');
+            if (infoEl && data.clicked) {
+                var info = '';
+                if (data.clicked.tagName) info += '<' + data.clicked.tagName + '> ';
+                if (data.clicked.id) info += '#' + data.clicked.id + ' ';
+                if (data.clicked.name) info += '[name=' + data.clicked.name + '] ';
+                if (data.clicked.type) info += '[type=' + data.clicked.type + '] ';
+                if (data.clicked.text) info += '"' + data.clicked.text.substring(0, 40) + '" ';
+                if (data.clicked.href) info += '-> ' + data.clicked.href.substring(0, 50);
+                if (infoText) infoText.textContent = info || 'Posicao (' + clickX + ', ' + clickY + ')';
+                infoEl.style.display = 'block';
+            }
+
+            if (feedback) {
+                feedback.textContent = 'Clicado em (' + clickX + ', ' + clickY + ') - OK';
+                feedback.style.color = '#4ade80';
+            }
+
+            if (data.url) { state.siteUrl = data.url; if (DOM.siteUrl) DOM.siteUrl.textContent = data.url; }
+            if (data.title) { state.siteTitle = data.title; if (DOM.siteTitle) DOM.siteTitle.textContent = data.title; }
+        })
+        .catch(function(err) {
+            showToast('Erro ao clicar: ' + err.message, 'error');
+            if (feedback) { feedback.textContent = 'Erro: ' + err.message; feedback.style.color = '#f87171'; }
+        });
+};
+
+// ===================== IMPROVED LIVE PREVIEW CLICK HANDLER =====================
+
+function setupLivePreviewClick() {
+    var container = document.getElementById('livePreviewContainer');
+    var img = document.getElementById('livePreviewImg');
+    var coordsDisplay = document.getElementById('coordsDisplay');
+
+    if (!container || !img) return;
+
+    // Show coordinates on mouse move
+    container.addEventListener('mousemove', function(e) {
+        var rect = img.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
+
+        var relX = e.clientX - rect.left;
+        var relY = e.clientY - rect.top;
+
+        // Clamp to image bounds
+        if (relX < 0) relX = 0;
+        if (relY < 0) relY = 0;
+        if (relX > rect.width) relX = rect.width;
+        if (relY > rect.height) relY = rect.height;
+
+        var realX = Math.round((relX / rect.width) * 1920);
+        var realY = Math.round((relY / rect.height) * 1080);
+
+        if (coordsDisplay) {
+            coordsDisplay.textContent = 'X: ' + realX + ' Y: ' + realY;
+        }
+        container.setAttribute('data-coords', realX + ', ' + realY);
+    });
+
+    // Click handler - replace the old one
+    container.addEventListener('click', function(e) {
+        if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
+
+        var rect = img.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) { showToast('Preview nao carregado.', 'warning'); return; }
+
+        // Calculate relative position within the image only
+        var relX = e.clientX - rect.left;
+        var relY = e.clientY - rect.top;
+
+        // Clamp
+        if (relX < 0) relX = 0;
+        if (relY < 0) relY = 0;
+        if (relX > rect.width) relX = rect.width;
+        if (relY > rect.height) relY = rect.height;
+
+        // Scale to 1920x1080
+        var realX = Math.round((relX / rect.width) * 1920);
+        var realY = Math.round((relY / rect.height) * 1080);
+
+        console.log('Preview click: rel(' + Math.round(relX) + ',' + Math.round(relY) + ') -> real(' + realX + ',' + realY + ') imgSize(' + Math.round(rect.width) + 'x' + Math.round(rect.height) + ')');
+
+        clickOnPage(realX, realY);
+    });
+}
+
+// ===================== EXTRA EVENT LISTENERS =====================
+
+function setupExtraListeners() {
+    // Fullscreen button
+    var btnFullscreen = document.getElementById('btnFullscreen');
+    if (btnFullscreen) {
+        btnFullscreen.addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleFullscreen();
+        });
+    }
+
+    // ESC to exit fullscreen
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            var panel = document.querySelector('.login-panel.fullscreen-mode');
+            if (panel) {
+                panel.classList.remove('fullscreen-mode');
+                var btn = document.getElementById('btnFullscreen');
+                if (btn) btn.textContent = '🔲 Tela Cheia';
+            }
+        }
+    });
+}
+
+// ===================== STARTUP (FIXED) =====================
 (function() {
+    function startApp() {
+        setupDOM();
+        setupEventListeners();
+        setupLivePreviewClick();
+        setupExtraListeners();
+        init();
+    }
+
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() { setupDOM(); setupEventListeners(); init(); });
+        document.addEventListener('DOMContentLoaded', startApp);
     } else {
-        setupDOM(); setupEventListeners(); init();
+        startApp();
     }
 })();
 
@@ -1866,3 +2045,4 @@ async function init() {
         init();
     }
 })();
+
