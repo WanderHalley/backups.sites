@@ -1,6 +1,13 @@
 // =====================================================================
 // FIX.JS - Completa o codigo cortado do script.js
+// Protegido contra execucao duplicada
 // =====================================================================
+
+// Guarda para evitar dupla execucao
+if (window._fixJsLoaded) {
+    console.log('fix.js ja carregado, ignorando.');
+} else {
+window._fixJsLoaded = true;
 
 // 1) Redefine displaySearchResults completa (a do script.js esta cortada)
 function displaySearchResults(data) {
@@ -14,7 +21,6 @@ function displaySearchResults(data) {
     header.innerHTML = '<h3>Resultados da Busca</h3><div class="results-summary"><span class="summary-item info">Total encontrado: ' + totalFound + '</span></div>';
     DOM.searchResults.appendChild(header);
 
-    // Update counters in parent section
     var elFound = document.getElementById('totalFound');
     var elCats = document.getElementById('totalCategories');
 
@@ -45,7 +51,7 @@ function displaySearchResults(data) {
         var gItems = grouped[gKey];
         var catBlock = document.createElement('div');
         catBlock.className = 'search-category';
-        var catLabel = (categoryLabels && categoryLabels[gKey]) ? categoryLabels[gKey] : gKey;
+        var catLabel = (typeof categoryLabels !== 'undefined' && categoryLabels[gKey]) ? categoryLabels[gKey] : gKey;
         var catHeader = document.createElement('div');
         catHeader.className = 'error-category-header';
         catHeader.innerHTML = '<strong>' + escapeHTML(catLabel) + '</strong> <span>(' + gItems.length + ' itens)</span>';
@@ -69,11 +75,9 @@ function displaySearchResults(data) {
         DOM.searchResults.appendChild(catBlock);
     }
 
-    // Show parent section
     var parentSection = document.getElementById('searchResultsSection');
     if (parentSection) parentSection.style.display = 'block';
 
-    // Hide progress after 2s
     setTimeout(function() {
         if (DOM.searchProgress) DOM.searchProgress.style.display = 'none';
     }, 2000);
@@ -81,7 +85,7 @@ function displaySearchResults(data) {
 
 // 2) Wrap displayErrorResults to show section + hide progress + update counters
 (function() {
-    var _orig = displayErrorResults;
+    var _orig = typeof displayErrorResults === 'function' ? displayErrorResults : function() {};
     displayErrorResults = function(data) {
         _orig(data);
         var parentSection = document.getElementById('errorResultsSection');
@@ -134,27 +138,78 @@ function clearSearchResults() {
     showToast('Resultados limpos.', 'info');
 }
 
-// 4) Fix backup progress bar hiding
+// 4) Fix backup progress bar hiding (com protecao contra dupla execucao)
 (function() {
-    var _origBackup = backupSite;
+    var _origBackup = typeof backupSite === 'function' ? backupSite : function() {};
+    var _backupRunning = false;
     backupSite = function() {
+        if (_backupRunning) { console.log('Backup ja em andamento.'); return; }
+        _backupRunning = true;
         _origBackup();
         var check = setInterval(function() {
-            if (DOM.backupProgressText && (DOM.backupProgressText.textContent.indexOf('concludo') >= 0 || DOM.backupProgressText.textContent.indexOf('concluido') >= 0)) {
+            if (DOM.backupProgressText && (
+                DOM.backupProgressText.textContent.indexOf('concludo') >= 0 ||
+                DOM.backupProgressText.textContent.indexOf('concluido') >= 0 ||
+                DOM.backupProgressText.textContent.indexOf('Backup') >= 0
+            )) {
                 setTimeout(function() {
                     if (DOM.backupProgress) DOM.backupProgress.style.display = 'none';
                     if (DOM.backupProgressFill) DOM.backupProgressFill.style.width = '0%';
                     if (DOM.backupProgressText) DOM.backupProgressText.textContent = '';
+                    _backupRunning = false;
                 }, 3000);
                 clearInterval(check);
             }
         }, 1000);
-        setTimeout(function() { clearInterval(check); }, 120000);
+        setTimeout(function() { clearInterval(check); _backupRunning = false; }, 120000);
+    };
+})();
+
+// 4b) Protecao contra dupla execucao de checkErrors e searchSite
+(function() {
+    var _origCheckErrors = typeof checkErrors === 'function' ? checkErrors : function() {};
+    var _errorsRunning = false;
+    checkErrors = function() {
+        if (_errorsRunning) { console.log('Verificacao ja em andamento.'); return; }
+        _errorsRunning = true;
+        _origCheckErrors();
+        var check = setInterval(function() {
+            if (DOM.errorProgressText && (
+                DOM.errorProgressText.textContent.indexOf('concluda') >= 0 ||
+                DOM.errorProgressText.textContent.indexOf('concluida') >= 0 ||
+                DOM.errorProgressText.textContent.indexOf('Verificao') >= 0
+            )) {
+                _errorsRunning = false;
+                clearInterval(check);
+            }
+        }, 1000);
+        setTimeout(function() { clearInterval(check); _errorsRunning = false; }, 120000);
+    };
+
+    var _origSearchSite = typeof searchSite === 'function' ? searchSite : function() {};
+    var _searchRunning = false;
+    searchSite = function() {
+        if (_searchRunning) { console.log('Busca ja em andamento.'); return; }
+        _searchRunning = true;
+        _origSearchSite();
+        var check = setInterval(function() {
+            if (DOM.searchProgressText && (
+                DOM.searchProgressText.textContent.indexOf('concluda') >= 0 ||
+                DOM.searchProgressText.textContent.indexOf('concluida') >= 0 ||
+                DOM.searchProgressText.textContent.indexOf('Busca') >= 0
+            )) {
+                _searchRunning = false;
+                clearInterval(check);
+            }
+        }, 1000);
+        setTimeout(function() { clearInterval(check); _searchRunning = false; }, 120000);
     };
 })();
 
 // 5) EVENT LISTENERS
 function setupEventListeners() {
+    if (window._listenersRegistered) { console.log('Listeners ja registrados.'); return; }
+    window._listenersRegistered = true;
     console.log('Setting up event listeners...');
 
     if (DOM.btnAuth) DOM.btnAuth.addEventListener('click', function() { authenticate(); });
@@ -240,7 +295,10 @@ function setupEventListeners() {
 
 // 6) INITIALIZATION
 async function init() {
+    if (window._initDone) { console.log('Init ja executado.'); return; }
+    window._initDone = true;
     console.log('Initializing...');
+
     try {
         if (typeof BACKEND_CONFIG !== 'undefined' && BACKEND_CONFIG && BACKEND_CONFIG.BACKEND_URL) {
             state.backendUrl = BACKEND_CONFIG.BACKEND_URL.replace(/\/+$/, '');
@@ -255,7 +313,6 @@ async function init() {
         console.log('Backend URL:', state.backendUrl);
     } catch (e) { showToast('Erro config: ' + e.message, 'error'); return; }
 
-    // Fix status element IDs
     if (!DOM.serverStatus) DOM.serverStatus = document.getElementById('serverStatusText');
     if (!DOM.sessionBadge) DOM.sessionBadge = document.getElementById('sessionBadgeText');
 
@@ -281,11 +338,22 @@ async function init() {
     console.log('Init complete.');
 }
 
-// 7) STARTUP
+// 7) STARTUP (protegido contra dupla execucao)
 (function() {
+    if (window._appStarted) { console.log('App ja iniciado.'); return; }
+    window._appStarted = true;
+
+    function startApp() {
+        setupDOM();
+        setupEventListeners();
+        init();
+    }
+
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() { setupDOM(); setupEventListeners(); init(); });
+        document.addEventListener('DOMContentLoaded', startApp);
     } else {
-        setupDOM(); setupEventListeners(); init();
+        startApp();
     }
 })();
+
+} // fim do if (window._fixJsLoaded)
