@@ -113,30 +113,31 @@
                 </div>
 
                <!-- Step 3: Interactive Navigation -->
-<div class="login-step">
+<div class="login-step" id="step3RemoteControl">
     <div class="step-header">
         <div class="step-number">3</div>
         <div class="step-title">Controle Remoto do Site</div>
+        <button class="btn-step primary" id="btnFullscreen" style="font-size:11px; padding:4px 12px; margin-left:auto;">🔲 Tela Cheia</button>
     </div>
     <div class="step-description">
-        Clique na imagem para interagir com o site. Use os campos abaixo para digitar texto e pressionar botões.
+        Clique na imagem para interagir com o site. Use os campos abaixo para digitar texto e pressionar botoes.
     </div>
 
-    <!-- Live Preview (clickable) -->
+    <!-- Live Preview (clickable) - LARGE -->
     <div style="margin-bottom:12px;">
         <div style="font-size:12px; color:#667eea; font-weight:600; margin-bottom:6px;">📺 Preview ao vivo (clique para interagir):</div>
-        <div id="livePreviewContainer" style="position:relative; border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.1); cursor:crosshair; max-height:400px;">
+        <div id="livePreviewContainer" style="position:relative; border-radius:8px; overflow:hidden; border:2px solid rgba(102,126,234,0.3); cursor:crosshair; background:#000;">
             <img id="livePreviewImg" src="" alt="Preview ao vivo" style="width:100%; height:auto; display:block;">
-            <div id="clickIndicator" style="display:none; position:absolute; width:20px; height:20px; border-radius:50%; background:rgba(102,126,234,0.6); border:2px solid #667eea; transform:translate(-50%,-50%); pointer-events:none; z-index:10;"></div>
         </div>
         <div id="clickFeedback" style="font-size:11px; color:#888; margin-top:4px;"></div>
     </div>
 
-    <!-- Scroll Buttons -->
-    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+    <!-- Controls Row -->
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; align-items:center;">
         <button class="btn-step primary" id="btnScrollUp" style="font-size:12px; padding:6px 14px;">⬆️ Subir</button>
         <button class="btn-step primary" id="btnScrollDown" style="font-size:12px; padding:6px 14px;">⬇️ Descer</button>
         <button class="btn-step primary" id="btnRefreshPreview" style="font-size:12px; padding:6px 14px;">📸 Atualizar</button>
+        <span style="font-size:11px; color:#666; margin-left:auto;" id="coordsDisplay">X: - Y: -</span>
     </div>
 
     <!-- Type Text -->
@@ -151,7 +152,7 @@
 
     <!-- Quick Actions -->
     <div style="margin-bottom:8px;">
-        <div style="font-size:12px; color:#667eea; font-weight:600; margin-bottom:6px;">⚡ Ações rápidas:</div>
+        <div style="font-size:12px; color:#667eea; font-weight:600; margin-bottom:6px;">⚡ Acoes rapidas:</div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button class="btn-step primary" id="btnRemoteTab" style="font-size:11px; padding:5px 12px;">Tab ⇥</button>
             <button class="btn-step primary" id="btnRemoteEsc" style="font-size:11px; padding:5px 12px;">Esc ✕</button>
@@ -160,9 +161,9 @@
         </div>
     </div>
 
-    <!-- Current Element Info -->
+    <!-- Element Info -->
     <div id="elementInfo" style="display:none; margin-top:8px; padding:8px 12px; background:rgba(102,126,234,0.05); border:1px solid rgba(102,126,234,0.15); border-radius:8px; font-size:11px; color:#999;">
-        <span style="color:#667eea; font-weight:600;">Elemento clicado:</span> <span id="elementInfoText"></span>
+        <span style="color:#667eea; font-weight:600;">Elemento:</span> <span id="elementInfoText"></span>
     </div>
 </div>
 
@@ -396,4 +397,5 @@
 
 </body>
 </html>
+
 
