@@ -1286,25 +1286,11 @@ function displaySearchResults(data) {
         catBlock.appendChild(catList);
         DOM.searchResults.appendChild(catBlock);
     }
-
-    // Show parent section
-    var parentSection = document.getElementById('searchResultsSection');
-    if (parentSection) parentSection.style.display = 'block';
 }
-
-// Override displayErrorResults to show parent section
-var _origDisplayErrors = displayErrorResults;
-displayErrorResults = function(data) {
-    var parentSection = document.getElementById('errorResultsSection');
-    if (parentSection) parentSection.style.display = 'block';
-    _origDisplayErrors(data);
-};
 
 // ===================== CLEAR RESULTS =====================
 
 function clearErrorResults() {
-    var parentSection = document.getElementById('errorResultsSection');
-    if (parentSection) parentSection.style.display = 'none';
     if (DOM.errorResults) {
         DOM.errorResults.style.display = 'none';
         DOM.errorResults.innerHTML = '';
@@ -1313,11 +1299,10 @@ function clearErrorResults() {
     if (DOM.errorProgressFill) DOM.errorProgressFill.style.width = '0%';
     if (DOM.errorProgressText) DOM.errorProgressText.textContent = '';
     state.lastErrorReport = null;
+    showToast('Resultados de erros limpos.', 'info');
 }
 
 function clearSearchResults() {
-    var parentSection = document.getElementById('searchResultsSection');
-    if (parentSection) parentSection.style.display = 'none';
     if (DOM.searchResults) {
         DOM.searchResults.style.display = 'none';
         DOM.searchResults.innerHTML = '';
@@ -1326,6 +1311,7 @@ function clearSearchResults() {
     if (DOM.searchProgressFill) DOM.searchProgressFill.style.width = '0%';
     if (DOM.searchProgressText) DOM.searchProgressText.textContent = '';
     state.lastSearchReport = null;
+    showToast('Resultados de busca limpos.', 'info');
 }
 
 // ===================== EVENT LISTENERS =====================
@@ -1333,32 +1319,36 @@ function clearSearchResults() {
 function setupEventListeners() {
     console.log('Setting up event listeners...');
 
+    // Auth
     if (DOM.btnAuth) DOM.btnAuth.addEventListener('click', function() { authenticate(); });
     if (DOM.authTokenInput) DOM.authTokenInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') authenticate(); });
     if (DOM.btnTogglePassword) DOM.btnTogglePassword.addEventListener('click', function() { togglePasswordVisibility(); });
     if (DOM.btnLogout) DOM.btnLogout.addEventListener('click', function() { logout(); });
 
+    // Open site
     if (DOM.btnOpen) DOM.btnOpen.addEventListener('click', function() { openSite(); });
     if (DOM.urlInput) DOM.urlInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') openSite(); });
 
+    // Site actions
     if (DOM.btnScreenshot) DOM.btnScreenshot.addEventListener('click', function() { takeScreenshot(); });
     if (DOM.btnLogin) DOM.btnLogin.addEventListener('click', function() { openInteraction(); });
     if (DOM.btnScroll) DOM.btnScroll.addEventListener('click', function() { scrollPage('down'); });
     if (DOM.btnClose) DOM.btnClose.addEventListener('click', function() { closeSession(); });
 
+    // Scroll buttons (inside interaction panel)
     var btnScrollUp2 = document.getElementById('btnScrollUp2');
     var btnScrollDown2 = document.getElementById('btnScrollDown2');
     if (btnScrollUp2) btnScrollUp2.addEventListener('click', function() { scrollPage('up'); });
     if (btnScrollDown2) btnScrollDown2.addEventListener('click', function() { scrollPage('down'); });
-
     if (DOM.btnScrollUp) DOM.btnScrollUp.addEventListener('click', function() { scrollPage('up'); });
     if (DOM.btnScrollDown) DOM.btnScrollDown.addEventListener('click', function() { scrollPage('down'); });
 
+    // Interaction overlay
     if (DOM.btnCloseInteract) DOM.btnCloseInteract.addEventListener('click', function() { closeInteraction(); });
-
     if (DOM.btnAutoLogin) DOM.btnAutoLogin.addEventListener('click', function() { autoLogin(); });
     if (DOM.btnToggleAutoLoginPassword) DOM.btnToggleAutoLoginPassword.addEventListener('click', function() { toggleAutoLoginPassword(); });
 
+    // Site tools
     if (DOM.btnOpenSiteTab) DOM.btnOpenSiteTab.addEventListener('click', function() { openSiteInNewTab(); });
     if (DOM.btnCopyCommand) DOM.btnCopyCommand.addEventListener('click', function() { copyCommandToClipboard(); });
     if (DOM.btnSyncCookies) DOM.btnSyncCookies.addEventListener('click', function() { syncCookies(); });
@@ -1366,9 +1356,9 @@ function setupEventListeners() {
 
     var btnRefreshSelenium = document.getElementById('btnRefreshSelenium');
     if (btnRefreshSelenium) btnRefreshSelenium.addEventListener('click', function() { refreshSeleniumPage(); });
-
     if (DOM.btnRefreshPreview) DOM.btnRefreshPreview.addEventListener('click', function() { refreshPreview(); });
 
+    // Live preview click
     var livePreviewContainer = document.getElementById('livePreviewContainer');
     var livePreviewImg = document.getElementById('livePreviewImg');
     if (livePreviewContainer && livePreviewImg) {
@@ -1380,11 +1370,12 @@ function setupEventListeners() {
             var scaleY = 1080 / rect.height;
             var realX = Math.round((e.clientX - rect.left) * scaleX);
             var realY = Math.round((e.clientY - rect.top) * scaleY);
-            console.log('Click on preview:', realX, realY);
+            console.log('Click at:', realX, realY);
             clickOnPage(realX, realY);
         });
     }
 
+    // Remote typing
     var btnRemoteType = document.getElementById('btnRemoteType');
     var btnRemoteEnter = document.getElementById('btnRemoteEnter');
     var remoteTextInput = document.getElementById('remoteTextInput');
@@ -1392,24 +1383,28 @@ function setupEventListeners() {
     if (btnRemoteEnter) btnRemoteEnter.addEventListener('click', function() { if (!remoteTextInput) return; typeOnPage(remoteTextInput.value, true); });
     if (remoteTextInput) remoteTextInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); typeOnPage(remoteTextInput.value, true); } });
 
+    // Remote keys
     var btnRemoteTab = document.getElementById('btnRemoteTab');
     var btnRemoteEsc = document.getElementById('btnRemoteEsc');
     var btnRemoteBack = document.getElementById('btnRemoteBack');
     var btnRemoteForward = document.getElementById('btnRemoteForward');
-    if (btnRemoteTab) btnRemoteTab.addEventListener('click', function() { if (!state.sessionId) return; apiJSON('/type-text', 'POST', { session_id: state.sessionId, text: '\uE004', press_enter: false, clear_first: false }).then(function(d) { if (d.screenshot) updateAllPreviewsBase64(d.screenshot); showToast('Tab!', 'info'); }).catch(function(e) { showToast('Erro: ' + e.message, 'error'); }); });
-    if (btnRemoteEsc) btnRemoteEsc.addEventListener('click', function() { if (!state.sessionId) return; apiJSON('/type-text', 'POST', { session_id: state.sessionId, text: '\uE00C', press_enter: false, clear_first: false }).then(function(d) { if (d.screenshot) updateAllPreviewsBase64(d.screenshot); showToast('Esc!', 'info'); }).catch(function(e) { showToast('Erro: ' + e.message, 'error'); }); });
+    if (btnRemoteTab) btnRemoteTab.addEventListener('click', function() { if (!state.sessionId) return; apiJSON('/type-text', 'POST', { session_id: state.sessionId, text: '\uE004', press_enter: false, clear_first: false }).then(function(d) { if (d.screenshot) updateAllPreviewsBase64(d.screenshot); showToast('Tab enviado!', 'info'); }).catch(function(e) { showToast('Erro: ' + e.message, 'error'); }); });
+    if (btnRemoteEsc) btnRemoteEsc.addEventListener('click', function() { if (!state.sessionId) return; apiJSON('/type-text', 'POST', { session_id: state.sessionId, text: '\uE00C', press_enter: false, clear_first: false }).then(function(d) { if (d.screenshot) updateAllPreviewsBase64(d.screenshot); showToast('Esc enviado!', 'info'); }).catch(function(e) { showToast('Erro: ' + e.message, 'error'); }); });
     if (btnRemoteBack) btnRemoteBack.addEventListener('click', function() { if (!state.sessionId) return; apiJSON('/navigate', 'POST', { session_id: state.sessionId, url: 'javascript:history.back()' }).then(function() { setTimeout(refreshPreview, 500); }).catch(function() { setTimeout(refreshPreview, 500); }); });
     if (btnRemoteForward) btnRemoteForward.addEventListener('click', function() { if (!state.sessionId) return; apiJSON('/navigate', 'POST', { session_id: state.sessionId, url: 'javascript:history.forward()' }).then(function() { setTimeout(refreshPreview, 500); }).catch(function() { setTimeout(refreshPreview, 500); }); });
 
+    // Login panel buttons
     var btnLoginCancel = document.getElementById('btnLoginCancel');
     var btnLoginDone = document.getElementById('btnLoginDone');
     if (btnLoginCancel) btnLoginCancel.addEventListener('click', function() { closeInteraction(); });
     if (btnLoginDone) btnLoginDone.addEventListener('click', function() { finishLogin(); });
 
+    // Dashboard modules
     if (DOM.btnBackup) DOM.btnBackup.addEventListener('click', function() { backupSite(); });
     if (DOM.btnCheckErrors) DOM.btnCheckErrors.addEventListener('click', function() { checkErrors(); });
     if (DOM.btnSearch) DOM.btnSearch.addEventListener('click', function() { searchSite(); });
 
+    // Download and clear
     if (DOM.btnDownloadErrors) DOM.btnDownloadErrors.addEventListener('click', function() { downloadErrorReport(); });
     if (DOM.btnDownloadSearch) DOM.btnDownloadSearch.addEventListener('click', function() { downloadSearchReport(); });
     if (DOM.btnClearErrors) DOM.btnClearErrors.addEventListener('click', function() { clearErrorResults(); });
@@ -1422,6 +1417,8 @@ function setupEventListeners() {
 
 async function init() {
     console.log('Initializing...');
+
+    // Load backend URL
     try {
         if (typeof BACKEND_CONFIG !== 'undefined' && BACKEND_CONFIG && BACKEND_CONFIG.BACKEND_URL) {
             state.backendUrl = BACKEND_CONFIG.BACKEND_URL.replace(/\/+$/, '');
@@ -1430,578 +1427,50 @@ async function init() {
             var cr = await fetch('config.js');
             var ct = await cr.text();
             var um = ct.match(/BACKEND_URL\s*[:=]\s*['"]([^'"]+)['"]/);
-            if (um && um[1]) { state.backendUrl = um[1].replace(/\/+$/, ''); }
-            else { var hm = ct.match(/(https:\/\/[^\s'"]+\.hf\.space)/); if (hm) state.backendUrl = hm[1].replace(/\/+$/, ''); }
-            if (!state.backendUrl) { showToast('Backend URL nao encontrada', 'error'); return; }
+            if (um && um[1]) {
+                state.backendUrl = um[1].replace(/\/+$/, '');
+            } else {
+                var hm = ct.match(/(https:\/\/[^\s'"]+\.hf\.space)/);
+                if (hm) state.backendUrl = hm[1].replace(/\/+$/, '');
+            }
+            if (!state.backendUrl) {
+                showToast('Backend URL nao encontrada no config.js', 'error');
+                return;
+            }
             console.log('Backend URL:', state.backendUrl);
         }
-    } catch (e) { showToast('Erro config: ' + e.message, 'error'); return; }
+    } catch (e) {
+        showToast('Erro ao carregar config: ' + e.message, 'error');
+        return;
+    }
 
+    // Check server
     try {
         var sr = await fetch(state.backendUrl + '/');
         var sd = await sr.json();
-        console.log('Server:', sd);
+        console.log('Server status:', sd);
         updateServerStatus(true);
         showToast('Servidor conectado!', 'success');
+
+        // Check auth
         if (sd.auth_required === true) {
             var tk = localStorage.getItem('backup_auth_token');
             if (tk) {
                 try {
-                    var vr = await fetch(state.backendUrl + '/auth/verify', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tk }, body: '{}' });
-                    if (vr.ok) { state.token = tk; hideAuthModal(); updateSessionBadge(true); } else { localStorage.removeItem('backup_auth_token'); showAuthModal(); }
-                } catch (ve) { localStorage.removeItem('backup_auth_token'); showAuthModal(); }
-            } else { showAuthModal(); }
-        } else { hideAuthModal(); updateSessionBadge(true); }
-    } catch (e) { updateServerStatus(false); showToast('Servidor offline', 'error'); }
-
-    try { await checkExtension(); } catch (e) {}
-    console.log('Init complete.');
-}
-
-// ===================== FULLSCREEN TOGGLE =====================
-
-function toggleFullscreen() {
-    var panel = document.querySelector('.login-panel');
-    if (!panel) return;
-    panel.classList.toggle('fullscreen-mode');
-    var btn = document.getElementById('btnFullscreen');
-    if (btn) {
-        if (panel.classList.contains('fullscreen-mode')) {
-            btn.textContent = '🔳 Sair Tela Cheia';
-        } else {
-            btn.textContent = '🔲 Tela Cheia';
-        }
-    }
-}
-
-// ===================== IMPROVED CLICK WITH COORDS DISPLAY =====================
-
-// Override clickOnPage with better coordinate handling
-var _origClickOnPage = clickOnPage;
-clickOnPage = function(clickX, clickY) {
-    if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
-
-    var container = document.getElementById('livePreviewContainer');
-    var liveImg = document.getElementById('livePreviewImg');
-    var feedback = document.getElementById('clickFeedback');
-
-    // Show click dot animation
-    if (container && liveImg) {
-        var rect = liveImg.getBoundingClientRect();
-        var contRect = container.getBoundingClientRect();
-        var dotX = (clickX / 1920) * rect.width + (rect.left - contRect.left);
-        var dotY = (clickY / 1080) * rect.height + (rect.top - contRect.top);
-
-        var dot = document.createElement('div');
-        dot.className = 'click-dot';
-        dot.style.left = dotX + 'px';
-        dot.style.top = dotY + 'px';
-        container.appendChild(dot);
-        setTimeout(function() { dot.remove(); }, 700);
-    }
-
-    if (feedback) {
-        feedback.textContent = 'Clicando em (' + clickX + ', ' + clickY + ')...';
-        feedback.style.color = '#667eea';
-    }
-
-    console.log('Click at:', clickX, clickY);
-
-    apiJSON('/click-element', 'POST', {
-        session_id: state.sessionId,
-        x: clickX,
-        y: clickY
-    })
-        .then(function(data) {
-            if (data.screenshot) {
-                updateAllPreviewsBase64(data.screenshot);
-            }
-
-            var infoEl = document.getElementById('elementInfo');
-            var infoText = document.getElementById('elementInfoText');
-            if (infoEl && data.clicked) {
-                var info = '';
-                if (data.clicked.tagName) info += '<' + data.clicked.tagName + '> ';
-                if (data.clicked.id) info += '#' + data.clicked.id + ' ';
-                if (data.clicked.name) info += '[name=' + data.clicked.name + '] ';
-                if (data.clicked.type) info += '[type=' + data.clicked.type + '] ';
-                if (data.clicked.text) info += '"' + data.clicked.text.substring(0, 40) + '" ';
-                if (data.clicked.href) info += '-> ' + data.clicked.href.substring(0, 50);
-                if (infoText) infoText.textContent = info || 'Posicao (' + clickX + ', ' + clickY + ')';
-                infoEl.style.display = 'block';
-            }
-
-            if (feedback) {
-                feedback.textContent = 'Clicado em (' + clickX + ', ' + clickY + ') - OK';
-                feedback.style.color = '#4ade80';
-            }
-
-            if (data.url) { state.siteUrl = data.url; if (DOM.siteUrl) DOM.siteUrl.textContent = data.url; }
-            if (data.title) { state.siteTitle = data.title; if (DOM.siteTitle) DOM.siteTitle.textContent = data.title; }
-        })
-        .catch(function(err) {
-            showToast('Erro ao clicar: ' + err.message, 'error');
-            if (feedback) { feedback.textContent = 'Erro: ' + err.message; feedback.style.color = '#f87171'; }
-        });
-};
-
-// ===================== IMPROVED LIVE PREVIEW CLICK HANDLER =====================
-
-function setupLivePreviewClick() {
-    var container = document.getElementById('livePreviewContainer');
-    var img = document.getElementById('livePreviewImg');
-    var coordsDisplay = document.getElementById('coordsDisplay');
-
-    if (!container || !img) return;
-
-    // Show coordinates on mouse move
-    container.addEventListener('mousemove', function(e) {
-        var rect = img.getBoundingClientRect();
-        if (rect.width === 0 || rect.height === 0) return;
-
-        var relX = e.clientX - rect.left;
-        var relY = e.clientY - rect.top;
-
-        // Clamp to image bounds
-        if (relX < 0) relX = 0;
-        if (relY < 0) relY = 0;
-        if (relX > rect.width) relX = rect.width;
-        if (relY > rect.height) relY = rect.height;
-
-        var realX = Math.round((relX / rect.width) * 1920);
-        var realY = Math.round((relY / rect.height) * 1080);
-
-        if (coordsDisplay) {
-            coordsDisplay.textContent = 'X: ' + realX + ' Y: ' + realY;
-        }
-        container.setAttribute('data-coords', realX + ', ' + realY);
-    });
-
-    // Click handler - replace the old one
-    container.addEventListener('click', function(e) {
-        if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
-
-        var rect = img.getBoundingClientRect();
-        if (rect.width === 0 || rect.height === 0) { showToast('Preview nao carregado.', 'warning'); return; }
-
-        // Calculate relative position within the image only
-        var relX = e.clientX - rect.left;
-        var relY = e.clientY - rect.top;
-
-        // Clamp
-        if (relX < 0) relX = 0;
-        if (relY < 0) relY = 0;
-        if (relX > rect.width) relX = rect.width;
-        if (relY > rect.height) relY = rect.height;
-
-        // Scale to 1920x1080
-        var realX = Math.round((relX / rect.width) * 1920);
-        var realY = Math.round((relY / rect.height) * 1080);
-
-        console.log('Preview click: rel(' + Math.round(relX) + ',' + Math.round(relY) + ') -> real(' + realX + ',' + realY + ') imgSize(' + Math.round(rect.width) + 'x' + Math.round(rect.height) + ')');
-
-        clickOnPage(realX, realY);
-    });
-}
-
-// ===================== EXTRA EVENT LISTENERS =====================
-
-function setupExtraListeners() {
-    // Fullscreen button
-    var btnFullscreen = document.getElementById('btnFullscreen');
-    if (btnFullscreen) {
-        btnFullscreen.addEventListener('click', function(e) {
-            e.stopPropagation();
-            toggleFullscreen();
-        });
-    }
-
-    // ESC to exit fullscreen
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            var panel = document.querySelector('.login-panel.fullscreen-mode');
-            if (panel) {
-                panel.classList.remove('fullscreen-mode');
-                var btn = document.getElementById('btnFullscreen');
-                if (btn) btn.textContent = '🔲 Tela Cheia';
-            }
-        }
-    });
-}
-
-// ===================== STARTUP (FIXED) =====================
-(function() {
-    function startApp() {
-        setupDOM();
-        setupEventListeners();
-        setupLivePreviewClick();
-        setupExtraListeners();
-        init();
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', startApp);
-    } else {
-        startApp();
-    }
-})();
-
-// ===================== CLEAR RESULTS =====================
-
-function clearErrorResults() {
-    if (DOM.errorResults) {
-        DOM.errorResults.style.display = 'none';
-        DOM.errorResults.innerHTML = '';
-    }
-    if (DOM.errorProgress) DOM.errorProgress.style.display = 'none';
-    if (DOM.errorProgressFill) DOM.errorProgressFill.style.width = '0%';
-    if (DOM.errorProgressText) DOM.errorProgressText.textContent = '';
-    state.lastErrorReport = null;
-}
-
-function clearSearchResults() {
-    if (DOM.searchResults) {
-        DOM.searchResults.style.display = 'none';
-        DOM.searchResults.innerHTML = '';
-    }
-    if (DOM.searchProgress) DOM.searchProgress.style.display = 'none';
-    if (DOM.searchProgressFill) DOM.searchProgressFill.style.width = '0%';
-    if (DOM.searchProgressText) DOM.searchProgressText.textContent = '';
-    state.lastSearchReport = null;
-}
-
-// ===================== EVENT LISTENERS =====================
-
-function setupEventListeners() {
-    console.log('Setting up event listeners...');
-
-    // --- AUTH ---
-    if (DOM.btnAuth) {
-        DOM.btnAuth.addEventListener('click', function() { authenticate(); });
-    }
-    if (DOM.authTokenInput) {
-        DOM.authTokenInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') authenticate();
-        });
-    }
-    if (DOM.btnTogglePassword) {
-        DOM.btnTogglePassword.addEventListener('click', function() { togglePasswordVisibility(); });
-    }
-    if (DOM.btnLogout) {
-        DOM.btnLogout.addEventListener('click', function() { logout(); });
-    }
-
-    // --- OPEN SITE ---
-    if (DOM.btnOpen) {
-        DOM.btnOpen.addEventListener('click', function() { openSite(); });
-    }
-    if (DOM.urlInput) {
-        DOM.urlInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') openSite();
-        });
-    }
-
-    // --- SITE ACTIONS ---
-    if (DOM.btnScreenshot) {
-        DOM.btnScreenshot.addEventListener('click', function() { takeScreenshot(); });
-    }
-    if (DOM.btnLogin) {
-        DOM.btnLogin.addEventListener('click', function() { openInteraction(); });
-    }
-    if (DOM.btnScroll) {
-        DOM.btnScroll.addEventListener('click', function() { scrollPage('down'); });
-    }
-    if (DOM.btnClose) {
-        DOM.btnClose.addEventListener('click', function() { closeSession(); });
-    }
-
-    // --- SCROLL BUTTONS ---
-    if (DOM.btnScrollUp) {
-        DOM.btnScrollUp.addEventListener('click', function() { scrollPage('up'); });
-    }
-    if (DOM.btnScrollDown) {
-        DOM.btnScrollDown.addEventListener('click', function() { scrollPage('down'); });
-    }
-
-    // --- INTERACTION OVERLAY ---
-    if (DOM.btnCloseInteract) {
-        DOM.btnCloseInteract.addEventListener('click', function() { closeInteraction(); });
-    }
-
-    // --- STEP 1: AUTO-LOGIN ---
-    if (DOM.btnAutoLogin) {
-        DOM.btnAutoLogin.addEventListener('click', function() { autoLogin(); });
-    }
-    if (DOM.btnToggleAutoLoginPassword) {
-        DOM.btnToggleAutoLoginPassword.addEventListener('click', function() { toggleAutoLoginPassword(); });
-    }
-
-    // --- STEP 2: MANUAL COOKIES ---
-    if (DOM.btnOpenSiteTab) {
-        DOM.btnOpenSiteTab.addEventListener('click', function() { openSiteInNewTab(); });
-    }
-    if (DOM.btnCopyCommand) {
-        DOM.btnCopyCommand.addEventListener('click', function() { copyCommandToClipboard(); });
-    }
-    if (DOM.btnSyncCookies) {
-        DOM.btnSyncCookies.addEventListener('click', function() { syncCookies(); });
-    }
-    if (DOM.btnGetSeleniumCookies) {
-        DOM.btnGetSeleniumCookies.addEventListener('click', function() { getSeleniumCookies(); });
-    }
-
-    // --- STEP 3: LIVE PREVIEW / REMOTE CONTROL ---
-    if (DOM.btnRefreshPreview) {
-        DOM.btnRefreshPreview.addEventListener('click', function() { refreshPreview(); });
-    }
-
-    // Live preview click
-    var livePreviewContainer = document.getElementById('livePreviewContainer');
-    var livePreviewImg = document.getElementById('livePreviewImg');
-    if (livePreviewContainer && livePreviewImg) {
-        livePreviewContainer.addEventListener('click', function(e) {
-            if (!state.sessionId) {
-                showToast('Abra um site primeiro.', 'warning');
-                return;
-            }
-            var rect = livePreviewImg.getBoundingClientRect();
-            if (rect.width === 0 || rect.height === 0) {
-                showToast('Preview nao carregado.', 'warning');
-                return;
-            }
-            var clickXRel = e.clientX - rect.left;
-            var clickYRel = e.clientY - rect.top;
-
-            var scaleX = 1920 / rect.width;
-            var scaleY = 1080 / rect.height;
-            var realX = Math.round(clickXRel * scaleX);
-            var realY = Math.round(clickYRel * scaleY);
-
-            console.log('Click on preview:', realX, realY, '(scaled from', clickXRel, clickYRel, ')');
-            clickOnPage(realX, realY);
-        });
-    }
-
-    // Remote type
-    var btnRemoteType = document.getElementById('btnRemoteType');
-    var btnRemoteEnter = document.getElementById('btnRemoteEnter');
-    var remoteTextInput = document.getElementById('remoteTextInput');
-
-    if (btnRemoteType) {
-        btnRemoteType.addEventListener('click', function() {
-            if (!remoteTextInput) return;
-            var text = remoteTextInput.value;
-            if (!text) {
-                showToast('Digite algo para enviar.', 'warning');
-                return;
-            }
-            typeOnPage(text, false);
-        });
-    }
-
-    if (btnRemoteEnter) {
-        btnRemoteEnter.addEventListener('click', function() {
-            if (!remoteTextInput) return;
-            var text = remoteTextInput.value;
-            typeOnPage(text, true);
-        });
-    }
-
-    if (remoteTextInput) {
-        remoteTextInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                var text = remoteTextInput.value;
-                typeOnPage(text, true);
-            }
-        });
-    }
-
-    // Remote keyboard actions
-    var btnRemoteTab = document.getElementById('btnRemoteTab');
-    var btnRemoteEsc = document.getElementById('btnRemoteEsc');
-    var btnRemoteBack = document.getElementById('btnRemoteBack');
-    var btnRemoteForward = document.getElementById('btnRemoteForward');
-
-    if (btnRemoteTab) {
-        btnRemoteTab.addEventListener('click', function() {
-            if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
-            apiJSON('/type-text', 'POST', {
-                session_id: state.sessionId,
-                text: '\uE004',
-                press_enter: false,
-                clear_first: false
-            }).then(function(data) {
-                if (data.screenshot) updateAllPreviewsBase64(data.screenshot);
-                showToast('Tab enviado!', 'info');
-            }).catch(function(err) {
-                showToast('Erro ao enviar Tab: ' + err.message, 'error');
-            });
-        });
-    }
-
-    if (btnRemoteEsc) {
-        btnRemoteEsc.addEventListener('click', function() {
-            if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
-            apiJSON('/type-text', 'POST', {
-                session_id: state.sessionId,
-                text: '\uE00C',
-                press_enter: false,
-                clear_first: false
-            }).then(function(data) {
-                if (data.screenshot) updateAllPreviewsBase64(data.screenshot);
-                showToast('Esc enviado!', 'info');
-            }).catch(function(err) {
-                showToast('Erro ao enviar Esc: ' + err.message, 'error');
-            });
-        });
-    }
-
-    if (btnRemoteBack) {
-        btnRemoteBack.addEventListener('click', function() {
-            if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
-            showToast('Voltando...', 'info');
-            apiJSON('/navigate', 'POST', {
-                session_id: state.sessionId,
-                url: 'javascript:history.back()'
-            }).then(function() {
-                setTimeout(function() { refreshPreview(); }, 500);
-            }).catch(function() {
-                setTimeout(function() { refreshPreview(); }, 500);
-            });
-        });
-    }
-
-    if (btnRemoteForward) {
-        btnRemoteForward.addEventListener('click', function() {
-            if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
-            showToast('Avancando...', 'info');
-            apiJSON('/navigate', 'POST', {
-                session_id: state.sessionId,
-                url: 'javascript:history.forward()'
-            }).then(function() {
-                setTimeout(function() { refreshPreview(); }, 500);
-            }).catch(function() {
-                setTimeout(function() { refreshPreview(); }, 500);
-            });
-        });
-    }
-
-    // --- FINISH LOGIN (matches HTML ids) ---
-    var btnLoginCancel = document.getElementById('btnLoginCancel');
-    var btnLoginDone = document.getElementById('btnLoginDone');
-    if (btnLoginCancel) {
-        btnLoginCancel.addEventListener('click', function() { closeInteraction(); });
-    }
-    if (btnLoginDone) {
-        btnLoginDone.addEventListener('click', function() { finishLogin(); });
-    }
-    if (DOM.btnFinishLogin) {
-        DOM.btnFinishLogin.addEventListener('click', function() { finishLogin(); });
-    }
-
-    // --- MODULES ---
-    if (DOM.btnBackup) {
-        DOM.btnBackup.addEventListener('click', function() { backupSite(); });
-    }
-    if (DOM.btnCheckErrors) {
-        DOM.btnCheckErrors.addEventListener('click', function() { checkErrors(); });
-    }
-    if (DOM.btnSearch) {
-        DOM.btnSearch.addEventListener('click', function() { searchSite(); });
-    }
-
-    // --- DOWNLOADS ---
-    if (DOM.btnDownloadErrors) {
-        DOM.btnDownloadErrors.addEventListener('click', function() { downloadErrorReport(); });
-    }
-    if (DOM.btnDownloadSearch) {
-        DOM.btnDownloadSearch.addEventListener('click', function() { downloadSearchReport(); });
-    }
-
-    // --- CLEAR ---
-    if (DOM.btnClearErrors) {
-        DOM.btnClearErrors.addEventListener('click', function() { clearErrorResults(); });
-    }
-    if (DOM.btnClearSearch) {
-        DOM.btnClearSearch.addEventListener('click', function() { clearSearchResults(); });
-    }
-
-    console.log('All event listeners registered.');
-}
-
-// ===================== INITIALIZATION =====================
-
-async function init() {
-    console.log('Initializing Site Backup & Error Checker...');
-
-    // 1. Load backend URL from config.js
-    try {
-        if (typeof BACKEND_CONFIG !== 'undefined' && BACKEND_CONFIG && BACKEND_CONFIG.BACKEND_URL) {
-            state.backendUrl = BACKEND_CONFIG.BACKEND_URL.replace(/\/+$/, '');
-            console.log('Backend URL from global:', state.backendUrl);
-        } else if (typeof window.BACKEND_CONFIG !== 'undefined' && window.BACKEND_CONFIG && window.BACKEND_CONFIG.BACKEND_URL) {
-            state.backendUrl = window.BACKEND_CONFIG.BACKEND_URL.replace(/\/+$/, '');
-            console.log('Backend URL from window:', state.backendUrl);
-        } else {
-            var configResponse = await fetch('config.js');
-            var configText = await configResponse.text();
-            console.log('config.js loaded, length:', configText.length);
-
-            var urlMatch = configText.match(/BACKEND_URL\s*[:=]\s*['"]([^'"]+)['"]/);
-            if (urlMatch && urlMatch[1]) {
-                state.backendUrl = urlMatch[1].replace(/\/+$/, '');
-                console.log('Backend URL from regex:', state.backendUrl);
-            } else {
-                var hfMatch = configText.match(/(https:\/\/[^\s'"]+\.hf\.space)/);
-                if (hfMatch && hfMatch[1]) {
-                    state.backendUrl = hfMatch[1].replace(/\/+$/, '');
-                    console.log('Backend URL from hf.space match:', state.backendUrl);
-                } else {
-                    console.error('Could not extract backend URL from config.js');
-                    showToast('Erro: URL do backend nao encontrada no config.js', 'error');
-                    return;
-                }
-            }
-        }
-    } catch (e) {
-        console.error('Failed to load config.js:', e);
-        showToast('Erro ao carregar config.js: ' + e.message, 'error');
-        return;
-    }
-
-    // 2. Check server status
-    try {
-        var statusResponse = await fetch(state.backendUrl + '/');
-        var statusData = await statusResponse.json();
-        console.log('Server status:', statusData);
-        updateServerStatus(true);
-        showToast('Servidor conectado!', 'success');
-
-        // 3. Auth handling
-        if (statusData.auth_required === true) {
-            var savedToken = localStorage.getItem('backup_auth_token');
-            if (savedToken) {
-                try {
-                    var verifyResponse = await fetch(state.backendUrl + '/auth/verify', {
+                    var vr = await fetch(state.backendUrl + '/auth/verify', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer ' + savedToken
-                        },
-                        body: JSON.stringify({})
+                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tk },
+                        body: '{}'
                     });
-                    if (verifyResponse.ok) {
-                        state.token = savedToken;
+                    if (vr.ok) {
+                        state.token = tk;
                         hideAuthModal();
                         updateSessionBadge(true);
-                        console.log('Token verified successfully.');
                     } else {
                         localStorage.removeItem('backup_auth_token');
                         showAuthModal();
                     }
-                } catch (verifyErr) {
-                    console.error('Token verify failed:', verifyErr);
+                } catch (ve) {
                     localStorage.removeItem('backup_auth_token');
                     showAuthModal();
                 }
@@ -2011,21 +1480,14 @@ async function init() {
         } else {
             hideAuthModal();
             updateSessionBadge(true);
-            console.log('No authentication required.');
         }
     } catch (e) {
-        console.error('Server connection failed:', e);
         updateServerStatus(false);
         showToast('Servidor offline ou inacessivel.', 'error');
     }
 
-    // 4. Check optional extension
-    try {
-        var extOk = await checkExtension();
-        console.log('Extension detected:', extOk);
-    } catch (e) {
-        console.log('Extension not detected (optional).');
-    }
+    // Check extension
+    try { await checkExtension(); } catch (e) {}
 
     console.log('Initialization complete.');
 }
@@ -2045,4 +1507,5 @@ async function init() {
         init();
     }
 })();
+
 
