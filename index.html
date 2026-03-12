@@ -3,27 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Site Backup &amp; Error Checker - Ferramenta para backup, verificação de erros e busca em sites via Selenium.">
-    <title>Site Backup &amp; Error Checker</title>
+    <title>Site Backup & Error Checker</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <!--
-        CORREÇÕES APLICADAS NO HTML:
-        - Adicionado meta description
-        - Removidos estilos inline excessivos (movidos para style.css como classes utilitárias)
-        - Corrigido noscript fallback
-        - Versão atualizada para 1.4.0
-        - fix.js removido (integrado no script.js)
-        - Mantido todo o layout original intacto
-    -->
-    <noscript>
-        <style>
-            body { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #0a0a1a; color: #e0e0e0; font-family: sans-serif; }
-        </style>
-        <p>Esta aplicação requer JavaScript habilitado para funcionar.</p>
-    </noscript>
 </head>
 <body>
 
@@ -41,15 +25,15 @@
             <p>Digite o token de acesso para continuar</p>
             <div class="auth-input-group">
                 <input type="password" id="authTokenInput" placeholder="Token de acesso...">
-                <button class="auth-toggle-visibility" id="authToggleVisibility" type="button" aria-label="Alternar visibilidade da senha">👁️</button>
+                <button class="auth-toggle-visibility" id="authToggleVisibility">👁️</button>
             </div>
-            <button class="btn-auth" id="btnAuth" type="button">Entrar</button>
+            <button class="btn-auth" id="btnAuth">Entrar</button>
         </div>
     </div>
 
     <!-- Interaction / Login Overlay -->
     <div class="interact-overlay" id="interactOverlay">
-        <div class="login-panel" id="loginPanel">
+        <div class="login-panel">
             <div class="login-panel-header">
                 <h3>Login no Site</h3>
                 <p>Faça login para acessar áreas protegidas</p>
@@ -68,17 +52,17 @@
                     </div>
                     <div class="auto-login-fields">
                         <div class="auto-login-input-group">
-                            <input type="email" id="autoLoginEmail" placeholder="Email" autocomplete="off">
+                            <input type="email" id="autoLoginEmail" placeholder="Email">
                         </div>
                         <div class="auto-login-input-group">
-                            <input type="password" id="autoLoginPassword" placeholder="Senha" autocomplete="off">
-                            <button class="btn-toggle-pass" id="btnToggleAutoPass" type="button" aria-label="Alternar visibilidade da senha">👁️</button>
+                            <input type="password" id="autoLoginPassword" placeholder="Senha">
+                            <button class="btn-toggle-pass" id="btnToggleAutoPass">👁️</button>
                         </div>
                     </div>
-                    <button class="btn-step primary" id="btnAutoLogin" type="button">🔐 Fazer Login Automático</button>
+                    <button class="btn-step primary" id="btnAutoLogin">🔐 Fazer Login Automático</button>
                     <div class="login-preview" id="autoLoginPreview">
                         <div class="login-preview-title">Preview após login:</div>
-                        <img id="autoLoginPreviewImg" src="" alt="Preview após login">
+                        <img id="autoLoginPreviewImg" src="" alt="Preview">
                         <div class="login-preview-status" id="autoLoginStatus"></div>
                     </div>
                 </div>
@@ -93,20 +77,20 @@
                         Se o login automático não funcionar, abra o site numa nova aba, faça login manualmente, copie os cookies e cole aqui.
                     </div>
 
-                    <button class="btn-step primary" id="btnOpenSiteTab" type="button" style="margin-bottom:12px;">🌐 Abrir Site na Nova Aba</button>
+                    <button class="btn-step primary" id="btnOpenSiteTab" style="margin-bottom:12px;">🌐 Abrir Site na Nova Aba</button>
 
                     <div class="cookie-methods">
                         <div class="cookie-method">
                             <div class="cookie-method-title">📋 Comando para o Console (Cole no F12 do site logado)</div>
-                            <textarea class="cookie-command" id="cookieCommandArea" rows="5" readonly>cookieStore.getAll().then(c=>copy(c.map(k=>({name:k.name,value:k.value,domain:k.domain||location.hostname,path:k.path||'/',secure:location.protocol==='https:',expiry:k.expires?Math.floor(k.expires/1000):undefined,sameSite:k.sameSite||'Lax'})))).then(()=>console.log('Cookies copiados! Volte ao painel e cole com Ctrl+V')).catch(()=>{copy(document.cookie.split(';').filter(c=>c.trim()).map(c=>{let[n,...v]=c.trim().split('=');return{name:n,value:v.join('='),domain:location.hostname,path:'/',secure:location.protocol==='https:'}}));console.log('Cookies copiados (método alternativo)! Volte ao painel e cole com Ctrl+V')})</textarea>
-                            <button class="btn-step primary" id="btnCopyCommand" type="button" style="font-size:12px; padding:6px 14px;">📋 Copiar Comando</button>
+                            <textarea class="cookie-command" rows="5" readonly>cookieStore.getAll().then(c=>copy(c.map(k=>({name:k.name,value:k.value,domain:k.domain||location.hostname,path:k.path||'/',secure:location.protocol==='https:',expiry:k.expires?Math.floor(k.expires/1000):undefined,sameSite:k.sameSite||'Lax'})))).then(()=>console.log('Cookies copiados! Volte ao painel e cole com Ctrl+V')).catch(()=>{copy(document.cookie.split(';').filter(c=>c.trim()).map(c=>{let[n,...v]=c.trim().split('=');return{name:n,value:v.join('='),domain:location.hostname,path:'/',secure:location.protocol==='https:'}}));console.log('Cookies copiados (método alternativo)! Volte ao painel e cole com Ctrl+V')})</textarea>
+                            <button class="btn-step primary" id="btnCopyCommand" style="font-size:12px; padding:6px 14px;">📋 Copiar Comando</button>
                             <p style="margin-top:6px; font-size:11px; color:#4ade80;">Após colar e executar no console, você verá "Cookies copiados!" — volte aqui e Ctrl+V</p>
                         </div>
 
                         <div class="cookie-method">
                             <div class="cookie-method-title">📥 Colar Cookies Aqui</div>
                             <textarea class="cookie-paste-area" id="cookiePasteArea" placeholder="Cole os cookies aqui (formato JSON)..." rows="4"></textarea>
-                            <button class="btn-step success" id="btnSyncCookies" type="button" style="margin-top:8px;">🔄 Sincronizar Cookies</button>
+                            <button class="btn-step success" id="btnSyncCookies" style="margin-top:8px;">🔄 Sincronizar Cookies</button>
                         </div>
 
                         <div class="cookie-method">
@@ -115,80 +99,81 @@
                                 Captura os cookies diretamente do navegador Selenium (útil se já fez login por lá).
                             </div>
                             <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                                <button class="btn-step primary" id="btnGetSeleniumCookies" type="button" style="font-size:12px; padding:6px 14px;">🤖 Capturar Cookies</button>
-                                <button class="btn-step primary" id="btnRefreshSelenium" type="button" style="font-size:12px; padding:6px 14px;">🔄 Atualizar Página</button>
+                                <button class="btn-step primary" id="btnGetSeleniumCookies" style="font-size:12px; padding:6px 14px;">🤖 Capturar Cookies</button>
+                                <button class="btn-step primary" id="btnRefreshSelenium" style="font-size:12px; padding:6px 14px;">🔄 Atualizar Página</button>
                             </div>
                         </div>
                     </div>
 
                     <div class="login-preview" id="loginPreview">
                         <div class="login-preview-title">Preview do site:</div>
-                        <img id="loginPreviewImg" src="" alt="Preview do site">
+                        <img id="loginPreviewImg" src="" alt="Preview">
                         <div class="login-preview-status" id="loginPreviewStatus"></div>
                     </div>
                 </div>
 
-                <!-- Step 3: Interactive Navigation -->
-                <div class="login-step" id="step3RemoteControl">
-                    <div class="step-header">
-                        <div class="step-number">3</div>
-                        <div class="step-title">Controle Remoto do Site</div>
-                        <button class="btn-step primary" id="btnFullscreen" type="button" style="font-size:11px; padding:4px 12px; margin-left:auto;">🔲 Tela Cheia</button>
-                    </div>
-                    <div class="step-description">
-                        Clique na imagem para interagir com o site. Use os campos abaixo para digitar texto e pressionar botões.
-                    </div>
+               <!-- Step 3: Interactive Navigation -->
+<div class="login-step" id="step3RemoteControl">
+    <div class="step-header">
+        <div class="step-number">3</div>
+        <div class="step-title">Controle Remoto do Site</div>
+        <button class="btn-step primary" id="btnFullscreen" style="font-size:11px; padding:4px 12px; margin-left:auto;">🔲 Tela Cheia</button>
+    </div>
+    <div class="step-description">
+        Clique na imagem para interagir com o site. Use os campos abaixo para digitar texto e pressionar botoes.
+    </div>
 
-                    <!-- Live Preview (clickable) -->
-                    <div class="rc-section">
-                        <div class="rc-label">📺 Preview ao vivo (clique para interagir):</div>
-                        <div id="livePreviewContainer" class="rc-preview-container">
-                            <img id="livePreviewImg" src="" alt="Preview ao vivo" class="rc-preview-img">
-                        </div>
-                        <div id="clickFeedback" class="rc-feedback"></div>
-                    </div>
+    <!-- Live Preview (clickable) - LARGE -->
+    <div style="margin-bottom:12px;">
+        <div style="font-size:12px; color:#667eea; font-weight:600; margin-bottom:6px;">📺 Preview ao vivo (clique para interagir):</div>
+        <div id="livePreviewContainer" style="position:relative; border-radius:8px; overflow:hidden; border:2px solid rgba(102,126,234,0.3); cursor:crosshair; background:#000;">
+            <img id="livePreviewImg" src="" alt="Preview ao vivo" style="width:100%; height:auto; display:block;">
+        </div>
+        <div id="clickFeedback" style="font-size:11px; color:#888; margin-top:4px;"></div>
+    </div>
 
-                    <!-- Controls Row -->
-                    <div class="rc-controls-row">
-                        <button class="btn-step primary" id="btnScrollUp" type="button" style="font-size:12px; padding:6px 14px;">⬆️ Subir</button>
-                        <button class="btn-step primary" id="btnScrollDown" type="button" style="font-size:12px; padding:6px 14px;">⬇️ Descer</button>
-                        <button class="btn-step primary" id="btnRefreshPreview" type="button" style="font-size:12px; padding:6px 14px;">📸 Atualizar</button>
-                        <span class="rc-coords" id="coordsDisplay">X: - Y: -</span>
-                    </div>
+    <!-- Controls Row -->
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; align-items:center;">
+        <button class="btn-step primary" id="btnScrollUp" style="font-size:12px; padding:6px 14px;">⬆️ Subir</button>
+        <button class="btn-step primary" id="btnScrollDown" style="font-size:12px; padding:6px 14px;">⬇️ Descer</button>
+        <button class="btn-step primary" id="btnRefreshPreview" style="font-size:12px; padding:6px 14px;">📸 Atualizar</button>
+        <span style="font-size:11px; color:#666; margin-left:auto;" id="coordsDisplay">X: - Y: -</span>
+    </div>
 
-                    <!-- Type Text -->
-                    <div class="rc-section">
-                        <div class="rc-label">⌨️ Digitar no campo focado:</div>
-                        <div class="rc-type-row">
-                            <input type="text" id="remoteTextInput" placeholder="Digite o texto aqui..." class="rc-text-input">
-                            <button class="btn-step primary" id="btnRemoteType" type="button" style="font-size:12px; padding:8px 14px;">⌨️ Digitar</button>
-                            <button class="btn-step success" id="btnRemoteEnter" type="button" style="font-size:12px; padding:8px 14px;">↵ Enter</button>
-                        </div>
-                    </div>
+    <!-- Type Text -->
+    <div style="margin-bottom:12px;">
+        <div style="font-size:12px; color:#667eea; font-weight:600; margin-bottom:6px;">⌨️ Digitar no campo focado:</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <input type="text" id="remoteTextInput" placeholder="Digite o texto aqui..." style="flex:1; min-width:150px; padding:10px 14px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:10px; color:#fff; font-size:14px; outline:none;">
+            <button class="btn-step primary" id="btnRemoteType" style="font-size:12px; padding:8px 14px;">⌨️ Digitar</button>
+            <button class="btn-step success" id="btnRemoteEnter" style="font-size:12px; padding:8px 14px;">↵ Enter</button>
+        </div>
+    </div>
 
-                    <!-- Quick Actions -->
-                    <div class="rc-section">
-                        <div class="rc-label">⚡ Ações rápidas:</div>
-                        <div class="rc-quick-actions">
-                            <button class="btn-step primary" id="btnRemoteTab" type="button" style="font-size:11px; padding:5px 12px;">Tab ⇥</button>
-                            <button class="btn-step primary" id="btnRemoteEsc" type="button" style="font-size:11px; padding:5px 12px;">Esc ✕</button>
-                            <button class="btn-step primary" id="btnRemoteBack" type="button" style="font-size:11px; padding:5px 12px;">← Voltar</button>
-                            <button class="btn-step primary" id="btnRemoteForward" type="button" style="font-size:11px; padding:5px 12px;">→ Avançar</button>
-                        </div>
-                    </div>
+    <!-- Quick Actions -->
+    <div style="margin-bottom:8px;">
+        <div style="font-size:12px; color:#667eea; font-weight:600; margin-bottom:6px;">⚡ Acoes rapidas:</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn-step primary" id="btnRemoteTab" style="font-size:11px; padding:5px 12px;">Tab ⇥</button>
+            <button class="btn-step primary" id="btnRemoteEsc" style="font-size:11px; padding:5px 12px;">Esc ✕</button>
+            <button class="btn-step primary" id="btnRemoteBack" style="font-size:11px; padding:5px 12px;">← Voltar</button>
+            <button class="btn-step primary" id="btnRemoteForward" style="font-size:11px; padding:5px 12px;">→ Avançar</button>
+        </div>
+    </div>
 
-                    <!-- Element Info -->
-                    <div id="elementInfo" class="rc-element-info" style="display:none;">
-                        <span class="rc-element-info-label">Elemento:</span> <span id="elementInfoText"></span>
-                    </div>
-                </div>
+    <!-- Element Info -->
+    <div id="elementInfo" style="display:none; margin-top:8px; padding:8px 12px; background:rgba(102,126,234,0.05); border:1px solid rgba(102,126,234,0.15); border-radius:8px; font-size:11px; color:#999;">
+        <span style="color:#667eea; font-weight:600;">Elemento:</span> <span id="elementInfoText"></span>
+    </div>
+</div>
+
 
             </div>
 
             <!-- Login Panel Footer -->
             <div class="login-panel-footer">
-                <button class="btn-login-cancel" id="btnLoginCancel" type="button">Cancelar</button>
-                <button class="btn-login-done" id="btnLoginDone" type="button">✅ Pronto, Continuar</button>
+                <button class="btn-login-cancel" id="btnLoginCancel">Cancelar</button>
+                <button class="btn-login-done" id="btnLoginDone">✅ Pronto, Continuar</button>
             </div>
         </div>
     </div>
@@ -199,16 +184,16 @@
         <!-- Header -->
         <div class="header glass-strong">
             <div class="header-top">
-                <svg class="logo" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+                <svg class="logo" viewBox="0 0 48 48" fill="none">
                     <rect width="48" height="48" rx="12" fill="url(#logoGrad)"/>
                     <path d="M14 20h20M14 28h14M18 24h12" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
                     <defs><linearGradient id="logoGrad" x1="0" y1="0" x2="48" y2="48">
                         <stop stop-color="#667eea"/><stop offset="1" stop-color="#764be2"/>
                     </linearGradient></defs>
                 </svg>
-                <h1>Site Backup &amp; Error Checker</h1>
+                <h1>Site Backup & Error Checker</h1>
             </div>
-            <div class="version-badge">v1.4.0</div>
+            <div class="version-badge">v1.3.0</div>
             <div class="header-status">
                 <div class="status-item">
                     <div class="status-dot" id="serverStatusDot"></div>
@@ -217,7 +202,7 @@
                 <div class="session-badge" id="sessionBadge" style="display:none;">
                     <span id="sessionBadgeText">Sessão ativa</span>
                 </div>
-                <button class="btn-logout" id="btnLogout" type="button" style="display:none;">Sair</button>
+                <button class="btn-logout" id="btnLogout" style="display:none;">Sair</button>
             </div>
         </div>
 
@@ -227,7 +212,7 @@
             <div class="url-input-group">
                 <div class="url-prefix">https://</div>
                 <input type="text" id="urlInput" placeholder="exemplo.com.br">
-                <button class="btn-open" id="btnOpen" type="button">🚀 Abrir</button>
+                <button class="btn-open" id="btnOpen">🚀 Abrir</button>
             </div>
 
             <!-- Site Status -->
@@ -247,11 +232,11 @@
                     </div>
                 </div>
                 <div class="site-actions">
-                    <button class="btn-action" id="btnScreenshot" type="button">📸 Screenshot</button>
-                    <button class="btn-action primary" id="btnInteract" type="button">🔐 Login no Site</button>
-                    <button class="btn-action" id="btnScrollUp2" type="button">⬆️ Subir</button>
-                    <button class="btn-action" id="btnScrollDown2" type="button">⬇️ Descer</button>
-                    <button class="btn-action danger" id="btnClose" type="button">✖ Fechar</button>
+                    <button class="btn-action" id="btnScreenshot">📸 Screenshot</button>
+                    <button class="btn-action primary" id="btnInteract">🔐 Login no Site</button>
+                    <button class="btn-action" id="btnScrollUp2">⬆️ Subir</button>
+                    <button class="btn-action" id="btnScrollDown2">⬇️ Descer</button>
+                    <button class="btn-action danger" id="btnClose">✖ Fechar</button>
                 </div>
             </div>
 
@@ -276,7 +261,7 @@
                 <div class="module-body">
                     <div class="input-group">
                         <input type="text" id="backupFolder" placeholder="Nome da pasta" value="meu-backup">
-                        <button class="btn-module backup" id="btnBackup" type="button" disabled>
+                        <button class="btn-module backup" id="btnBackup" disabled>
                             <span>💾</span> Fazer Backup
                         </button>
                     </div>
@@ -301,7 +286,7 @@
                 <div class="module-body">
                     <div class="input-group">
                         <input type="text" id="errorsFolder" placeholder="Nome da pasta" value="meus-erros">
-                        <button class="btn-module errors" id="btnErrors" type="button" disabled>
+                        <button class="btn-module errors" id="btnErrors" disabled>
                             <span>🔍</span> Verificar
                         </button>
                     </div>
@@ -329,7 +314,7 @@
                     </div>
                     <div class="input-group">
                         <input type="text" id="searchFolder" placeholder="Nome da pasta" value="minha-busca">
-                        <button class="btn-module search" id="btnSearch" type="button" disabled>
+                        <button class="btn-module search" id="btnSearch" disabled>
                             <span>🔎</span> Buscar
                         </button>
                     </div>
@@ -359,8 +344,8 @@
                     </div>
                 </div>
                 <div class="results-actions">
-                    <button class="btn-small" id="btnDownloadErrors" type="button">⬇️ Baixar TXT</button>
-                    <button class="btn-small" id="btnClearErrors" type="button">🗑️ Limpar</button>
+                    <button class="btn-small" id="btnDownloadErrors">⬇️ Baixar TXT</button>
+                    <button class="btn-small" id="btnClearErrors">🗑️ Limpar</button>
                 </div>
             </div>
             <div id="errorsContent"></div>
@@ -381,8 +366,8 @@
                     </div>
                 </div>
                 <div class="results-actions">
-                    <button class="btn-small" id="btnDownloadSearch" type="button">⬇️ Baixar TXT</button>
-                    <button class="btn-small" id="btnClearSearch" type="button">🗑️ Limpar</button>
+                    <button class="btn-small" id="btnDownloadSearch">⬇️ Baixar TXT</button>
+                    <button class="btn-small" id="btnClearSearch">🗑️ Limpar</button>
                 </div>
             </div>
             <div id="searchContent"></div>
@@ -390,7 +375,7 @@
 
         <!-- Footer -->
         <div class="footer">
-            Site Backup &amp; Error Checker v1.4.0 — Selenium + FastAPI
+            Site Backup & Error Checker v1.3.0 — Selenium + FastAPI
         </div>
 
     </div>
@@ -406,9 +391,13 @@
         <div class="loading-subtext" id="loadingSubtext"></div>
     </div>
 
-    <!-- Scripts: fix.js foi integrado ao script.js -->
+    <!-- Scripts -->
     <script src="config.js"></script>
     <script src="script.js"></script>
+    <script src="fix.js"></script>
+
 
 </body>
 </html>
+
+
