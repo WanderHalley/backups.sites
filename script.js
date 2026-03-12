@@ -38,7 +38,7 @@ function setupDOM() {
     DOM.siteStatusBadge = document.getElementById('siteStatusBadge');
 
     DOM.btnScreenshot = document.getElementById('btnScreenshot');
-    DOM.btnLogin = document.getElementById('btnLogin');
+    DOM.btnLogin = document.getElementById('btnInteract');
     DOM.btnScroll = document.getElementById('btnScroll');
     DOM.btnClose = document.getElementById('btnClose');
 
@@ -46,12 +46,12 @@ function setupDOM() {
     DOM.screenshotImg = document.getElementById('screenshotImg');
 
     DOM.interactOverlay = document.getElementById('interactOverlay');
-    DOM.btnCloseInteract = document.getElementById('btnCloseInteract');
+    DOM.btnCloseInteract = document.getElementById('btnLoginCancel');
 
     DOM.btnAutoLogin = document.getElementById('btnAutoLogin');
     DOM.autoLoginEmail = document.getElementById('autoLoginEmail');
     DOM.autoLoginPassword = document.getElementById('autoLoginPassword');
-    DOM.btnToggleAutoLoginPassword = document.getElementById('btnToggleAutoLoginPassword');
+    DOM.btnToggleAutoLoginPassword = document.getElementById('btnToggleAutoPass');
     DOM.loginPreview = document.getElementById('loginPreview');
     DOM.loginPreviewImg = document.getElementById('loginPreviewImg');
     DOM.loginStatus = document.getElementById('loginStatus');
@@ -60,7 +60,7 @@ function setupDOM() {
     DOM.btnCopyCommand = document.getElementById('btnCopyCommand');
     DOM.btnSyncCookies = document.getElementById('btnSyncCookies');
     DOM.btnGetSeleniumCookies = document.getElementById('btnGetSeleniumCookies');
-    DOM.cookieInput = document.getElementById('cookieInput');
+    DOM.cookieInput = document.getElementById('cookiePasteArea');
 
     DOM.btnScrollUp = document.getElementById('btnScrollUp');
     DOM.btnScrollDown = document.getElementById('btnScrollDown');
@@ -73,11 +73,11 @@ function setupDOM() {
     DOM.backupProgressFill = document.getElementById('backupProgressFill');
     DOM.backupProgressText = document.getElementById('backupProgressText');
 
-    DOM.errorFolder = document.getElementById('errorFolder');
-    DOM.btnCheckErrors = document.getElementById('btnCheckErrors');
-    DOM.errorProgress = document.getElementById('errorProgress');
-    DOM.errorProgressFill = document.getElementById('errorProgressFill');
-    DOM.errorProgressText = document.getElementById('errorProgressText');
+    DOM.errorFolder = document.getElementById('errorsFolder');
+    DOM.btnCheckErrors = document.getElementById('btnErrors');
+    DOM.errorProgress = document.getElementById('errorsProgress');
+    DOM.errorProgressFill = document.getElementById('errorsProgressFill');
+    DOM.errorProgressText = document.getElementById('errorsProgressText');
 
     DOM.searchTerm = document.getElementById('searchTerm');
     DOM.searchFolder = document.getElementById('searchFolder');
@@ -86,8 +86,8 @@ function setupDOM() {
     DOM.searchProgressFill = document.getElementById('searchProgressFill');
     DOM.searchProgressText = document.getElementById('searchProgressText');
 
-    DOM.errorResults = document.getElementById('errorResults');
-    DOM.searchResults = document.getElementById('searchResults');
+    DOM.errorResults = document.getElementById('errorsContent');
+    DOM.searchResults = document.getElementById('searchContent');
     DOM.btnDownloadErrors = document.getElementById('btnDownloadErrors');
     DOM.btnDownloadSearch = document.getElementById('btnDownloadSearch');
     DOM.btnClearErrors = document.getElementById('btnClearErrors');
@@ -1279,7 +1279,7 @@ function displaySearchResults(data) {
             if (findItem.details) html += ' <small>(' + escapeHTML(findItem.details) + ')</small>';
             if (!findItem.value && !findItem.type) html = escapeHTML(JSON.stringify(findItem));
 
-            searchItem.innerHTML = html;
+            searchItem.innerHTML  = html;
             catList.appendChild(searchItem);
         }
 
@@ -1408,7 +1408,7 @@ function setupEventListeners() {
             }
             var rect = livePreviewImg.getBoundingClientRect();
             if (rect.width === 0 || rect.height === 0) {
-                showToast('Preview não carregado.', 'warning');
+                showToast('Preview nao carregado.', 'warning');
                 return;
             }
             var clickXRel = e.clientX - rect.left;
@@ -1517,7 +1517,7 @@ function setupEventListeners() {
     if (btnRemoteForward) {
         btnRemoteForward.addEventListener('click', function() {
             if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
-            showToast('Avançando...', 'info');
+            showToast('Avancando...', 'info');
             apiJSON('/navigate', 'POST', {
                 session_id: state.sessionId,
                 url: 'javascript:history.forward()'
@@ -1529,7 +1529,15 @@ function setupEventListeners() {
         });
     }
 
-    // --- FINISH LOGIN ---
+    // --- FINISH LOGIN (matches HTML ids) ---
+    var btnLoginCancel = document.getElementById('btnLoginCancel');
+    var btnLoginDone = document.getElementById('btnLoginDone');
+    if (btnLoginCancel) {
+        btnLoginCancel.addEventListener('click', function() { closeInteraction(); });
+    }
+    if (btnLoginDone) {
+        btnLoginDone.addEventListener('click', function() { finishLogin(); });
+    }
     if (DOM.btnFinishLogin) {
         DOM.btnFinishLogin.addEventListener('click', function() { finishLogin(); });
     }
@@ -1593,7 +1601,7 @@ async function init() {
                     console.log('Backend URL from hf.space match:', state.backendUrl);
                 } else {
                     console.error('Could not extract backend URL from config.js');
-                    showToast('Erro: URL do backend não encontrada no config.js', 'error');
+                    showToast('Erro: URL do backend nao encontrada no config.js', 'error');
                     return;
                 }
             }
@@ -1650,7 +1658,7 @@ async function init() {
     } catch (e) {
         console.error('Server connection failed:', e);
         updateServerStatus(false);
-        showToast('Servidor offline ou inacessível.', 'error');
+        showToast('Servidor offline ou inacessivel.', 'error');
     }
 
     // 4. Check optional extension
@@ -1679,3 +1687,4 @@ async function init() {
         init();
     }
 })();
+
