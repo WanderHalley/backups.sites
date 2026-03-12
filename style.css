@@ -1542,6 +1542,11 @@ body {
     max-height: 98vh;
     margin: 1vh auto;
     padding: 16px;
+    overflow-y: auto;
+}
+
+.login-panel.fullscreen-mode .login-panel-header {
+    display: none;
 }
 
 .login-panel.fullscreen-mode .login-steps {
@@ -1558,25 +1563,21 @@ body {
 
 .login-panel.fullscreen-mode #livePreviewContainer {
     max-height: none;
-    min-height: 400px;
+    min-height: 50vh;
 }
 
 .login-panel.fullscreen-mode #livePreviewImg {
     width: 100%;
     height: auto;
+    min-height: 50vh;
+    object-fit: contain;
 }
 
-.login-panel.fullscreen-mode .login-panel-header {
-    display: none;
+.login-panel.fullscreen-mode .login-panel-footer {
+    padding-top: 12px;
+    margin-top: 12px;
 }
 
-.login-panel.fullscreen-mode .step-header {
-    margin-bottom: 8px;
-}
-
-.login-panel.fullscreen-mode .step-description {
-    display: none;
-}
 
 /* ===================== LIVE PREVIEW CURSOR ===================== */
 #livePreviewContainer {
@@ -1622,3 +1623,4 @@ body {
     pointer-events: none;
     z-index: 5;
 }
+
