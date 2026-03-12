@@ -798,8 +798,6 @@ function clickOnPage(clickX, clickY, imgWidth, imgHeight) {
                 if (data.clicked.tagName) info += '<' + escapeHTML(data.clicked.tagName) + '> ';
                 if (data.clicked.id) info += '#' + escapeHTML(data.clicked.id) + ' ';
                 if (data.clicked.text) info += '"' + escapeHTML(data.clicked.text.substring(0, 50)) + '" ';
-                if (data.clicked.type) info += '[type=' + escapeHTML(data.clicked.type) + '] ';
-                if (data.clicked.href) info += ' ' + escapeHTML(data.clicked.href.substring(0, 60));
             }
             DOM.elementInfoText.innerHTML = info || 'Clicado em (' + clickX + ', ' + clickY + ')';
             DOM.elementInfo.style.display = 'block';
@@ -818,11 +816,19 @@ function clickOnPage(clickX, clickY, imgWidth, imgHeight) {
             if (DOM.siteTitle) DOM.siteTitle.textContent = data.title;
         }
 
-        console.log('Click result:', data);
+        // Se a URL mudou, atualizar preview novamente apos 3 segundos
+        if (data.url_changed) {
+            showToast('Pagina redirecionou, atualizando...', 'info');
+            setTimeout(function() {
+                refreshPreview();
+            }, 3000);
+        }
     })
     .catch(function(err) {
         showToast('Erro ao clicar: ' + err.message, 'error');
         if (DOM.clickFeedback) DOM.clickFeedback.textContent = 'Erro ao clicar.';
+        // Tentar atualizar preview mesmo com erro
+        setTimeout(function() { refreshPreview(); }, 2000);
     });
 }
 
@@ -1600,4 +1606,5 @@ function init() {
         startApp();
     }
 })();
+
 
