@@ -1,5 +1,5 @@
 // =====================================================================
-// Site Backup & Error Checker - Frontend v1.3.0
+// Site Backup & Error Checker - Frontend v1.3.0 (Unified)
 // =====================================================================
 
 // ===================== STATE =====================
@@ -12,91 +12,104 @@ var state = {
     isSessionActive: false,
     isLoading: false,
     lastErrorReport: null,
-    lastSearchReport: null
+    lastSearchReport: null,
+    isFullscreen: false
 };
 
 // ===================== DOM ELEMENTS =====================
 var DOM = {};
 
 function setupDOM() {
-    DOM.authOverlay = document.getElementById('authOverlay');
-    DOM.authTokenInput = document.getElementById('authTokenInput');
-    DOM.btnAuth = document.getElementById('btnAuth');
-    DOM.btnTogglePassword = document.getElementById('btnTogglePassword');
-    DOM.btnLogout = document.getElementById('btnLogout');
+    DOM.authOverlay        = document.getElementById('authOverlay');
+    DOM.authTokenInput     = document.getElementById('authTokenInput');
+    DOM.btnAuth            = document.getElementById('btnAuth');
+    DOM.btnTogglePassword  = document.getElementById('authToggleVisibility');
+    DOM.btnLogout          = document.getElementById('btnLogout');
 
-    DOM.serverStatus = document.getElementById('serverStatus');
-    DOM.serverStatusDot = document.getElementById('serverStatusDot');
-    DOM.sessionBadge = document.getElementById('sessionBadge');
+    DOM.serverStatus       = document.getElementById('serverStatusText');
+    DOM.serverStatusDot    = document.getElementById('serverStatusDot');
+    DOM.sessionBadge       = document.getElementById('sessionBadge');
+    DOM.sessionBadgeText   = document.getElementById('sessionBadgeText');
 
-    DOM.urlInput = document.getElementById('urlInput');
-    DOM.btnOpen = document.getElementById('btnOpen');
+    DOM.urlInput           = document.getElementById('urlInput');
+    DOM.btnOpen            = document.getElementById('btnOpen');
 
-    DOM.siteStatus = document.getElementById('siteStatus');
-    DOM.siteTitle = document.getElementById('siteTitle');
-    DOM.siteUrl = document.getElementById('siteUrl');
-    DOM.siteStatusBadge = document.getElementById('siteStatusBadge');
+    DOM.siteStatus         = document.getElementById('siteStatus');
+    DOM.siteTitle          = document.getElementById('siteTitle');
+    DOM.siteUrl            = document.getElementById('siteUrl');
+    DOM.siteStatusBadge    = document.getElementById('siteStatusBadge');
 
-    DOM.btnScreenshot = document.getElementById('btnScreenshot');
-    DOM.btnLogin = document.getElementById('btnInteract');
-    DOM.btnScroll = document.getElementById('btnScroll');
-    DOM.btnClose = document.getElementById('btnClose');
+    DOM.btnScreenshot      = document.getElementById('btnScreenshot');
+    DOM.btnLogin           = document.getElementById('btnInteract');
+    DOM.btnClose           = document.getElementById('btnClose');
 
-    DOM.screenshotPreview = document.getElementById('screenshotPreview');
-    DOM.screenshotImg = document.getElementById('screenshotImg');
+    DOM.screenshotPreview  = document.getElementById('screenshotPreview');
+    DOM.screenshotImg      = document.getElementById('screenshotImg');
 
-    DOM.interactOverlay = document.getElementById('interactOverlay');
-    DOM.btnCloseInteract = document.getElementById('btnLoginCancel');
+    DOM.interactOverlay    = document.getElementById('interactOverlay');
+    DOM.loginPanel         = document.getElementById('loginPanel');
 
-    DOM.btnAutoLogin = document.getElementById('btnAutoLogin');
-    DOM.autoLoginEmail = document.getElementById('autoLoginEmail');
-    DOM.autoLoginPassword = document.getElementById('autoLoginPassword');
+    DOM.btnAutoLogin       = document.getElementById('btnAutoLogin');
+    DOM.autoLoginEmail     = document.getElementById('autoLoginEmail');
+    DOM.autoLoginPassword  = document.getElementById('autoLoginPassword');
     DOM.btnToggleAutoLoginPassword = document.getElementById('btnToggleAutoPass');
-    DOM.loginPreview = document.getElementById('loginPreview');
-    DOM.loginPreviewImg = document.getElementById('loginPreviewImg');
-    DOM.loginStatus = document.getElementById('loginStatus');
+    DOM.autoLoginPreview   = document.getElementById('autoLoginPreview');
+    DOM.autoLoginPreviewImg = document.getElementById('autoLoginPreviewImg');
+    DOM.autoLoginStatus    = document.getElementById('autoLoginStatus');
+    DOM.loginPreview       = document.getElementById('loginPreview');
+    DOM.loginPreviewImg    = document.getElementById('loginPreviewImg');
+    DOM.loginPreviewStatus = document.getElementById('loginPreviewStatus');
 
-    DOM.btnOpenSiteTab = document.getElementById('btnOpenSiteTab');
-    DOM.btnCopyCommand = document.getElementById('btnCopyCommand');
-    DOM.btnSyncCookies = document.getElementById('btnSyncCookies');
+    DOM.btnOpenSiteTab     = document.getElementById('btnOpenSiteTab');
+    DOM.btnCopyCommand     = document.getElementById('btnCopyCommand');
+    DOM.btnSyncCookies     = document.getElementById('btnSyncCookies');
     DOM.btnGetSeleniumCookies = document.getElementById('btnGetSeleniumCookies');
-    DOM.cookieInput = document.getElementById('cookiePasteArea');
+    DOM.cookieInput        = document.getElementById('cookiePasteArea');
 
-    DOM.btnScrollUp = document.getElementById('btnScrollUp');
-    DOM.btnScrollDown = document.getElementById('btnScrollDown');
-    DOM.btnRefreshPreview = document.getElementById('btnRefreshPreview');
-    DOM.btnFinishLogin = document.getElementById('btnFinishLogin');
+    DOM.btnScrollUp        = document.getElementById('btnScrollUp');
+    DOM.btnScrollDown      = document.getElementById('btnScrollDown');
+    DOM.btnRefreshPreview  = document.getElementById('btnRefreshPreview');
+    DOM.btnFullscreen      = document.getElementById('btnFullscreen');
 
-    DOM.backupFolder = document.getElementById('backupFolder');
-    DOM.btnBackup = document.getElementById('btnBackup');
-    DOM.backupProgress = document.getElementById('backupProgress');
+    DOM.livePreviewContainer = document.getElementById('livePreviewContainer');
+    DOM.livePreviewImg     = document.getElementById('livePreviewImg');
+    DOM.clickFeedback      = document.getElementById('clickFeedback');
+    DOM.coordsDisplay      = document.getElementById('coordsDisplay');
+    DOM.elementInfo        = document.getElementById('elementInfo');
+    DOM.elementInfoText    = document.getElementById('elementInfoText');
+
+    DOM.backupFolder       = document.getElementById('backupFolder');
+    DOM.btnBackup          = document.getElementById('btnBackup');
+    DOM.backupProgress     = document.getElementById('backupProgress');
     DOM.backupProgressFill = document.getElementById('backupProgressFill');
     DOM.backupProgressText = document.getElementById('backupProgressText');
 
-    DOM.errorFolder = document.getElementById('errorsFolder');
-    DOM.btnCheckErrors = document.getElementById('btnErrors');
-    DOM.errorProgress = document.getElementById('errorsProgress');
-    DOM.errorProgressFill = document.getElementById('errorsProgressFill');
-    DOM.errorProgressText = document.getElementById('errorsProgressText');
+    DOM.errorFolder        = document.getElementById('errorsFolder');
+    DOM.btnCheckErrors     = document.getElementById('btnErrors');
+    DOM.errorProgress      = document.getElementById('errorsProgress');
+    DOM.errorProgressFill  = document.getElementById('errorsProgressFill');
+    DOM.errorProgressText  = document.getElementById('errorsProgressText');
 
-    DOM.searchTerm = document.getElementById('searchTerm');
-    DOM.searchFolder = document.getElementById('searchFolder');
-    DOM.btnSearch = document.getElementById('btnSearch');
-    DOM.searchProgress = document.getElementById('searchProgress');
+    DOM.searchTerm         = document.getElementById('searchTerm');
+    DOM.searchFolder       = document.getElementById('searchFolder');
+    DOM.btnSearch          = document.getElementById('btnSearch');
+    DOM.searchProgress     = document.getElementById('searchProgress');
     DOM.searchProgressFill = document.getElementById('searchProgressFill');
     DOM.searchProgressText = document.getElementById('searchProgressText');
 
-    DOM.errorResults = document.getElementById('errorsContent');
-    DOM.searchResults = document.getElementById('searchContent');
-    DOM.btnDownloadErrors = document.getElementById('btnDownloadErrors');
-    DOM.btnDownloadSearch = document.getElementById('btnDownloadSearch');
-    DOM.btnClearErrors = document.getElementById('btnClearErrors');
-    DOM.btnClearSearch = document.getElementById('btnClearSearch');
+    DOM.errorResults       = document.getElementById('errorsContent');
+    DOM.searchResults      = document.getElementById('searchContent');
+    DOM.btnDownloadErrors  = document.getElementById('btnDownloadErrors');
+    DOM.btnDownloadSearch  = document.getElementById('btnDownloadSearch');
+    DOM.btnClearErrors     = document.getElementById('btnClearErrors');
+    DOM.btnClearSearch     = document.getElementById('btnClearSearch');
 
-    DOM.toastContainer = document.getElementById('toastContainer');
-    DOM.loadingOverlay = document.getElementById('loadingOverlay');
+    DOM.toastContainer     = document.getElementById('toastContainer');
+    DOM.loadingOverlay     = document.getElementById('loadingOverlay');
+    DOM.loadingText        = document.getElementById('loadingText');
+    DOM.loadingSubtext     = document.getElementById('loadingSubtext');
 
-    // Check missing elements
+    // Log missing elements for debugging
     var missing = [];
     var keys = Object.keys(DOM);
     for (var i = 0; i < keys.length; i++) {
@@ -124,8 +137,10 @@ function showToast(message, type) {
     }, 4000);
 }
 
-function showLoading() {
+function showLoading(text, subtext) {
     state.isLoading = true;
+    if (DOM.loadingText) DOM.loadingText.textContent = text || 'Processando...';
+    if (DOM.loadingSubtext) DOM.loadingSubtext.textContent = subtext || '';
     if (DOM.loadingOverlay) DOM.loadingOverlay.classList.add('active');
 }
 
@@ -145,13 +160,18 @@ function updateServerStatus(online) {
 
 function updateSessionBadge(active) {
     if (DOM.sessionBadge) {
-        DOM.sessionBadge.textContent = active ? 'Conectado' : 'Desconectado';
-        DOM.sessionBadge.className = 'session-badge ' + (active ? 'active' : '');
+        DOM.sessionBadge.style.display = active ? 'inline-flex' : 'none';
+    }
+    if (DOM.sessionBadgeText) {
+        DOM.sessionBadgeText.textContent = active ? 'Conectado' : 'Desconectado';
+    }
+    if (DOM.btnLogout) {
+        DOM.btnLogout.style.display = active ? 'inline-block' : 'none';
     }
 }
 
 function updateModuleButtons(enabled) {
-    var btns = [DOM.btnBackup, DOM.btnCheckErrors, DOM.btnSearch, DOM.btnScreenshot, DOM.btnLogin, DOM.btnScroll, DOM.btnClose];
+    var btns = [DOM.btnBackup, DOM.btnCheckErrors, DOM.btnSearch, DOM.btnScreenshot, DOM.btnLogin, DOM.btnClose];
     for (var i = 0; i < btns.length; i++) {
         if (btns[i]) btns[i].disabled = !enabled;
     }
@@ -228,32 +248,17 @@ function apiJSON(endpoint, method, body) {
 }
 
 function apiBlob(endpoint, method, body) {
-    var url = state.backendUrl + endpoint;
-    var options = {
-        method: method || 'POST',
-        headers: { 'Content-Type': 'application/json' }
-    };
-    if (state.token) {
-        options.headers['Authorization'] = 'Bearer ' + state.token;
-    }
-    if (body) {
-        options.body = JSON.stringify(body);
-    }
-    return fetch(url, options);
+    return apiRequest(endpoint, method, body);
 }
 
 // ===================== EXTENSION CHECK =====================
 
 function checkExtension() {
-    return new Promise(function(resolve, reject) {
+    return new Promise(function(resolve) {
         try {
             if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
                 chrome.runtime.sendMessage('backup-extension-id', { action: 'ping' }, function(response) {
-                    if (response && response.status === 'ok') {
-                        resolve(true);
-                    } else {
-                        resolve(false);
-                    }
+                    resolve(!!(response && response.status === 'ok'));
                 });
             } else {
                 resolve(false);
@@ -281,7 +286,7 @@ function authenticate() {
         showToast('Digite o token de acesso.', 'warning');
         return;
     }
-    showLoading();
+    showLoading('Autenticando...');
     fetch(state.backendUrl + '/auth/verify', {
         method: 'POST',
         headers: {
@@ -290,22 +295,22 @@ function authenticate() {
         },
         body: JSON.stringify({})
     })
-        .then(function(response) {
-            if (response.ok) {
-                state.token = token;
-                localStorage.setItem('backup_auth_token', token);
-                hideAuthModal();
-                updateSessionBadge(true);
-                showToast('Autenticado com sucesso!', 'success');
-            } else {
-                showToast('Token inválido.', 'error');
-            }
-            hideLoading();
-        })
-        .catch(function(err) {
-            showToast('Erro na autenticação: ' + err.message, 'error');
-            hideLoading();
-        });
+    .then(function(response) {
+        if (response.ok) {
+            state.token = token;
+            localStorage.setItem('backup_auth_token', token);
+            hideAuthModal();
+            updateSessionBadge(true);
+            showToast('Autenticado com sucesso!', 'success');
+        } else {
+            showToast('Token inválido.', 'error');
+        }
+        hideLoading();
+    })
+    .catch(function(err) {
+        showToast('Erro na autenticação: ' + err.message, 'error');
+        hideLoading();
+    });
 }
 
 function logout() {
@@ -318,30 +323,27 @@ function logout() {
 
 function togglePasswordVisibility() {
     if (!DOM.authTokenInput) return;
-    var type = DOM.authTokenInput.type === 'password' ? 'text' : 'password';
-    DOM.authTokenInput.type = type;
+    DOM.authTokenInput.type = DOM.authTokenInput.type === 'password' ? 'text' : 'password';
 }
 
 // ===================== PREVIEW HELPERS =====================
 
-function updateAllPreviews(blobUrl) {
-    if (DOM.screenshotImg) {
-        if (DOM.screenshotImg.src && DOM.screenshotImg.src.startsWith('blob:')) {
-            URL.revokeObjectURL(DOM.screenshotImg.src);
-        }
-        DOM.screenshotImg.src = blobUrl;
+function revokeIfBlob(imgEl) {
+    if (imgEl && imgEl.src && imgEl.src.startsWith('blob:')) {
+        URL.revokeObjectURL(imgEl.src);
     }
-    if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
-    if (DOM.loginPreviewImg) {
-        if (DOM.loginPreviewImg.src && DOM.loginPreviewImg.src.startsWith('blob:')) {
-            URL.revokeObjectURL(DOM.loginPreviewImg.src);
-        }
-        DOM.loginPreviewImg.src = blobUrl;
-    }
-    if (DOM.loginPreview) DOM.loginPreview.classList.add('active');
+}
 
-    var liveImg = document.getElementById('livePreviewImg');
-    if (liveImg) liveImg.src = blobUrl;
+function updateAllPreviews(blobUrl) {
+    revokeIfBlob(DOM.screenshotImg);
+    revokeIfBlob(DOM.loginPreviewImg);
+    revokeIfBlob(DOM.livePreviewImg);
+
+    if (DOM.screenshotImg) DOM.screenshotImg.src = blobUrl;
+    if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
+    if (DOM.loginPreviewImg) DOM.loginPreviewImg.src = blobUrl;
+    if (DOM.loginPreview) DOM.loginPreview.classList.add('active');
+    if (DOM.livePreviewImg) DOM.livePreviewImg.src = blobUrl;
 }
 
 function updateAllPreviewsBase64(base64data) {
@@ -350,9 +352,9 @@ function updateAllPreviewsBase64(base64data) {
     if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
     if (DOM.loginPreviewImg) DOM.loginPreviewImg.src = src;
     if (DOM.loginPreview) DOM.loginPreview.classList.add('active');
-
-    var liveImg = document.getElementById('livePreviewImg');
-    if (liveImg) liveImg.src = src;
+    if (DOM.livePreviewImg) DOM.livePreviewImg.src = src;
+    if (DOM.autoLoginPreviewImg) DOM.autoLoginPreviewImg.src = src;
+    if (DOM.autoLoginPreview) DOM.autoLoginPreview.classList.add('active');
 }
 
 // ===================== SITE ACTIONS =====================
@@ -366,89 +368,88 @@ function openSite() {
     }
     if (url.indexOf('http') !== 0) {
         url = 'https://' + url;
-        DOM.urlInput.value = url;
+        DOM.urlInput.value = url.replace('https://', '');
     }
 
-    showLoading();
+    showLoading('Abrindo site...');
 
     apiJSON('/open', 'POST', { url: url })
-        .then(function(data) {
-            state.sessionId = data.session_id;
-            state.siteUrl = data.url || url;
-            state.siteTitle = data.title || url;
-            state.isSessionActive = true;
+    .then(function(data) {
+        state.sessionId = data.session_id;
+        state.siteUrl = data.url || url;
+        state.siteTitle = data.title || url;
+        state.isSessionActive = true;
 
-            if (DOM.siteStatus) DOM.siteStatus.style.display = 'block';
-            if (DOM.siteTitle) DOM.siteTitle.textContent = state.siteTitle;
-            if (DOM.siteUrl) DOM.siteUrl.textContent = state.siteUrl;
-            if (DOM.siteStatusBadge) {
-                DOM.siteStatusBadge.textContent = 'Aberto';
-                DOM.siteStatusBadge.className = 'site-status-badge active';
-            }
+        if (DOM.siteStatus) DOM.siteStatus.style.display = 'block';
+        if (DOM.siteTitle) DOM.siteTitle.textContent = state.siteTitle;
+        if (DOM.siteUrl) DOM.siteUrl.textContent = state.siteUrl;
+        if (DOM.siteStatusBadge) {
+            DOM.siteStatusBadge.textContent = '● Aberto';
+            DOM.siteStatusBadge.className = 'site-status-badge open';
+        }
 
-            updateModuleButtons(true);
-            showToast('Site aberto: ' + state.siteTitle, 'success');
-            hideLoading();
-
-            // Auto screenshot
-            takeScreenshot();
-        })
-        .catch(function(err) {
-            showToast('Erro ao abrir site: ' + err.message, 'error');
-            hideLoading();
-        });
+        updateModuleButtons(true);
+        showToast('Site aberto: ' + state.siteTitle, 'success');
+        hideLoading();
+        takeScreenshot();
+    })
+    .catch(function(err) {
+        showToast('Erro ao abrir site: ' + err.message, 'error');
+        hideLoading();
+    });
 }
 
 function takeScreenshot() {
     if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
     apiBlob('/screenshot', 'POST', { session_id: state.sessionId })
-        .then(function(response) {
-            if (!response.ok) {
-                return response.text().then(function(t) {
-                    var msg = 'Erro ' + response.status;
-                    try { var d = JSON.parse(t); if (d.detail) msg = d.detail; } catch (e) { if (t) msg = t; }
-                    throw new Error(msg);
-                });
-            }
-            return response.blob();
-        })
-        .then(function(blob) {
-            if (!blob) return;
-            var url = URL.createObjectURL(blob);
-            updateAllPreviews(url);
-        })
-        .catch(function(err) {
-            showToast('Erro ao tirar screenshot: ' + err.message, 'error');
-        });
+    .then(function(response) {
+        if (!response.ok) {
+            return response.text().then(function(t) {
+                var msg = 'Erro ' + response.status;
+                try { var d = JSON.parse(t); if (d.detail) msg = d.detail; } catch (e) { if (t) msg = t; }
+                throw new Error(msg);
+            });
+        }
+        return response.blob();
+    })
+    .then(function(blob) {
+        if (!blob) return;
+        var url = URL.createObjectURL(blob);
+        updateAllPreviews(url);
+    })
+    .catch(function(err) {
+        showToast('Erro ao tirar screenshot: ' + err.message, 'error');
+    });
 }
 
 function closeSession() {
     if (!state.sessionId) { showToast('Nenhuma sessão ativa.', 'warning'); return; }
-    showLoading();
+    showLoading('Encerrando sessão...');
     apiJSON('/close', 'POST', { session_id: state.sessionId })
-        .then(function() {
-            state.sessionId = null;
-            state.siteUrl = null;
-            state.siteTitle = null;
-            state.isSessionActive = false;
+    .then(function() {
+        state.sessionId = null;
+        state.siteUrl = null;
+        state.siteTitle = null;
+        state.isSessionActive = false;
 
-            if (DOM.siteStatus) DOM.siteStatus.style.display = 'none';
-            if (DOM.screenshotPreview) DOM.screenshotPreview.classList.remove('active');
-            if (DOM.screenshotImg) DOM.screenshotImg.src = '';
-            if (DOM.loginPreview) DOM.loginPreview.classList.remove('active');
-            if (DOM.loginPreviewImg) DOM.loginPreviewImg.src = '';
+        if (DOM.siteStatus) DOM.siteStatus.style.display = 'none';
+        if (DOM.screenshotPreview) DOM.screenshotPreview.classList.remove('active');
+        revokeIfBlob(DOM.screenshotImg);
+        if (DOM.screenshotImg) DOM.screenshotImg.src = '';
+        if (DOM.loginPreview) DOM.loginPreview.classList.remove('active');
+        revokeIfBlob(DOM.loginPreviewImg);
+        if (DOM.loginPreviewImg) DOM.loginPreviewImg.src = '';
+        revokeIfBlob(DOM.livePreviewImg);
+        if (DOM.livePreviewImg) DOM.livePreviewImg.src = '';
 
-            var liveImg = document.getElementById('livePreviewImg');
-            if (liveImg) liveImg.src = '';
-
-            updateModuleButtons(false);
-            showToast('Sessão encerrada.', 'success');
-            hideLoading();
-        })
-        .catch(function(err) {
-            showToast('Erro ao fechar: ' + err.message, 'error');
-            hideLoading();
-        });
+        updateModuleButtons(false);
+        showToast('Sessão encerrada.', 'success');
+        hideLoading();
+    })
+    .catch(function(err) {
+        showToast('Erro ao fechar: ' + err.message, 'error');
+        hideLoading();
+    });
 }
 
 // ===================== SCROLL =====================
@@ -456,15 +457,15 @@ function closeSession() {
 function scrollPage(direction) {
     if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
     apiJSON('/scroll', 'POST', { session_id: state.sessionId, direction: direction, amount: 400 })
-        .then(function(data) {
-            if (data.screenshot) {
-                updateAllPreviewsBase64(data.screenshot);
-            }
-            showToast('Página rolada para ' + (direction === 'up' ? 'cima' : 'baixo'), 'info');
-        })
-        .catch(function(err) {
-            showToast('Erro ao rolar: ' + err.message, 'error');
-        });
+    .then(function(data) {
+        if (data.screenshot) {
+            updateAllPreviewsBase64(data.screenshot);
+        }
+        showToast('Página rolada para ' + (direction === 'up' ? 'cima' : 'baixo'), 'info');
+    })
+    .catch(function(err) {
+        showToast('Erro ao rolar: ' + err.message, 'error');
+    });
 }
 
 // ===================== INTERACTION OVERLAY =====================
@@ -473,33 +474,33 @@ function openInteraction() {
     if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
     if (DOM.interactOverlay) DOM.interactOverlay.classList.add('active');
 
-    // Load live preview automatically
-    var liveImg = document.getElementById('livePreviewImg');
-    if (liveImg) {
+    if (DOM.livePreviewImg) {
         if (DOM.screenshotImg && DOM.screenshotImg.src && DOM.screenshotImg.src !== '' && DOM.screenshotImg.src !== window.location.href) {
-            liveImg.src = DOM.screenshotImg.src;
+            DOM.livePreviewImg.src = DOM.screenshotImg.src;
         } else {
             apiBlob('/screenshot', 'POST', { session_id: state.sessionId })
-                .then(function(response) {
-                    if (!response.ok) throw new Error('Erro ' + response.status);
-                    return response.blob();
-                })
-                .then(function(blob) {
-                    if (!blob) return;
-                    var url = URL.createObjectURL(blob);
-                    liveImg.src = url;
-                    if (DOM.screenshotImg) DOM.screenshotImg.src = url;
-                    if (DOM.screenshotPreview) DOM.screenshotPreview.classList.add('active');
-                })
-                .catch(function(err) {
-                    showToast('Erro ao carregar preview: ' + err.message, 'error');
-                });
+            .then(function(response) {
+                if (!response.ok) throw new Error('Erro ' + response.status);
+                return response.blob();
+            })
+            .then(function(blob) {
+                if (!blob) return;
+                var url = URL.createObjectURL(blob);
+                updateAllPreviews(url);
+            })
+            .catch(function(err) {
+                showToast('Erro ao carregar preview: ' + err.message, 'error');
+            });
         }
     }
 }
 
 function closeInteraction() {
     if (DOM.interactOverlay) DOM.interactOverlay.classList.remove('active');
+    // Sair do fullscreen se estiver ativo
+    if (state.isFullscreen) {
+        toggleFullscreen();
+    }
 }
 
 function openSiteInNewTab() {
@@ -511,11 +512,13 @@ function openSiteInNewTab() {
 }
 
 function copyCommandToClipboard() {
-    var command = "JSON.stringify(document.cookie.split('; ').map(c => { var parts = c.split('='); return {name: parts[0], value: parts.slice(1).join('=')}; }))";
+    var cmdEl = document.querySelector('.cookie-command');
+    var command = cmdEl ? cmdEl.value : '';
+    if (!command) return;
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(command)
-            .then(function() { showToast('Comando copiado! Cole no console do site.', 'success'); })
-            .catch(function() { fallbackCopy(command); });
+        .then(function() { showToast('Comando copiado! Cole no console do site.', 'success'); })
+        .catch(function() { fallbackCopy(command); });
     } else {
         fallbackCopy(command);
     }
@@ -536,6 +539,22 @@ function fallbackCopy(text) {
     document.body.removeChild(ta);
 }
 
+// ===================== FULLSCREEN TOGGLE =====================
+
+function toggleFullscreen() {
+    if (!DOM.loginPanel) return;
+
+    state.isFullscreen = !state.isFullscreen;
+
+    if (state.isFullscreen) {
+        DOM.loginPanel.classList.add('fullscreen-mode');
+        if (DOM.btnFullscreen) DOM.btnFullscreen.innerHTML = '🔳 Sair Tela Cheia';
+    } else {
+        DOM.loginPanel.classList.remove('fullscreen-mode');
+        if (DOM.btnFullscreen) DOM.btnFullscreen.innerHTML = '🔲 Tela Cheia';
+    }
+}
+
 // ===================== COOKIES =====================
 
 function syncCookies() {
@@ -553,106 +572,104 @@ function syncCookies() {
         return;
     }
 
-    showLoading();
+    showLoading('Injetando cookies...');
 
     apiJSON('/inject-cookies', 'POST', {
         session_id: state.sessionId,
         cookies: cookies,
         target_url: state.siteUrl
     })
-        .then(function(data) {
-            if (data.screenshot) {
-                updateAllPreviewsBase64(data.screenshot);
+    .then(function(data) {
+        if (data.screenshot) {
+            updateAllPreviewsBase64(data.screenshot);
+        }
+        if (data.login_success) {
+            if (DOM.loginPreviewStatus) {
+                DOM.loginPreviewStatus.textContent = 'Login detectado!';
+                DOM.loginPreviewStatus.className = 'login-preview-status logged-in';
             }
-            if (data.login_success) {
-                if (DOM.loginStatus) {
-                    DOM.loginStatus.textContent = 'Login detectado!';
-                    DOM.loginStatus.className = 'login-status success';
-                }
-                showToast('Cookies injetados e login detectado!', 'success');
-            } else {
-                showToast('Cookies injetados: ' + (data.injected_count || 0) + ' de ' + (data.total_cookies || 0), 'info');
-            }
-
-            if (data.final_url) state.siteUrl = data.final_url;
-            if (data.final_title) state.siteTitle = data.final_title;
-            if (DOM.siteTitle) DOM.siteTitle.textContent = state.siteTitle;
-            if (DOM.siteUrl) DOM.siteUrl.textContent = state.siteUrl;
-
-            hideLoading();
-        })
-        .catch(function(err) {
-            showToast('Erro ao injetar cookies: ' + err.message, 'error');
-            hideLoading();
-        });
+            showToast('Cookies injetados e login detectado!', 'success');
+        } else {
+            showToast('Cookies injetados: ' + (data.injected_count || 0) + ' de ' + (data.total_cookies || 0), 'info');
+        }
+        if (data.final_url) state.siteUrl = data.final_url;
+        if (data.final_title) state.siteTitle = data.final_title;
+        if (DOM.siteTitle) DOM.siteTitle.textContent = state.siteTitle;
+        if (DOM.siteUrl) DOM.siteUrl.textContent = state.siteUrl;
+        hideLoading();
+    })
+    .catch(function(err) {
+        showToast('Erro ao injetar cookies: ' + err.message, 'error');
+        hideLoading();
+    });
 }
 
 function getSeleniumCookies() {
     if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
-    showLoading();
+    showLoading('Capturando cookies...');
     apiJSON('/get-selenium-cookies', 'POST', { session_id: state.sessionId })
-        .then(function(data) {
-            var cookies = data.cookies || [];
-            if (DOM.cookieInput) {
-                DOM.cookieInput.value = JSON.stringify(cookies, null, 2);
-            }
-            if (data.screenshot) {
-                updateAllPreviewsBase64(data.screenshot);
-            }
-            showToast('Cookies capturados: ' + (data.total || cookies.length), 'success');
-            hideLoading();
-        })
-        .catch(function(err) {
-            showToast('Erro ao capturar cookies: ' + err.message, 'error');
-            hideLoading();
-        });
+    .then(function(data) {
+        var cookies = data.cookies || [];
+        if (DOM.cookieInput) {
+            DOM.cookieInput.value = JSON.stringify(cookies, null, 2);
+        }
+        if (data.screenshot) {
+            updateAllPreviewsBase64(data.screenshot);
+        }
+        showToast('Cookies capturados: ' + (data.total || cookies.length), 'success');
+        hideLoading();
+    })
+    .catch(function(err) {
+        showToast('Erro ao capturar cookies: ' + err.message, 'error');
+        hideLoading();
+    });
 }
 
 // ===================== SELENIUM PAGE =====================
 
 function refreshSeleniumPage() {
     if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
-    showLoading();
+    showLoading('Atualizando página...');
     apiJSON('/refresh-page', 'POST', { session_id: state.sessionId })
-        .then(function(data) {
-            if (data.screenshot) {
-                updateAllPreviewsBase64(data.screenshot);
-            }
-            if (data.url) state.siteUrl = data.url;
-            if (data.title) state.siteTitle = data.title;
-            if (DOM.siteTitle) DOM.siteTitle.textContent = state.siteTitle;
-            if (DOM.siteUrl) DOM.siteUrl.textContent = state.siteUrl;
-            showToast('Página atualizada!', 'success');
-            hideLoading();
-        })
-        .catch(function(err) {
-            showToast('Erro ao atualizar: ' + err.message, 'error');
-            hideLoading();
-        });
+    .then(function(data) {
+        if (data.screenshot) {
+            updateAllPreviewsBase64(data.screenshot);
+        }
+        if (data.url) state.siteUrl = data.url;
+        if (data.title) state.siteTitle = data.title;
+        if (DOM.siteTitle) DOM.siteTitle.textContent = state.siteTitle;
+        if (DOM.siteUrl) DOM.siteUrl.textContent = state.siteUrl;
+        showToast('Página atualizada!', 'success');
+        hideLoading();
+    })
+    .catch(function(err) {
+        showToast('Erro ao atualizar: ' + err.message, 'error');
+        hideLoading();
+    });
 }
 
 function refreshPreview() {
     if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
     apiBlob('/screenshot', 'POST', { session_id: state.sessionId })
-        .then(function(response) {
-            if (!response.ok) {
-                return response.text().then(function(t) {
-                    var msg = 'Erro ' + response.status;
-                    try { var d = JSON.parse(t); if (d.detail) msg = d.detail; } catch (e) { if (t) msg = t; }
-                    throw new Error(msg);
-                });
-            }
-            return response.blob();
-        })
-        .then(function(blob) {
-            if (!blob) return;
-            var url = URL.createObjectURL(blob);
-            updateAllPreviews(url);
-            showToast('Preview atualizado!', 'success');
-        })
-        .catch(function(err) {
-            showToast('Erro ao atualizar: ' + err.message, 'error');
-        });
+    .then(function(response) {
+        if (!response.ok) {
+            return response.text().then(function(t) {
+                var msg = 'Erro ' + response.status;
+                try { var d = JSON.parse(t); if (d.detail) msg = d.detail; } catch (e) { if (t) msg = t; }
+                throw new Error(msg);
+            });
+        }
+        return response.blob();
+    })
+    .then(function(blob) {
+        if (!blob) return;
+        var url = URL.createObjectURL(blob);
+        updateAllPreviews(url);
+        showToast('Preview atualizado!', 'success');
+    })
+    .catch(function(err) {
+        showToast('Erro ao atualizar: ' + err.message, 'error');
+    });
 }
 
 // ===================== AUTO-LOGIN =====================
@@ -660,74 +677,71 @@ function refreshPreview() {
 function autoLogin() {
     if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
 
-    var email = '';
-    var password = '';
-    if (DOM.autoLoginEmail) email = DOM.autoLoginEmail.value.trim();
-    if (DOM.autoLoginPassword) password = DOM.autoLoginPassword.value.trim();
+    var email = DOM.autoLoginEmail ? DOM.autoLoginEmail.value.trim() : '';
+    var password = DOM.autoLoginPassword ? DOM.autoLoginPassword.value.trim() : '';
 
     if (!email || !password) {
         showToast('Preencha email e senha.', 'warning');
         return;
     }
 
-    showLoading();
+    showLoading('Realizando login automático...');
 
     apiJSON('/auto-login', 'POST', {
         session_id: state.sessionId,
         email: email,
         password: password
     })
-        .then(function(data) {
-            if (data.screenshot) {
-                updateAllPreviewsBase64(data.screenshot);
+    .then(function(data) {
+        if (data.screenshot) {
+            updateAllPreviewsBase64(data.screenshot);
+        }
+
+        if (data.login_success) {
+            if (DOM.autoLoginStatus) {
+                DOM.autoLoginStatus.textContent = 'Login realizado com sucesso!';
+                DOM.autoLoginStatus.className = 'login-preview-status logged-in';
             }
-
-            if (data.login_success) {
-                if (DOM.loginStatus) {
-                    DOM.loginStatus.textContent = 'Login realizado com sucesso!';
-                    DOM.loginStatus.className = 'login-status success';
-                }
-                showToast('Login realizado!', 'success');
-            } else if (data.url_changed) {
-                if (DOM.loginStatus) {
-                    DOM.loginStatus.textContent = 'URL mudou - verifique o preview';
-                    DOM.loginStatus.className = 'login-status warning';
-                }
-                showToast('URL mudou após login. Verifique o preview.', 'info');
-            } else {
-                if (DOM.loginStatus) {
-                    DOM.loginStatus.textContent = 'Login pode não ter funcionado';
-                    DOM.loginStatus.className = 'login-status error';
-                }
-                showToast('Login enviado, mas resultado incerto. Verifique o preview.', 'warning');
+            showToast('Login realizado!', 'success');
+        } else if (data.url_changed) {
+            if (DOM.autoLoginStatus) {
+                DOM.autoLoginStatus.textContent = 'URL mudou — verifique o preview';
+                DOM.autoLoginStatus.className = 'login-preview-status not-logged';
             }
-
-            if (data.final_url) state.siteUrl = data.final_url;
-            if (data.final_title) state.siteTitle = data.final_title;
-            if (DOM.siteTitle) DOM.siteTitle.textContent = state.siteTitle;
-            if (DOM.siteUrl) DOM.siteUrl.textContent = state.siteUrl;
-
-            var steps = [];
-            if (data.login_button_clicked) steps.push('Botão login clicado');
-            if (data.email_filled) steps.push('Email preenchido');
-            if (data.password_filled) steps.push('Senha preenchida');
-            if (data.submit_clicked) steps.push('Submit clicado');
-            if (steps.length > 0) {
-                console.log('Auto-login steps:', steps.join(', '));
+            showToast('URL mudou após login. Verifique o preview.', 'info');
+        } else {
+            if (DOM.autoLoginStatus) {
+                DOM.autoLoginStatus.textContent = 'Login pode não ter funcionado';
+                DOM.autoLoginStatus.className = 'login-preview-status not-logged';
             }
+            showToast('Login enviado, mas resultado incerto. Verifique o preview.', 'warning');
+        }
 
-            hideLoading();
-        })
-        .catch(function(err) {
-            showToast('Erro no auto-login: ' + err.message, 'error');
-            hideLoading();
-        });
+        if (data.final_url) state.siteUrl = data.final_url;
+        if (data.final_title) state.siteTitle = data.final_title;
+        if (DOM.siteTitle) DOM.siteTitle.textContent = state.siteTitle;
+        if (DOM.siteUrl) DOM.siteUrl.textContent = state.siteUrl;
+
+        var steps = [];
+        if (data.login_button_clicked) steps.push('Botão login clicado');
+        if (data.email_filled) steps.push('Email preenchido');
+        if (data.password_filled) steps.push('Senha preenchida');
+        if (data.submit_clicked) steps.push('Submit clicado');
+        if (steps.length > 0) {
+            console.log('Auto-login steps:', steps.join(', '));
+        }
+
+        hideLoading();
+    })
+    .catch(function(err) {
+        showToast('Erro no auto-login: ' + err.message, 'error');
+        hideLoading();
+    });
 }
 
 function toggleAutoLoginPassword() {
     if (!DOM.autoLoginPassword) return;
-    var type = DOM.autoLoginPassword.type === 'password' ? 'text' : 'password';
-    DOM.autoLoginPassword.type = type;
+    DOM.autoLoginPassword.type = DOM.autoLoginPassword.type === 'password' ? 'text' : 'password';
 }
 
 function finishLogin() {
@@ -744,23 +758,24 @@ function clickOnPage(clickX, clickY) {
     console.log('Clicking at:', clickX, clickY);
 
     // Show click indicator
-    var container = document.getElementById('livePreviewContainer');
-    if (container) {
+    if (DOM.livePreviewContainer && DOM.livePreviewImg) {
         var indicator = document.createElement('div');
-        indicator.style.cssText = 'position:absolute;width:20px;height:20px;border-radius:50%;background:rgba(255,100,100,0.7);pointer-events:none;transform:translate(-50%,-50%);z-index:100;';
+        indicator.style.cssText = 'position:absolute;width:20px;height:20px;border-radius:50%;background:rgba(255,100,100,0.7);pointer-events:none;transform:translate(-50%,-50%);z-index:100;transition:opacity 0.5s;';
 
-        var liveImg = document.getElementById('livePreviewImg');
-        if (liveImg) {
-            var rect = liveImg.getBoundingClientRect();
-            var contRect = container.getBoundingClientRect();
-            var relX = (clickX / 1920) * rect.width + (rect.left - contRect.left);
-            var relY = (clickY / 1080) * rect.height + (rect.top - contRect.top);
-            indicator.style.left = relX + 'px';
-            indicator.style.top = relY + 'px';
-        }
+        var rect = DOM.livePreviewImg.getBoundingClientRect();
+        var contRect = DOM.livePreviewContainer.getBoundingClientRect();
+        var relX = (clickX / 1920) * rect.width + (rect.left - contRect.left);
+        var relY = (clickY / 1080) * rect.height + (rect.top - contRect.top);
+        indicator.style.left = relX + 'px';
+        indicator.style.top = relY + 'px';
 
-        container.appendChild(indicator);
+        DOM.livePreviewContainer.appendChild(indicator);
+        setTimeout(function() { indicator.style.opacity = '0'; }, 500);
         setTimeout(function() { indicator.remove(); }, 1000);
+    }
+
+    if (DOM.clickFeedback) {
+        DOM.clickFeedback.textContent = 'Clicando em (' + clickX + ', ' + clickY + ')...';
     }
 
     apiJSON('/click-element', 'POST', {
@@ -768,38 +783,42 @@ function clickOnPage(clickX, clickY) {
         x: clickX,
         y: clickY
     })
-        .then(function(data) {
-            if (data.screenshot) {
-                updateAllPreviewsBase64(data.screenshot);
-            }
+    .then(function(data) {
+        if (data.screenshot) {
+            updateAllPreviewsBase64(data.screenshot);
+        }
 
-            // Show element info
-            var infoEl = document.getElementById('elementInfo');
-            if (infoEl && data.clicked) {
-                var info = '';
-                if (data.clicked.tagName) info += '<' + data.clicked.tagName + '> ';
-                if (data.clicked.id) info += '#' + data.clicked.id + ' ';
-                if (data.clicked.text) info += '"' + data.clicked.text.substring(0, 50) + '" ';
-                if (data.clicked.type) info += '[type=' + data.clicked.type + '] ';
-                if (data.clicked.href) info += '→ ' + data.clicked.href.substring(0, 60);
-                infoEl.textContent = info || 'Clicado em (' + clickX + ', ' + clickY + ')';
-                infoEl.style.display = 'block';
-            }
+        // Show element info
+        if (DOM.elementInfo && DOM.elementInfoText && data.clicked) {
+            var info = '';
+            if (data.clicked.tagName) info += '<' + escapeHTML(data.clicked.tagName) + '> ';
+            if (data.clicked.id) info += '#' + escapeHTML(data.clicked.id) + ' ';
+            if (data.clicked.text) info += '"' + escapeHTML(data.clicked.text.substring(0, 50)) + '" ';
+            if (data.clicked.type) info += '[type=' + escapeHTML(data.clicked.type) + '] ';
+            if (data.clicked.href) info += ' ' + escapeHTML(data.clicked.href.substring(0, 60));
+            DOM.elementInfoText.innerHTML = info || 'Clicado em (' + clickX + ', ' + clickY + ')';
+            DOM.elementInfo.style.display = 'block';
+        }
 
-            if (data.url) {
-                state.siteUrl = data.url;
-                if (DOM.siteUrl) DOM.siteUrl.textContent = data.url;
-            }
-            if (data.title) {
-                state.siteTitle = data.title;
-                if (DOM.siteTitle) DOM.siteTitle.textContent = data.title;
-            }
+        if (DOM.clickFeedback) {
+            DOM.clickFeedback.textContent = 'Clique realizado em (' + clickX + ', ' + clickY + ')';
+        }
 
-            console.log('Click result:', data);
-        })
-        .catch(function(err) {
-            showToast('Erro ao clicar: ' + err.message, 'error');
-        });
+        if (data.url) {
+            state.siteUrl = data.url;
+            if (DOM.siteUrl) DOM.siteUrl.textContent = data.url;
+        }
+        if (data.title) {
+            state.siteTitle = data.title;
+            if (DOM.siteTitle) DOM.siteTitle.textContent = data.title;
+        }
+
+        console.log('Click result:', data);
+    })
+    .catch(function(err) {
+        showToast('Erro ao clicar: ' + err.message, 'error');
+        if (DOM.clickFeedback) DOM.clickFeedback.textContent = 'Erro ao clicar.';
+    });
 }
 
 // ===================== TYPE ON PAGE =====================
@@ -813,42 +832,70 @@ function typeOnPage(text, pressEnter) {
         press_enter: pressEnter || false,
         clear_first: true
     })
-        .then(function(data) {
-            if (data.screenshot) {
-                updateAllPreviewsBase64(data.screenshot);
-            }
+    .then(function(data) {
+        if (data.screenshot) {
+            updateAllPreviewsBase64(data.screenshot);
+        }
 
-            if (data.typed) {
-                showToast('Texto digitado' + (pressEnter ? ' + Enter' : '') + '!', 'success');
-            } else {
-                showToast('Nenhum campo focado para digitar.', 'warning');
-            }
+        if (data.typed) {
+            showToast('Texto digitado' + (pressEnter ? ' + Enter' : '') + '!', 'success');
+        } else {
+            showToast('Nenhum campo focado para digitar.', 'warning');
+        }
 
-            if (data.url) {
-                state.siteUrl = data.url;
-                if (DOM.siteUrl) DOM.siteUrl.textContent = data.url;
-            }
-            if (data.title) {
-                state.siteTitle = data.title;
-                if (DOM.siteTitle) DOM.siteTitle.textContent = data.title;
-            }
+        if (data.url) {
+            state.siteUrl = data.url;
+            if (DOM.siteUrl) DOM.siteUrl.textContent = data.url;
+        }
+        if (data.title) {
+            state.siteTitle = data.title;
+            if (DOM.siteTitle) DOM.siteTitle.textContent = data.title;
+        }
 
-            // Clear input after typing
-            var remoteInput = document.getElementById('remoteTextInput');
-            if (remoteInput) remoteInput.value = '';
-        })
-        .catch(function(err) {
-            showToast('Erro ao digitar: ' + err.message, 'error');
-        });
+        // Clear input after typing
+        var remoteInput = document.getElementById('remoteTextInput');
+        if (remoteInput) remoteInput.value = '';
+    })
+    .catch(function(err) {
+        showToast('Erro ao digitar: ' + err.message, 'error');
+    });
+}
+
+// ===================== SEND SPECIAL KEY =====================
+
+function sendSpecialKey(key, label) {
+    if (!state.sessionId) return;
+    apiJSON('/type-text', 'POST', {
+        session_id: state.sessionId,
+        text: key,
+        press_enter: false,
+        clear_first: false
+    })
+    .then(function(data) {
+        if (data.screenshot) updateAllPreviewsBase64(data.screenshot);
+        showToast(label + '!', 'info');
+    })
+    .catch(function(err) {
+        showToast('Erro: ' + err.message, 'error');
+    });
+}
+
+function navigateHistory(direction) {
+    if (!state.sessionId) return;
+    var jsCode = direction === 'back' ? 'javascript:history.back()' : 'javascript:history.forward()';
+    apiJSON('/navigate', 'POST', { session_id: state.sessionId, url: jsCode })
+    .then(function() { setTimeout(refreshPreview, 500); })
+    .catch(function() { setTimeout(refreshPreview, 500); });
 }
 
 // ===================== BACKUP MODULE =====================
 
+var _backupRunning = false;
+
 function backupSite() {
-    if (!state.sessionId) {
-        showToast('Abra um site primeiro.', 'warning');
-        return;
-    }
+    if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
+    if (_backupRunning) return;
+    _backupRunning = true;
 
     var folderName = 'backup';
     if (DOM.backupFolder) {
@@ -856,7 +903,7 @@ function backupSite() {
         if (val) folderName = val;
     }
 
-    showLoading();
+    showLoading('Fazendo backup...');
     if (DOM.backupProgress) DOM.backupProgress.style.display = 'block';
 
     var steps = [
@@ -867,50 +914,58 @@ function backupSite() {
         'Gerando arquivo ZIP...',
         'Finalizando...'
     ];
-
     simulateProgress(DOM.backupProgressFill, DOM.backupProgressText, steps, 18000);
 
     apiBlob('/backup', 'POST', { session_id: state.sessionId, folder_name: folderName })
-        .then(function(response) {
-            if (!response.ok) {
-                return response.text().then(function(t) {
-                    var msg = 'Erro ' + response.status;
-                    try { var d = JSON.parse(t); if (d.detail) msg = d.detail; } catch (e) { if (t) msg = t; }
-                    throw new Error(msg);
-                });
-            }
-            return response.blob().then(function(blob) {
-                return { blob: blob, response: response };
+    .then(function(response) {
+        if (!response.ok) {
+            return response.text().then(function(t) {
+                var msg = 'Erro ' + response.status;
+                try { var d = JSON.parse(t); if (d.detail) msg = d.detail; } catch (e) { if (t) msg = t; }
+                throw new Error(msg);
             });
-        })
-        .then(function(result) {
-            if (!result || !result.blob) return;
-
-            var timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
-            var filename = folderName + '_' + timestamp + '.zip';
-            downloadBlob(result.blob, filename);
-
-            if (DOM.backupProgressFill) DOM.backupProgressFill.style.width = '100%';
-            if (DOM.backupProgressText) DOM.backupProgressText.textContent = 'Backup concluído!';
-
-            var errorCount = result.response.headers.get('X-Backup-Errors') || '0';
-            showToast('Backup baixado! (' + errorCount + ' erros durante o processo)', 'success');
-            hideLoading();
-        })
-        .catch(function(err) {
-            showToast('Erro no backup: ' + err.message, 'error');
-            hideLoading();
-            if (DOM.backupProgress) DOM.backupProgress.style.display = 'none';
+        }
+        return response.blob().then(function(blob) {
+            return { blob: blob, response: response };
         });
+    })
+    .then(function(result) {
+        if (!result || !result.blob) return;
+
+        var timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+        var filename = folderName + '_' + timestamp + '.zip';
+        downloadBlob(result.blob, filename);
+
+        if (DOM.backupProgressFill) DOM.backupProgressFill.style.width = '100%';
+        if (DOM.backupProgressText) DOM.backupProgressText.textContent = 'Backup concluído!';
+
+        var errorCount = result.response.headers.get('X-Backup-Errors') || '0';
+        showToast('Backup baixado! (' + errorCount + ' erros durante o processo)', 'success');
+        hideLoading();
+
+        setTimeout(function() {
+            if (DOM.backupProgress) DOM.backupProgress.style.display = 'none';
+            if (DOM.backupProgressFill) DOM.backupProgressFill.style.width = '0%';
+            if (DOM.backupProgressText) DOM.backupProgressText.textContent = '';
+            _backupRunning = false;
+        }, 3000);
+    })
+    .catch(function(err) {
+        showToast('Erro no backup: ' + err.message, 'error');
+        hideLoading();
+        if (DOM.backupProgress) DOM.backupProgress.style.display = 'none';
+        _backupRunning = false;
+    });
 }
 
 // ===================== ERROR CHECK MODULE =====================
 
+var _errorsRunning = false;
+
 function checkErrors() {
-    if (!state.sessionId) {
-        showToast('Abra um site primeiro.', 'warning');
-        return;
-    }
+    if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
+    if (_errorsRunning) return;
+    _errorsRunning = true;
 
     var folderName = 'erros';
     if (DOM.errorFolder) {
@@ -918,7 +973,7 @@ function checkErrors() {
         if (val) folderName = val;
     }
 
-    showLoading();
+    showLoading('Verificando erros...');
     if (DOM.errorProgress) DOM.errorProgress.style.display = 'block';
 
     var steps = [
@@ -930,39 +985,51 @@ function checkErrors() {
         'Verificando SEO...',
         'Gerando relatório...'
     ];
-
     simulateProgress(DOM.errorProgressFill, DOM.errorProgressText, steps, 15000);
 
     apiJSON('/check-errors-json', 'POST', { session_id: state.sessionId, folder_name: folderName })
-        .then(function(data) {
-            if (DOM.errorProgressFill) DOM.errorProgressFill.style.width = '100%';
-            if (DOM.errorProgressText) DOM.errorProgressText.textContent = 'Verificação concluída!';
+    .then(function(data) {
+        if (DOM.errorProgressFill) DOM.errorProgressFill.style.width = '100%';
+        if (DOM.errorProgressText) DOM.errorProgressText.textContent = 'Verificação concluída!';
 
-            state.lastErrorReport = data;
-            displayErrorResults(data);
+        state.lastErrorReport = data;
+        displayErrorResults(data);
 
-            var totalErrors = 0;
-            var totalWarnings = 0;
-            if (data.summary) {
-                totalErrors = data.summary.total_errors || 0;
-                totalWarnings = data.summary.total_warnings || 0;
-            }
+        var totalErrors = 0;
+        var totalWarnings = 0;
+        if (data.summary) {
+            totalErrors = data.summary.total_errors || 0;
+            totalWarnings = data.summary.total_warnings || 0;
+        }
 
-            showToast('Verificação concluída: ' + totalErrors + ' erros, ' + totalWarnings + ' avisos', 'success');
-            hideLoading();
-        })
-        .catch(function(err) {
-            showToast('Erro na verificação: ' + err.message, 'error');
-            hideLoading();
+        // Update counters
+        var elE = document.getElementById('totalErrors');
+        var elW = document.getElementById('totalWarnings');
+        if (elE) elE.textContent = String(totalErrors);
+        if (elW) elW.textContent = String(totalWarnings);
+
+        // Show results section
+        var ps = document.getElementById('errorResultsSection');
+        if (ps) ps.style.display = 'block';
+
+        showToast('Verificação concluída: ' + totalErrors + ' erros, ' + totalWarnings + ' avisos', 'success');
+        hideLoading();
+
+        setTimeout(function() {
             if (DOM.errorProgress) DOM.errorProgress.style.display = 'none';
-        });
+            _errorsRunning = false;
+        }, 2000);
+    })
+    .catch(function(err) {
+        showToast('Erro na verificação: ' + err.message, 'error');
+        hideLoading();
+        if (DOM.errorProgress) DOM.errorProgress.style.display = 'none';
+        _errorsRunning = false;
+    });
 }
 
 function downloadErrorReport() {
-    if (!state.sessionId) {
-        showToast('Abra um site primeiro.', 'warning');
-        return;
-    }
+    if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
 
     var folderName = 'erros';
     if (DOM.errorFolder) {
@@ -970,45 +1037,59 @@ function downloadErrorReport() {
         if (val) folderName = val;
     }
 
-    showLoading();
+    showLoading('Baixando relatório...');
 
     apiBlob('/check-errors', 'POST', { session_id: state.sessionId, folder_name: folderName })
-        .then(function(response) {
-            if (!response.ok) {
-                return response.text().then(function(t) {
-                    var msg = 'Erro ' + response.status;
-                    try { var d = JSON.parse(t); if (d.detail) msg = d.detail; } catch (e) { if (t) msg = t; }
-                    throw new Error(msg);
-                });
-            }
-            return response.blob();
-        })
-        .then(function(blob) {
-            if (!blob) return;
-            var timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
-            var filename = folderName + '_' + timestamp + '.txt';
-            downloadBlob(blob, filename);
-            showToast('Relatório de erros baixado!', 'success');
-            hideLoading();
-        })
-        .catch(function(err) {
-            showToast('Erro ao baixar relatório: ' + err.message, 'error');
-            hideLoading();
-        });
+    .then(function(response) {
+        if (!response.ok) {
+            return response.text().then(function(t) {
+                var msg = 'Erro ' + response.status;
+                try { var d = JSON.parse(t); if (d.detail) msg = d.detail; } catch (e) { if (t) msg = t; }
+                throw new Error(msg);
+            });
+        }
+        return response.blob();
+    })
+    .then(function(blob) {
+        if (!blob) return;
+        var timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+        var filename = folderName + '_' + timestamp + '.txt';
+        downloadBlob(blob, filename);
+        showToast('Relatório de erros baixado!', 'success');
+        hideLoading();
+    })
+    .catch(function(err) {
+        showToast('Erro ao baixar relatório: ' + err.message, 'error');
+        hideLoading();
+    });
+}
+
+function clearErrorResults() {
+    var ps = document.getElementById('errorResultsSection');
+    if (ps) ps.style.display = 'none';
+    if (DOM.errorResults) { DOM.errorResults.style.display = 'none'; DOM.errorResults.innerHTML = ''; }
+    if (DOM.errorProgress) DOM.errorProgress.style.display = 'none';
+    if (DOM.errorProgressFill) DOM.errorProgressFill.style.width = '0%';
+    if (DOM.errorProgressText) DOM.errorProgressText.textContent = '';
+    var e = document.getElementById('totalErrors'); if (e) e.textContent = '0';
+    var w = document.getElementById('totalWarnings'); if (w) w.textContent = '0';
+    state.lastErrorReport = null;
+    showToast('Resultados limpos.', 'info');
 }
 
 // ===================== SEARCH MODULE =====================
 
-function searchSite() {
-    if (!state.sessionId) {
-        showToast('Abra um site primeiro.', 'warning');
-        return;
-    }
+var _searchRunning = false;
 
-    var term = '';
-    if (DOM.searchTerm) term = DOM.searchTerm.value.trim();
+function searchSite() {
+    if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
+    if (_searchRunning) return;
+    _searchRunning = true;
+
+    var term = DOM.searchTerm ? DOM.searchTerm.value.trim() : '';
     if (!term) {
         showToast('Digite um termo para buscar.', 'warning');
+        _searchRunning = false;
         return;
     }
 
@@ -1018,7 +1099,7 @@ function searchSite() {
         if (val) folderName = val;
     }
 
-    showLoading();
+    showLoading('Buscando...');
     if (DOM.searchProgress) DOM.searchProgress.style.display = 'block';
 
     var steps = [
@@ -1029,7 +1110,6 @@ function searchSite() {
         'Buscando em links...',
         'Compilando resultados...'
     ];
-
     simulateProgress(DOM.searchProgressFill, DOM.searchProgressText, steps, 12000);
 
     apiJSON('/search-site', 'POST', {
@@ -1037,36 +1117,40 @@ function searchSite() {
         term: term,
         folder_name: folderName
     })
-        .then(function(data) {
-            if (DOM.searchProgressFill) DOM.searchProgressFill.style.width = '100%';
-            if (DOM.searchProgressText) DOM.searchProgressText.textContent = 'Busca concluída!';
+    .then(function(data) {
+        if (DOM.searchProgressFill) DOM.searchProgressFill.style.width = '100%';
+        if (DOM.searchProgressText) DOM.searchProgressText.textContent = 'Busca concluída!';
 
-            state.lastSearchReport = data;
-            displaySearchResults(data);
+        state.lastSearchReport = data;
+        displaySearchResults(data);
 
-            var totalFound = data.total_found || 0;
-            showToast('Busca concluída: ' + totalFound + ' resultados encontrados', 'success');
-            hideLoading();
-        })
-        .catch(function(err) {
-            showToast('Erro na busca: ' + err.message, 'error');
-            hideLoading();
+        var totalFound = data.total_found || 0;
+
+        // Show results section
+        var ps = document.getElementById('searchResultsSection');
+        if (ps) ps.style.display = 'block';
+
+        showToast('Busca concluída: ' + totalFound + ' resultados encontrados', 'success');
+        hideLoading();
+
+        setTimeout(function() {
             if (DOM.searchProgress) DOM.searchProgress.style.display = 'none';
-        });
+            _searchRunning = false;
+        }, 2000);
+    })
+    .catch(function(err) {
+        showToast('Erro na busca: ' + err.message, 'error');
+        hideLoading();
+        if (DOM.searchProgress) DOM.searchProgress.style.display = 'none';
+        _searchRunning = false;
+    });
 }
 
 function downloadSearchReport() {
-    if (!state.sessionId) {
-        showToast('Abra um site primeiro.', 'warning');
-        return;
-    }
+    if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
 
-    var term = '';
-    if (DOM.searchTerm) term = DOM.searchTerm.value.trim();
-    if (!term) {
-        showToast('Digite um termo para buscar.', 'warning');
-        return;
-    }
+    var term = DOM.searchTerm ? DOM.searchTerm.value.trim() : '';
+    if (!term) { showToast('Digite um termo para buscar.', 'warning'); return; }
 
     var folderName = 'busca';
     if (DOM.searchFolder) {
@@ -1074,35 +1158,48 @@ function downloadSearchReport() {
         if (val) folderName = val;
     }
 
-    showLoading();
+    showLoading('Baixando relatório...');
 
     apiBlob('/search-site-txt', 'POST', {
         session_id: state.sessionId,
         term: term,
         folder_name: folderName
     })
-        .then(function(response) {
-            if (!response.ok) {
-                return response.text().then(function(t) {
-                    var msg = 'Erro ' + response.status;
-                    try { var d = JSON.parse(t); if (d.detail) msg = d.detail; } catch (e) { if (t) msg = t; }
-                    throw new Error(msg);
-                });
-            }
-            return response.blob();
-        })
-        .then(function(blob) {
-            if (!blob) return;
-            var timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
-            var filename = folderName + '_' + timestamp + '.txt';
-            downloadBlob(blob, filename);
-            showToast('Relatório de busca baixado!', 'success');
-            hideLoading();
-        })
-        .catch(function(err) {
-            showToast('Erro ao baixar relatório: ' + err.message, 'error');
-            hideLoading();
-        });
+    .then(function(response) {
+        if (!response.ok) {
+            return response.text().then(function(t) {
+                var msg = 'Erro ' + response.status;
+                try { var d = JSON.parse(t); if (d.detail) msg = d.detail; } catch (e) { if (t) msg = t; }
+                throw new Error(msg);
+            });
+        }
+        return response.blob();
+    })
+    .then(function(blob) {
+        if (!blob) return;
+        var timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+        var filename = folderName + '_' + timestamp + '.txt';
+        downloadBlob(blob, filename);
+        showToast('Relatório de busca baixado!', 'success');
+        hideLoading();
+    })
+    .catch(function(err) {
+        showToast('Erro ao baixar relatório: ' + err.message, 'error');
+        hideLoading();
+    });
+}
+
+function clearSearchResults() {
+    var ps = document.getElementById('searchResultsSection');
+    if (ps) ps.style.display = 'none';
+    if (DOM.searchResults) { DOM.searchResults.style.display = 'none'; DOM.searchResults.innerHTML = ''; }
+    if (DOM.searchProgress) DOM.searchProgress.style.display = 'none';
+    if (DOM.searchProgressFill) DOM.searchProgressFill.style.width = '0%';
+    if (DOM.searchProgressText) DOM.searchProgressText.textContent = '';
+    var f = document.getElementById('totalFound'); if (f) f.textContent = '0';
+    var c = document.getElementById('totalCategories'); if (c) c.textContent = '0';
+    state.lastSearchReport = null;
+    showToast('Resultados limpos.', 'info');
 }
 
 // ===================== ERROR RESULTS DISPLAY =====================
@@ -1153,19 +1250,15 @@ function displayErrorResults(data) {
     DOM.errorResults.style.display = 'block';
     DOM.errorResults.innerHTML = '';
 
-    var header = document.createElement('div');
-    header.className = 'results-header';
-
-    var totalErrors = 0;
-    var totalWarnings = 0;
-    var totalInfo = 0;
-
+    var totalErrors = 0, totalWarnings = 0, totalInfo = 0;
     if (data.summary) {
         totalErrors = data.summary.total_errors || 0;
         totalWarnings = data.summary.total_warnings || 0;
         totalInfo = data.summary.total_info || 0;
     }
 
+    var header = document.createElement('div');
+    header.className = 'results-header';
     header.innerHTML = '<h3>Resultado da Verificação</h3>' +
         '<div class="results-summary">' +
         '<span class="summary-item error">Erros: ' + totalErrors + '</span>' +
@@ -1208,8 +1301,8 @@ function createErrorCategoryBlock(categoryKey, items) {
         var message = extractErrorMessage(item);
 
         var errorItem = document.createElement('div');
-        errorItem.className = 'error-item ' + level;
-        errorItem.innerHTML = '<span class="error-level">' + level.toUpperCase() + '</span> ' + escapeHTML(message);
+        errorItem.className = 'error-item level-' + level;
+        errorItem.innerHTML = '<span class="error-level">' + escapeHTML(level.toUpperCase()) + '</span> ' + escapeHTML(message);
         list.appendChild(errorItem);
     }
 
@@ -1225,15 +1318,18 @@ function displaySearchResults(data) {
     DOM.searchResults.style.display = 'block';
     DOM.searchResults.innerHTML = '';
 
+    var totalFound = data.total_found || 0;
+
     var header = document.createElement('div');
     header.className = 'results-header';
-
-    var totalFound = data.total_found || 0;
     header.innerHTML = '<h3>Resultados da Busca</h3>' +
         '<div class="results-summary">' +
         '<span class="summary-item info">Total encontrado: ' + totalFound + '</span>' +
         '</div>';
     DOM.searchResults.appendChild(header);
+
+    var elFound = document.getElementById('totalFound');
+    var elCats = document.getElementById('totalCategories');
 
     var findings = data.findings || [];
     if (findings.length === 0) {
@@ -1241,6 +1337,8 @@ function displaySearchResults(data) {
         empty.style.cssText = 'text-align:center;color:#888;padding:20px;';
         empty.textContent = 'Nenhum resultado encontrado.';
         DOM.searchResults.appendChild(empty);
+        if (elFound) elFound.textContent = '0';
+        if (elCats) elCats.textContent = '0';
         return;
     }
 
@@ -1252,6 +1350,9 @@ function displaySearchResults(data) {
     }
 
     var groupKeys = Object.keys(grouped);
+    if (elFound) elFound.textContent = String(findings.length);
+    if (elCats) elCats.textContent = String(groupKeys.length);
+
     for (var g = 0; g < groupKeys.length; g++) {
         var gKey = groupKeys[g];
         var gItems = grouped[gKey];
@@ -1259,9 +1360,9 @@ function displaySearchResults(data) {
         var catBlock = document.createElement('div');
         catBlock.className = 'search-category';
 
+        var catLabel = categoryLabels[gKey] || gKey;
         var catHeader = document.createElement('div');
         catHeader.className = 'error-category-header';
-        var catLabel = categoryLabels[gKey] || gKey;
         catHeader.innerHTML = '<strong>' + escapeHTML(catLabel) + '</strong> <span>(' + gItems.length + ' itens)</span>';
         catBlock.appendChild(catHeader);
 
@@ -1288,180 +1389,161 @@ function displaySearchResults(data) {
     }
 }
 
-// ===================== CLEAR RESULTS =====================
-
-function clearErrorResults() {
-    if (DOM.errorResults) {
-        DOM.errorResults.style.display = 'none';
-        DOM.errorResults.innerHTML = '';
-    }
-    if (DOM.errorProgress) DOM.errorProgress.style.display = 'none';
-    if (DOM.errorProgressFill) DOM.errorProgressFill.style.width = '0%';
-    if (DOM.errorProgressText) DOM.errorProgressText.textContent = '';
-    state.lastErrorReport = null;
-    showToast('Resultados de erros limpos.', 'info');
-}
-
-function clearSearchResults() {
-    if (DOM.searchResults) {
-        DOM.searchResults.style.display = 'none';
-        DOM.searchResults.innerHTML = '';
-    }
-    if (DOM.searchProgress) DOM.searchProgress.style.display = 'none';
-    if (DOM.searchProgressFill) DOM.searchProgressFill.style.width = '0%';
-    if (DOM.searchProgressText) DOM.searchProgressText.textContent = '';
-    state.lastSearchReport = null;
-    showToast('Resultados de busca limpos.', 'info');
-}
-
 // ===================== EVENT LISTENERS =====================
 
 function setupEventListeners() {
     console.log('Setting up event listeners...');
 
     // Auth
-    if (DOM.btnAuth) DOM.btnAuth.addEventListener('click', function() { authenticate(); });
+    if (DOM.btnAuth) DOM.btnAuth.addEventListener('click', authenticate);
     if (DOM.authTokenInput) DOM.authTokenInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') authenticate(); });
-    if (DOM.btnTogglePassword) DOM.btnTogglePassword.addEventListener('click', function() { togglePasswordVisibility(); });
-    if (DOM.btnLogout) DOM.btnLogout.addEventListener('click', function() { logout(); });
+    if (DOM.btnTogglePassword) DOM.btnTogglePassword.addEventListener('click', togglePasswordVisibility);
+    if (DOM.btnLogout) DOM.btnLogout.addEventListener('click', logout);
 
-    // Open site
-    if (DOM.btnOpen) DOM.btnOpen.addEventListener('click', function() { openSite(); });
+    // Site open/close
+    if (DOM.btnOpen) DOM.btnOpen.addEventListener('click', openSite);
     if (DOM.urlInput) DOM.urlInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') openSite(); });
+    if (DOM.btnScreenshot) DOM.btnScreenshot.addEventListener('click', takeScreenshot);
+    if (DOM.btnLogin) DOM.btnLogin.addEventListener('click', openInteraction);
+    if (DOM.btnClose) DOM.btnClose.addEventListener('click', closeSession);
 
-    // Site actions
-    if (DOM.btnScreenshot) DOM.btnScreenshot.addEventListener('click', function() { takeScreenshot(); });
-    if (DOM.btnLogin) DOM.btnLogin.addEventListener('click', function() { openInteraction(); });
-    if (DOM.btnScroll) DOM.btnScroll.addEventListener('click', function() { scrollPage('down'); });
-    if (DOM.btnClose) DOM.btnClose.addEventListener('click', function() { closeSession(); });
+    // Scroll buttons (main page)
+    var su2 = document.getElementById('btnScrollUp2');
+    var sd2 = document.getElementById('btnScrollDown2');
+    if (su2) su2.addEventListener('click', function() { scrollPage('up'); });
+    if (sd2) sd2.addEventListener('click', function() { scrollPage('down'); });
 
-    // Scroll buttons (inside interaction panel)
-    var btnScrollUp2 = document.getElementById('btnScrollUp2');
-    var btnScrollDown2 = document.getElementById('btnScrollDown2');
-    if (btnScrollUp2) btnScrollUp2.addEventListener('click', function() { scrollPage('up'); });
-    if (btnScrollDown2) btnScrollDown2.addEventListener('click', function() { scrollPage('down'); });
+    // Interaction overlay scroll
     if (DOM.btnScrollUp) DOM.btnScrollUp.addEventListener('click', function() { scrollPage('up'); });
     if (DOM.btnScrollDown) DOM.btnScrollDown.addEventListener('click', function() { scrollPage('down'); });
 
-    // Interaction overlay
-    if (DOM.btnCloseInteract) DOM.btnCloseInteract.addEventListener('click', function() { closeInteraction(); });
-    if (DOM.btnAutoLogin) DOM.btnAutoLogin.addEventListener('click', function() { autoLogin(); });
-    if (DOM.btnToggleAutoLoginPassword) DOM.btnToggleAutoLoginPassword.addEventListener('click', function() { toggleAutoLoginPassword(); });
+    // Interaction overlay buttons
+    if (DOM.btnAutoLogin) DOM.btnAutoLogin.addEventListener('click', autoLogin);
+    if (DOM.btnToggleAutoLoginPassword) DOM.btnToggleAutoLoginPassword.addEventListener('click', toggleAutoLoginPassword);
+    if (DOM.btnOpenSiteTab) DOM.btnOpenSiteTab.addEventListener('click', openSiteInNewTab);
+    if (DOM.btnCopyCommand) DOM.btnCopyCommand.addEventListener('click', copyCommandToClipboard);
+    if (DOM.btnSyncCookies) DOM.btnSyncCookies.addEventListener('click', syncCookies);
+    if (DOM.btnGetSeleniumCookies) DOM.btnGetSeleniumCookies.addEventListener('click', getSeleniumCookies);
 
-    // Site tools
-    if (DOM.btnOpenSiteTab) DOM.btnOpenSiteTab.addEventListener('click', function() { openSiteInNewTab(); });
-    if (DOM.btnCopyCommand) DOM.btnCopyCommand.addEventListener('click', function() { copyCommandToClipboard(); });
-    if (DOM.btnSyncCookies) DOM.btnSyncCookies.addEventListener('click', function() { syncCookies(); });
-    if (DOM.btnGetSeleniumCookies) DOM.btnGetSeleniumCookies.addEventListener('click', function() { getSeleniumCookies(); });
+    var rs = document.getElementById('btnRefreshSelenium');
+    if (rs) rs.addEventListener('click', refreshSeleniumPage);
 
-    var btnRefreshSelenium = document.getElementById('btnRefreshSelenium');
-    if (btnRefreshSelenium) btnRefreshSelenium.addEventListener('click', function() { refreshSeleniumPage(); });
-    if (DOM.btnRefreshPreview) DOM.btnRefreshPreview.addEventListener('click', function() { refreshPreview(); });
+    if (DOM.btnRefreshPreview) DOM.btnRefreshPreview.addEventListener('click', refreshPreview);
+
+    // Fullscreen button
+    if (DOM.btnFullscreen) DOM.btnFullscreen.addEventListener('click', toggleFullscreen);
 
     // Live preview click
-    var livePreviewContainer = document.getElementById('livePreviewContainer');
-    var livePreviewImg = document.getElementById('livePreviewImg');
-    if (livePreviewContainer && livePreviewImg) {
-        livePreviewContainer.addEventListener('click', function(e) {
+    if (DOM.livePreviewContainer && DOM.livePreviewImg) {
+        DOM.livePreviewContainer.addEventListener('click', function(e) {
             if (!state.sessionId) { showToast('Abra um site primeiro.', 'warning'); return; }
-            var rect = livePreviewImg.getBoundingClientRect();
-            if (rect.width === 0 || rect.height === 0) { showToast('Preview nao carregado.', 'warning'); return; }
-            var scaleX = 1920 / rect.width;
-            var scaleY = 1080 / rect.height;
-            var realX = Math.round((e.clientX - rect.left) * scaleX);
-            var realY = Math.round((e.clientY - rect.top) * scaleY);
-            console.log('Click at:', realX, realY);
-            clickOnPage(realX, realY);
+            var r = DOM.livePreviewImg.getBoundingClientRect();
+            if (r.width === 0 || r.height === 0) return;
+            var rx = Math.round((e.clientX - r.left) * (1920 / r.width));
+            var ry = Math.round((e.clientY - r.top) * (1080 / r.height));
+            clickOnPage(rx, ry);
+        });
+
+        // Show coordinates on hover
+        DOM.livePreviewContainer.addEventListener('mousemove', function(e) {
+            var r = DOM.livePreviewImg.getBoundingClientRect();
+            if (r.width === 0 || r.height === 0) return;
+            var rx = Math.round((e.clientX - r.left) * (1920 / r.width));
+            var ry = Math.round((e.clientY - r.top) * (1080 / r.height));
+            if (DOM.coordsDisplay) DOM.coordsDisplay.textContent = 'X: ' + rx + ' Y: ' + ry;
         });
     }
 
-    // Remote typing
-    var btnRemoteType = document.getElementById('btnRemoteType');
-    var btnRemoteEnter = document.getElementById('btnRemoteEnter');
-    var remoteTextInput = document.getElementById('remoteTextInput');
-    if (btnRemoteType) btnRemoteType.addEventListener('click', function() { if (!remoteTextInput || !remoteTextInput.value) { showToast('Digite algo.', 'warning'); return; } typeOnPage(remoteTextInput.value, false); });
-    if (btnRemoteEnter) btnRemoteEnter.addEventListener('click', function() { if (!remoteTextInput) return; typeOnPage(remoteTextInput.value, true); });
-    if (remoteTextInput) remoteTextInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); typeOnPage(remoteTextInput.value, true); } });
+    // Remote type / enter
+    var brt = document.getElementById('btnRemoteType');
+    var bre = document.getElementById('btnRemoteEnter');
+    var rti = document.getElementById('remoteTextInput');
 
-    // Remote keys
-    var btnRemoteTab = document.getElementById('btnRemoteTab');
-    var btnRemoteEsc = document.getElementById('btnRemoteEsc');
-    var btnRemoteBack = document.getElementById('btnRemoteBack');
-    var btnRemoteForward = document.getElementById('btnRemoteForward');
-    if (btnRemoteTab) btnRemoteTab.addEventListener('click', function() { if (!state.sessionId) return; apiJSON('/type-text', 'POST', { session_id: state.sessionId, text: '\uE004', press_enter: false, clear_first: false }).then(function(d) { if (d.screenshot) updateAllPreviewsBase64(d.screenshot); showToast('Tab enviado!', 'info'); }).catch(function(e) { showToast('Erro: ' + e.message, 'error'); }); });
-    if (btnRemoteEsc) btnRemoteEsc.addEventListener('click', function() { if (!state.sessionId) return; apiJSON('/type-text', 'POST', { session_id: state.sessionId, text: '\uE00C', press_enter: false, clear_first: false }).then(function(d) { if (d.screenshot) updateAllPreviewsBase64(d.screenshot); showToast('Esc enviado!', 'info'); }).catch(function(e) { showToast('Erro: ' + e.message, 'error'); }); });
-    if (btnRemoteBack) btnRemoteBack.addEventListener('click', function() { if (!state.sessionId) return; apiJSON('/navigate', 'POST', { session_id: state.sessionId, url: 'javascript:history.back()' }).then(function() { setTimeout(refreshPreview, 500); }).catch(function() { setTimeout(refreshPreview, 500); }); });
-    if (btnRemoteForward) btnRemoteForward.addEventListener('click', function() { if (!state.sessionId) return; apiJSON('/navigate', 'POST', { session_id: state.sessionId, url: 'javascript:history.forward()' }).then(function() { setTimeout(refreshPreview, 500); }).catch(function() { setTimeout(refreshPreview, 500); }); });
+    if (brt) brt.addEventListener('click', function() {
+        if (!rti || !rti.value) { showToast('Digite algo.', 'warning'); return; }
+        typeOnPage(rti.value, false);
+    });
+    if (bre) bre.addEventListener('click', function() {
+        if (!rti) return;
+        typeOnPage(rti.value, true);
+    });
+    if (rti) rti.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); typeOnPage(rti.value, true); }
+    });
 
-    // Login panel buttons
-    var btnLoginCancel = document.getElementById('btnLoginCancel');
-    var btnLoginDone = document.getElementById('btnLoginDone');
-    if (btnLoginCancel) btnLoginCancel.addEventListener('click', function() { closeInteraction(); });
-    if (btnLoginDone) btnLoginDone.addEventListener('click', function() { finishLogin(); });
+    // Special keys
+    var btab = document.getElementById('btnRemoteTab');
+    var besc = document.getElementById('btnRemoteEsc');
+    var bbk  = document.getElementById('btnRemoteBack');
+    var bfw  = document.getElementById('btnRemoteForward');
 
-    // Dashboard modules
-    if (DOM.btnBackup) DOM.btnBackup.addEventListener('click', function() { backupSite(); });
-    if (DOM.btnCheckErrors) DOM.btnCheckErrors.addEventListener('click', function() { checkErrors(); });
-    if (DOM.btnSearch) DOM.btnSearch.addEventListener('click', function() { searchSite(); });
+    if (btab) btab.addEventListener('click', function() { sendSpecialKey('\uE004', 'Tab'); });
+    if (besc) besc.addEventListener('click', function() { sendSpecialKey('\uE00C', 'Esc'); });
+    if (bbk)  bbk.addEventListener('click', function() { navigateHistory('back'); });
+    if (bfw)  bfw.addEventListener('click', function() { navigateHistory('forward'); });
 
-    // Download and clear
-    if (DOM.btnDownloadErrors) DOM.btnDownloadErrors.addEventListener('click', function() { downloadErrorReport(); });
-    if (DOM.btnDownloadSearch) DOM.btnDownloadSearch.addEventListener('click', function() { downloadSearchReport(); });
-    if (DOM.btnClearErrors) DOM.btnClearErrors.addEventListener('click', function() { clearErrorResults(); });
-    if (DOM.btnClearSearch) DOM.btnClearSearch.addEventListener('click', function() { clearSearchResults(); });
+    // Login panel footer
+    var blc = document.getElementById('btnLoginCancel');
+    var bld = document.getElementById('btnLoginDone');
+    if (blc) blc.addEventListener('click', closeInteraction);
+    if (bld) bld.addEventListener('click', finishLogin);
+
+    // Modules
+    if (DOM.btnBackup) DOM.btnBackup.addEventListener('click', backupSite);
+    if (DOM.btnCheckErrors) DOM.btnCheckErrors.addEventListener('click', checkErrors);
+    if (DOM.btnSearch) DOM.btnSearch.addEventListener('click', searchSite);
+    if (DOM.btnDownloadErrors) DOM.btnDownloadErrors.addEventListener('click', downloadErrorReport);
+    if (DOM.btnDownloadSearch) DOM.btnDownloadSearch.addEventListener('click', downloadSearchReport);
+    if (DOM.btnClearErrors) DOM.btnClearErrors.addEventListener('click', clearErrorResults);
+    if (DOM.btnClearSearch) DOM.btnClearSearch.addEventListener('click', clearSearchResults);
 
     console.log('All event listeners registered.');
 }
 
 // ===================== INITIALIZATION =====================
 
-async function init() {
+function init() {
     console.log('Initializing...');
 
     // Load backend URL
     try {
         if (typeof BACKEND_CONFIG !== 'undefined' && BACKEND_CONFIG && BACKEND_CONFIG.BACKEND_URL) {
             state.backendUrl = BACKEND_CONFIG.BACKEND_URL.replace(/\/+$/, '');
-            console.log('Backend URL:', state.backendUrl);
-        } else {
-            var cr = await fetch('config.js');
-            var ct = await cr.text();
-            var um = ct.match(/BACKEND_URL\s*[:=]\s*['"]([^'"]+)['"]/);
-            if (um && um[1]) {
-                state.backendUrl = um[1].replace(/\/+$/, '');
-            } else {
-                var hm = ct.match(/(https:\/\/[^\s'"]+\.hf\.space)/);
-                if (hm) state.backendUrl = hm[1].replace(/\/+$/, '');
-            }
-            if (!state.backendUrl) {
-                showToast('Backend URL nao encontrada no config.js', 'error');
-                return;
-            }
-            console.log('Backend URL:', state.backendUrl);
         }
+        if (!state.backendUrl) {
+            showToast('Backend URL não encontrada no config.js', 'error');
+            return;
+        }
+        console.log('Backend URL:', state.backendUrl);
     } catch (e) {
-        showToast('Erro ao carregar config: ' + e.message, 'error');
+        showToast('Erro ao carregar configuração: ' + e.message, 'error');
         return;
     }
 
+    // Fix server status DOM ref
+    if (!DOM.serverStatus) DOM.serverStatus = document.getElementById('serverStatusText');
+    if (!DOM.sessionBadgeText) DOM.sessionBadgeText = document.getElementById('sessionBadgeText');
+
     // Check server
-    try {
-        var sr = await fetch(state.backendUrl + '/');
-        var sd = await sr.json();
-        console.log('Server status:', sd);
+    fetch(state.backendUrl + '/')
+    .then(function(sr) { return sr.json(); })
+    .then(function(sd) {
+        console.log('Server:', sd);
         updateServerStatus(true);
         showToast('Servidor conectado!', 'success');
 
-        // Check auth
         if (sd.auth_required === true) {
             var tk = localStorage.getItem('backup_auth_token');
             if (tk) {
-                try {
-                    var vr = await fetch(state.backendUrl + '/auth/verify', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tk },
-                        body: '{}'
-                    });
+                return fetch(state.backendUrl + '/auth/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + tk
+                    },
+                    body: '{}'
+                })
+                .then(function(vr) {
                     if (vr.ok) {
                         state.token = tk;
                         hideAuthModal();
@@ -1470,10 +1552,11 @@ async function init() {
                         localStorage.removeItem('backup_auth_token');
                         showAuthModal();
                     }
-                } catch (ve) {
+                })
+                .catch(function() {
                     localStorage.removeItem('backup_auth_token');
                     showAuthModal();
-                }
+                });
             } else {
                 showAuthModal();
             }
@@ -1481,30 +1564,32 @@ async function init() {
             hideAuthModal();
             updateSessionBadge(true);
         }
-    } catch (e) {
+    })
+    .catch(function() {
         updateServerStatus(false);
-        showToast('Servidor offline ou inacessivel.', 'error');
-    }
+        showToast('Servidor offline', 'error');
+    });
 
-    // Check extension
-    try { await checkExtension(); } catch (e) {}
+    // Check extension (non-blocking)
+    checkExtension().then(function(found) {
+        if (found) console.log('Browser extension detected.');
+    });
 
-    console.log('Initialization complete.');
+    console.log('Init complete.');
 }
 
 // ===================== STARTUP =====================
 
 (function() {
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() {
-            setupDOM();
-            setupEventListeners();
-            init();
-        });
-    } else {
+    function startApp() {
         setupDOM();
         setupEventListeners();
         init();
     }
-})();
 
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', startApp);
+    } else {
+        startApp();
+    }
+})();
