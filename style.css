@@ -1534,3 +1534,91 @@ body {
     .login-step { padding: 14px; }
     .step-number { width: 28px; height: 28px; font-size: 12px; }
 }
+
+/* ===================== FULLSCREEN PREVIEW ===================== */
+.login-panel.fullscreen-mode {
+    max-width: 98vw;
+    width: 98vw;
+    max-height: 98vh;
+    margin: 1vh auto;
+    padding: 16px;
+}
+
+.login-panel.fullscreen-mode .login-steps {
+    gap: 12px;
+}
+
+.login-panel.fullscreen-mode .login-step:not(#step3RemoteControl) {
+    display: none;
+}
+
+.login-panel.fullscreen-mode #step3RemoteControl {
+    padding: 12px;
+}
+
+.login-panel.fullscreen-mode #livePreviewContainer {
+    max-height: none;
+    min-height: 400px;
+}
+
+.login-panel.fullscreen-mode #livePreviewImg {
+    width: 100%;
+    height: auto;
+}
+
+.login-panel.fullscreen-mode .login-panel-header {
+    display: none;
+}
+
+.login-panel.fullscreen-mode .step-header {
+    margin-bottom: 8px;
+}
+
+.login-panel.fullscreen-mode .step-description {
+    display: none;
+}
+
+/* ===================== LIVE PREVIEW CURSOR ===================== */
+#livePreviewContainer {
+    position: relative;
+    cursor: crosshair;
+}
+
+#livePreviewContainer:hover {
+    border-color: rgba(102, 126, 234, 0.5) !important;
+}
+
+#livePreviewContainer .click-dot {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgba(255, 80, 80, 0.7);
+    border: 2px solid #ff3333;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 10;
+    animation: clickPulse 0.6s ease-out forwards;
+}
+
+@keyframes clickPulse {
+    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+    50% { transform: translate(-50%, -50%) scale(1.5); opacity: 0.7; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+
+/* Coords tooltip on hover */
+#livePreviewContainer::after {
+    content: attr(data-coords);
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: rgba(0,0,0,0.7);
+    color: #4ade80;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: monospace;
+    pointer-events: none;
+    z-index: 5;
+}
