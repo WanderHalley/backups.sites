@@ -234,14 +234,40 @@
                         <span class="site-status-badge open" id="siteStatusBadge">● Aberto</span>
                     </div>
                 </div>
-                <div class="site-actions">
-                    <button class="btn-action" id="btnScreenshot">📸 Screenshot</button>
-                    <button class="btn-action primary" id="btnInteract">🔐 Login no Site</button>
-                    <button class="btn-action" id="btnScrollUp2">⬆️ Subir</button>
-                    <button class="btn-action" id="btnScrollDown2">⬇️ Descer</button>
-                    <button class="btn-action danger" id="btnClose">✖ Fechar</button>
-                </div>
-            </div>
+               <div class="site-actions">
+    <button class="btn-action" id="btnScreenshot">📸 Screenshot</button>
+    <button class="btn-action primary" id="btnInteract">🔐 Login no Site</button>
+    <button class="btn-action" id="btnScrollUp2">⬆️ Subir</button>
+    <button class="btn-action" id="btnScrollDown2">⬇️ Descer</button>
+    <button class="btn-action danger" id="btnClose">✖ Fechar</button>
+</div>
+
+<!-- Colar Cookies Direto -->
+<div id="pasteCookiesBox" style="display:none; margin-top:12px; padding:14px; background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.2); border-radius:10px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span style="font-size:13px; font-weight:600; color:#10b981;">🍪 Injetar Cookies (pular login/captcha)</span>
+        <button id="btnClosePasteCookies" style="background:none; border:none; color:#888; cursor:pointer; font-size:16px;">✕</button>
+    </div>
+    <div style="font-size:11px; color:#999; margin-bottom:8px;">
+        1. Abra o site no seu navegador e faça login<br>
+        2. Pressione F12 → Console → cole o comando abaixo e aperte Enter<br>
+        3. Volte aqui e cole os cookies com Ctrl+V no campo abaixo
+    </div>
+    <div style="position:relative; margin-bottom:8px;">
+        <textarea id="cookieCommandBox" readonly rows="2" style="width:100%; padding:8px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:6px; color:#4ade80; font-size:10px; font-family:monospace; resize:none;">copy(JSON.stringify(document.cookie.split('; ').filter(c=>c).map(c=>{let[n,...v]=c.split('=');return{name:n,value:v.join('='),domain:location.hostname,path:'/'}})))</textarea>
+        <button id="btnCopyCookieCmd" style="position:absolute; top:4px; right:4px; padding:2px 8px; background:#10b981; color:#fff; border:none; border-radius:4px; font-size:10px; cursor:pointer;">Copiar</button>
+    </div>
+    <textarea id="directCookiePaste" placeholder="Cole os cookies aqui (JSON)..." rows="3" style="width:100%; padding:8px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1); border-radius:6px; color:#fff; font-size:12px; resize:none; margin-bottom:8px;"></textarea>
+    <div style="display:flex; gap:8px;">
+        <button id="btnInjectDirectCookies" style="flex:1; padding:10px; background:linear-gradient(135deg,#10b981,#059669); color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:13px;">🚀 Injetar Cookies e Entrar</button>
+    </div>
+    <div id="injectCookieStatus" style="margin-top:6px; font-size:11px; color:#888;"></div>
+</div>
+
+<!-- Botão para abrir/fechar colar cookies -->
+<div style="margin-top:8px; text-align:center;">
+    <button id="btnShowPasteCookies" style="padding:6px 16px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); border-radius:8px; color:#10b981; font-size:12px; cursor:pointer;">🍪 Colar Cookies (pular login/captcha)</button>
+</div>
 
             <!-- Screenshot Preview -->
             <div class="screenshot-preview" id="screenshotPreview">
