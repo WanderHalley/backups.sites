@@ -1768,6 +1768,134 @@ function init() {
     } else {
         startApp();
     }
+    // ============================================================
+// FIX: Listeners para Colar Cookies Direto + Scroll buttons
+// Adicionar NO FINAL do arquivo script.js
+// ============================================================
+
+(function() {
+    // --- BOTÃO MOSTRAR/ESCONDER COLAR COOKIES ---
+    var btnShow = document.getElementById('btnShowPasteCookies');
+    var box = document.getElementById('pasteCookiesBox');
+    var btnClose = document.getElementById('btnClosePasteCookies');
+    var btnCopy = document.getElementById('btnCopyCookieCmd');
+    var cmdBox = document.getElementById('cookieCommandBox');
+    var btnInject = document.getElementById('btnInjectDirectCookies');
+    var pasteArea = document.getElementById('directCookiePaste');
+    var statusEl = document.getElementById('injectCookieStatus');
+
+    if (btnShow && box) {
+        btnShow.addEventListener('click', function() {
+            box.style.display = box.style.display === 'none' ? 'block' : 'none';
+        });
+    }
+
+    if (btnClose && box) {
+        btnClose.addEventListener('click', function() {
+            box.style.display = 'none';
+        });
+    }
+
+    if (btnCopy && cmdBox) {
+        btnCopy.addEventListener('click', function() {
+            cmdBox.select();
+            cmdBox.setSelectionRange(0, 99999);
+            try {
+                document.execCommand('copy');
+                btnCopy.textContent = 'Copiado!';
+            } catch (e) {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(cmdBox.value).then(function() {
+                        btnCopy.textContent = 'Copiado!';
+                    });
+                }
+            }
+            setTimeout(function() { btnCopy.textContent = 'Copiar'; }, 2000);
+        });
+    }
+
+    if (btnInject) {
+        btnInject.addEventListener('click', function() {
+            if (!state.sessionId) {
+                showToast('Abra um site primeiro.', 'warning');
+                return;
+            }
+            var raw = pasteArea ? pasteArea.value.trim() : '';
+            if (!raw) {
+                showToast('Cole os cookies no campo.', 'warning');
+                return;
+            }
+            var cookies;
+            try {
+                cookies = JSON.parse(raw);
+                if (!Array.isArray(cookies)) throw new Error('Precisa ser um array JSON');
+            } catch (e) {
+                showToast('JSON inválido: ' + e.message, 'error');
+                return;
+            }
+
+            if (statusEl) statusEl.textContent = 'Injetando ' + cookies.length + ' cookies...';
+            btnInject.disabled = true;
+            btnInject.textContent = '⏳ Injetando...';
+
+            apiJSON('/inject-cookies', 'POST', {
+                session_id: state.sessionId,
+                cookies: cookies,
+                target_url: state.siteUrl || ''
+            })
+            .then(function(data) {
+                if (data.screenshot) {
+                    updateAllPreviewsBase64(data.screenshot);
+                }
+                if (data.login_success) {
+                    if (statusEl) statusEl.innerHTML = '<span style="color:#4ade80;">✅ Login detectado! ' + (data.injected_count || 0) + ' cookies injetados.</span>';
+                    showToast('Cookies injetados e login detectado!', 'success');
+                } else {
+                    if (statusEl) statusEl.innerHTML = '<span style="color:#fbbf24;">⚠️ ' + (data.injected_count || 0) + ' cookies injetados. Verifique o preview.</span>';
+                    showToast('Cookies injetados: ' + (data.injected_count || 0) + ' de ' + (data.total_cookies || 0), 'info');
+                }
+                if (data.errors && data.errors.length > 0) {
+                    console.warn('Cookie injection errors:', data.errors);
+                }
+                if (data.final_url) {
+                    state.siteUrl = data.final_url;
+                    if (DOM.siteUrl) DOM.siteUrl.textContent = data.final_url;
+                }
+                if (data.final_title) {
+                    state.siteTitle = data.final_title;
+                    if (DOM.siteTitle) DOM.siteTitle.textContent = data.final_title;
+                }
+                btnInject.disabled = false;
+                btnInject.textContent = '🚀 Injetar Cookies e Entrar';
+            })
+            .catch(function(err) {
+                if (statusEl) statusEl.innerHTML = '<span style="color:#f87171;">❌ Erro: ' + err.message + '</span>';
+                showToast('Erro ao injetar cookies: ' + err.message, 'error');
+                btnInject.disabled = false;
+                btnInject.textContent = '🚀 Injetar Cookies e Entrar';
+            });
+        });
+    }
+
+    // --- BOTÕES SCROLL DA BARRA PRINCIPAL (Subir/Descer) ---
+    var btnUp2 = document.getElementById('btnScrollUp2');
+    var btnDown2 = document.getElementById('btnScrollDown2');
+    if (btnUp2) {
+        btnUp2.addEventListener('click', function() { scrollPage('up'); });
+    }
+    if (btnDown2) {
+        btnDown2.addEventListener('click', function() { scrollPage('down'); });
+    }
+
+    // --- BOTÃO ATUALIZAR SELENIUM (na área de cookies) ---
+    var btnRefSel = document.getElementById('btnRefreshSelenium');
+    if (btnRefSel) {
+        btnRefSel.addEventListener('click', function() { refreshSeleniumPage(); });
+    }
+
+    console.log('[FIX] Listeners de Colar Cookies e Scroll registrados.');
+})();
+
 })();
 
 
