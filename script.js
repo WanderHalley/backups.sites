@@ -1646,6 +1646,110 @@ function init() {
     checkExtension().then(function(found) {
         if (found) console.log('Browser extension detected.');
     });
+    // ============================================================
+    // COLAR COOKIES DIRETO
+    // ============================================================
+    var btnShowPC = document.getElementById('btnShowPasteCookies');
+    var pasteCBox = document.getElementById('pasteCookiesBox');
+    var btnClosePC = document.getElementById('btnClosePasteCookies');
+    var btnCopyCmd = document.getElementById('btnCopyCookieCmd');
+    var btnInjectDC = document.getElementById('btnInjectDirectCookies');
+    var directPaste = document.getElementById('directCookiePaste');
+    var injectStatus = document.getElementById('injectCookieStatus');
+
+    if (btnShowPC && pasteCBox) {
+        btnShowPC.addEventListener('click', function() {
+            pasteCBox.style.display = pasteCBox.style.display === 'none' ? 'block' : 'none';
+        });
+    }
+    if (btnClosePC && pasteCBox) {
+        btnClosePC.addEventListener('click', function() {
+            pasteCBox.style.display = 'none';
+        });
+    }
+    if (btnCopyCmd) {
+        btnCopyCmd.addEventListener('click', function() {
+            var cmd = document.getElementById('cookieCommandBox');
+            if (cmd) {
+                cmd.select();
+                document.execCommand('copy');
+                btnCopyCmd.textContent = 'Copiado!';
+                setTimeout(function() { btnCopyCmd.textContent = 'Copiar'; }, 2000);
+            }
+        });
+    }
+    if (btnInjectDC) {
+        btnInjectDC.addEventListener('click', async function() {
+            if (!state.sessionId) {
+                showToast('Abra um site primeiro.', 'warning');
+                return;
+            }
+            var raw = directPaste ? directPaste.value.trim() : '';
+            if (!raw) {
+                showToast('Cole os cookies no campo.', 'warning');
+                return;
+            }
+            var cookies;
+            try {
+                cookies = JSON.parse(raw);
+                if (!Array.isArray(cookies)) {
+                    showToast('Formato invalido. Cole o JSON de cookies.', 'error');
+                    return;
+                }
+            } catch(e) {
+                showToast('JSON invalido. Copie novamente do console.', 'error');
+                return;
+            }
+
+            if (injectStatus) injectStatus.textContent = 'Injetando ' + cookies.length + ' cookies...';
+            btnInjectDC.disabled = true;
+            btnInjectDC.textContent = '⏳ Injetando...';
+
+            try {
+                var data = await apiJSON('/inject-cookies', {
+                    session_id: state.sessionId,
+                    cookies: cookies,
+                    target_url: state.siteUrl || ''
+                });
+
+                if (data) {
+                    var msg = 'Injetados: ' + (data.injected_count || 0) + '/' + (data.total_cookies || cookies.length);
+                    if (data.login_success) {
+                        msg += ' - LOGIN OK!';
+                        if (injectStatus) injectStatus.innerHTML = '<span style="color:#4ade80;">✅ ' + msg + '</span>';
+                        showToast('Login com cookies bem sucedido!', 'success');
+                    } else {
+                        msg += ' - Cookies injetados';
+                        if (injectStatus) injectStatus.innerHTML = '<span style="color:#fbbf24;">⚠️ ' + msg + '</span>';
+                        showToast('Cookies injetados. Verifique o preview.', 'info');
+                    }
+                    if (data.screenshot) {
+                        var imgSrc = 'data:image/png;base64,' + data.screenshot;
+                        if (DOM.screenshotImg) DOM.screenshotImg.src = imgSrc;
+                        if (DOM.screenshotPreview) DOM.screenshotPreview.style.display = 'block';
+                        if (DOM.livePreviewImg) DOM.livePreviewImg.src = imgSrc;
+                    }
+                    if (data.final_url) {
+                        state.siteUrl = data.final_url;
+                        if (DOM.siteUrl) DOM.siteUrl.textContent = data.final_url;
+                    }
+                    if (data.final_title) {
+                        state.siteTitle = data.final_title;
+                        if (DOM.siteTitle) DOM.siteTitle.textContent = data.final_title;
+                    }
+                    if (data.errors && data.errors.length > 0) {
+                        console.warn('Cookie injection errors:', data.errors);
+                    }
+                }
+            } catch(e) {
+                if (injectStatus) injectStatus.innerHTML = '<span style="color:#ef4444;">❌ Erro: ' + e.message + '</span>';
+                showToast('Erro ao injetar cookies: ' + e.message, 'error');
+            }
+
+            btnInjectDC.disabled = false;
+            btnInjectDC.textContent = '🚀 Injetar Cookies e Entrar';
+        });
+    }
 
     console.log('Init complete.');
 }
